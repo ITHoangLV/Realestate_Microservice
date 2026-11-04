@@ -41,7 +41,9 @@ Mỗi service có DB riêng; không service nào đọc DB của service khác.
 
 ## Yêu cầu môi trường
 
-- Node.js 22 LTS (xem `.nvmrc`)
+- Node.js 22 LTS (xem `.nvmrc`). Trên Windows với nvm-windows, `nvm use 22` cần terminal
+  chạy quyền Administrator (hoặc bật Developer Mode) để tạo symlink; chạy ở terminal thường
+  sẽ treo và để lại máy không có `node` trên PATH.
 - pnpm >= 10 (`corepack enable`)
 - Docker Desktop + Docker Compose v2
 - PowerShell (Windows) hoặc bash
