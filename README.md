@@ -99,6 +99,21 @@ docker volume rm realestate_postgres_data realestate_mongo_data
 pnpm infra:up
 ```
 
+### RabbitMQ
+
+- Topology nằm ở `infra/rabbitmq/definitions.json` (không chứa bí mật): exchange `domain.events`
+  (topic) và `domain.events.dlx` (direct); queue `listing.indexer`, `notification.events`,
+  `rental.payment-events`, mỗi queue có DLQ `*.dlq`.
+- Không dùng `load_definitions`. RabbitMQ tạo user từ `.env` như bình thường, rồi container
+  `rabbitmq-init` chạy một lần để POST topology vào Management API. Chạy lại nhiều lần vẫn an toàn.
+  Trạng thái đúng của nó là `Exited (0)`.
+- Áp dụng lại topology thủ công: `docker start -a re-rabbitmq-init`.
+- Nếu sửa tham số của queue đã tồn tại (ví dụ `x-dead-letter-*`), RabbitMQ từ chối
+  (`PRECONDITION_FAILED`). Khi đó xóa queue đó trong Management UI (`http://127.0.0.1:15672`) hoặc
+  reset volume `realestate_rabbitmq_data` rồi chạy lại.
+- Routing key có dạng hai từ `<miền>.<sự kiện>` (ví dụ `listing.created`); `*` chỉ khớp đúng một từ.
+- Message bị `reject` không requeue sẽ vào `<queue>.dlq` (header `x-death` ghi lý do và routing key gốc).
+
 ### Object storage (S3)
 
 Dev dùng Silo (tương thích S3, xem `docs/adr/ADR-007-object-storage.md`). Bucket không được tạo

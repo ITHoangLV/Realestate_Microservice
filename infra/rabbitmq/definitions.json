@@ -1,0 +1,161 @@
+{
+  "rabbit_version": "3.13",
+  "exchanges": [
+    {
+      "name": "domain.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "domain.events.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "listing.indexer",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "domain.events.dlx",
+        "x-dead-letter-routing-key": "listing.indexer"
+      }
+    },
+    {
+      "name": "listing.indexer.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": { "x-queue-type": "classic" }
+    },
+    {
+      "name": "notification.events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "domain.events.dlx",
+        "x-dead-letter-routing-key": "notification.events"
+      }
+    },
+    {
+      "name": "notification.events.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": { "x-queue-type": "classic" }
+    },
+    {
+      "name": "rental.payment-events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-queue-type": "classic",
+        "x-dead-letter-exchange": "domain.events.dlx",
+        "x-dead-letter-routing-key": "rental.payment-events"
+      }
+    },
+    {
+      "name": "rental.payment-events.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": { "x-queue-type": "classic" }
+    }
+  ],
+  "bindings": [
+    {
+      "source": "domain.events",
+      "vhost": "/",
+      "destination": "listing.indexer",
+      "destination_type": "queue",
+      "routing_key": "listing.*",
+      "arguments": {}
+    },
+    {
+      "source": "domain.events",
+      "vhost": "/",
+      "destination": "notification.events",
+      "destination_type": "queue",
+      "routing_key": "deposit.*",
+      "arguments": {}
+    },
+    {
+      "source": "domain.events",
+      "vhost": "/",
+      "destination": "notification.events",
+      "destination_type": "queue",
+      "routing_key": "payment.*",
+      "arguments": {}
+    },
+    {
+      "source": "domain.events",
+      "vhost": "/",
+      "destination": "notification.events",
+      "destination_type": "queue",
+      "routing_key": "withdrawal.*",
+      "arguments": {}
+    },
+    {
+      "source": "domain.events",
+      "vhost": "/",
+      "destination": "notification.events",
+      "destination_type": "queue",
+      "routing_key": "viewing.*",
+      "arguments": {}
+    },
+    {
+      "source": "domain.events",
+      "vhost": "/",
+      "destination": "rental.payment-events",
+      "destination_type": "queue",
+      "routing_key": "deposit.*",
+      "arguments": {}
+    },
+    {
+      "source": "domain.events",
+      "vhost": "/",
+      "destination": "rental.payment-events",
+      "destination_type": "queue",
+      "routing_key": "payment.*",
+      "arguments": {}
+    },
+    {
+      "source": "domain.events.dlx",
+      "vhost": "/",
+      "destination": "listing.indexer.dlq",
+      "destination_type": "queue",
+      "routing_key": "listing.indexer",
+      "arguments": {}
+    },
+    {
+      "source": "domain.events.dlx",
+      "vhost": "/",
+      "destination": "notification.events.dlq",
+      "destination_type": "queue",
+      "routing_key": "notification.events",
+      "arguments": {}
+    },
+    {
+      "source": "domain.events.dlx",
+      "vhost": "/",
+      "destination": "rental.payment-events.dlq",
+      "destination_type": "queue",
+      "routing_key": "rental.payment-events",
+      "arguments": {}
+    }
+  ]
+}

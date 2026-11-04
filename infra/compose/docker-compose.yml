@@ -5,7 +5,7 @@
 #   docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo up -d
 #
 # Profile:
-#   dev  : postgres, redis, rabbitmq, s3 (Silo), mongo
+#   dev  : postgres, redis, rabbitmq (+ rabbitmq-init chay mot lan), s3 (Silo), mongo
 #   demo : dev + elasticsearch + kibana (de do RAM; ELK day du o GD10)
 #
 # Chon image: ghim phien ban cu the, khong dung "latest" de ket qua tai lap duoc.
@@ -97,12 +97,45 @@ services:
       - '127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672'
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ../rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/20-realestate.conf:ro
     healthcheck:
       test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
       interval: 15s
       timeout: 10s
       retries: 6
       start_period: 30s
+    networks: [realestate-net]
+
+  # Container chay MOT LAN: POST infra/rabbitmq/definitions.json vao Management API roi thoat.
+  # - Tai khoan lay tu .env (RABBITMQ_USER/PASSWORD) nen .env la nguon duy nhat, file JSON khong chua bi mat.
+  # - POST /api/definitions la idempotent: chay lai nhieu lan van an toan.
+  # - depends_on.restart=true: rabbitmq duoc compose khoi dong lai thi init chay lai.
+  # - Day la tac vu mot lan nen khong co healthcheck; thanh cong khi trang thai "Exited (0)".
+  # - curlimages/curl ghim 8.11.1 (image nho, co curl; image rabbitmq khong co curl).
+  rabbitmq-init:
+    image: docker.io/curlimages/curl:8.11.1
+    container_name: re-rabbitmq-init
+    profiles: [dev, demo]
+    restart: 'no'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
+    environment:
+      RABBITMQ_USER: ${RABBITMQ_USER:?thieu RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?thieu RABBITMQ_PASSWORD}
+    volumes:
+      - ../rabbitmq/definitions.json:/definitions.json:ro
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >-
+        curl --silent --show-error --fail-with-body
+        --retry 10 --retry-delay 3 --retry-connrefused --retry-all-errors
+        --user "$$RABBITMQ_USER:$$RABBITMQ_PASSWORD"
+        --header 'Content-Type: application/json'
+        --request POST --data-binary @/definitions.json
+        http://rabbitmq:15672/api/definitions
+        && echo 'rabbitmq-init: da nap topology tu definitions.json'
     networks: [realestate-net]
 
   # Silo (fork cong dong cua MinIO, tuong thich S3) - xem docs/adr/ADR-007.
