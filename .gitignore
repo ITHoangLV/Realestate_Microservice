@@ -10,15 +10,15 @@ coverage/
 !.env.example
 *.pem
 *.key
-secrets/
+/secrets/
 
-# Dữ liệu cục bộ của container / service
-data/
-infra/**/data/
-pgdata/
-mongodata/
-miniodata/
-esdata/
+# Dữ liệu cục bộ của container (neo về infra/ để không ignore nhầm thư mục
+# source như services/*/src/data hay src/**/secrets)
+/infra/**/data/
+/infra/**/pgdata/
+/infra/**/mongodata/
+/infra/**/miniodata/
+/infra/**/esdata/
 
 # Log & rác hệ điều hành / IDE
 *.log
