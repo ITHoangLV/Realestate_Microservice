@@ -57,6 +57,12 @@ pnpm build
 
 Mục "Chạy hệ thống" (docker compose dev/demo) sẽ bổ sung ở Bước 6.
 
+### Object storage (S3)
+
+Dev dùng Silo (tương thích S3, xem `docs/adr/ADR-007-object-storage.md`). Bucket không được tạo
+bằng `mc`/`mcli`: mỗi service tự đảm bảo bucket của mình tồn tại khi khởi động bằng AWS SDK
+(`CreateBucket` chạy lại không lỗi). Việc này làm ở GĐ2 (template) và GĐ6 trở đi.
+
 ## Quy ước nhánh và commit
 
 - Luồng nhánh: `main` <- `develop` <- `feature/*`.
