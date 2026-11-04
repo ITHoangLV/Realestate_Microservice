@@ -27,10 +27,25 @@ services:
       POSTGRES_USER: ${POSTGRES_SUPERUSER:?thieu POSTGRES_SUPERUSER}
       POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?thieu POSTGRES_SUPERUSER_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DEFAULT_DB:-postgres}
+      # Truyền cho script init (infra/compose/postgres/init/01-create-databases.sh)
+      IDENTITY_DB_NAME: ${IDENTITY_DB_NAME:?thieu IDENTITY_DB_NAME}
+      IDENTITY_DB_USER: ${IDENTITY_DB_USER:?thieu IDENTITY_DB_USER}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?thieu IDENTITY_DB_PASSWORD}
+      LISTING_DB_NAME: ${LISTING_DB_NAME:?thieu LISTING_DB_NAME}
+      LISTING_DB_USER: ${LISTING_DB_USER:?thieu LISTING_DB_USER}
+      LISTING_DB_PASSWORD: ${LISTING_DB_PASSWORD:?thieu LISTING_DB_PASSWORD}
+      RENTAL_DB_NAME: ${RENTAL_DB_NAME:?thieu RENTAL_DB_NAME}
+      RENTAL_DB_USER: ${RENTAL_DB_USER:?thieu RENTAL_DB_USER}
+      RENTAL_DB_PASSWORD: ${RENTAL_DB_PASSWORD:?thieu RENTAL_DB_PASSWORD}
+      PAYMENT_DB_NAME: ${PAYMENT_DB_NAME:?thieu PAYMENT_DB_NAME}
+      PAYMENT_DB_USER: ${PAYMENT_DB_USER:?thieu PAYMENT_DB_USER}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?thieu PAYMENT_DB_PASSWORD}
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Script init chỉ chạy lần đầu khi volume trống
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
       interval: 10s
@@ -124,10 +139,19 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?thieu MONGO_ROOT_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?thieu MONGO_ROOT_PASSWORD}
+      # Truyền cho script init (infra/compose/mongo/init/01-create-users.sh)
+      NOTIFICATION_MONGO_DB: ${NOTIFICATION_MONGO_DB:?thieu NOTIFICATION_MONGO_DB}
+      NOTIFICATION_MONGO_USER: ${NOTIFICATION_MONGO_USER:?thieu NOTIFICATION_MONGO_USER}
+      NOTIFICATION_MONGO_PASSWORD: ${NOTIFICATION_MONGO_PASSWORD:?thieu NOTIFICATION_MONGO_PASSWORD}
+      MAINTENANCE_MONGO_DB: ${MAINTENANCE_MONGO_DB:?thieu MAINTENANCE_MONGO_DB}
+      MAINTENANCE_MONGO_USER: ${MAINTENANCE_MONGO_USER:?thieu MAINTENANCE_MONGO_USER}
+      MAINTENANCE_MONGO_PASSWORD: ${MAINTENANCE_MONGO_PASSWORD:?thieu MAINTENANCE_MONGO_PASSWORD}
     ports:
       - '127.0.0.1:${MONGO_PORT:-27017}:27017'
     volumes:
       - mongo_data:/data/db
+      # Script init chỉ chạy lần đầu khi volume trống
+      - ./mongo/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'mongosh --quiet --eval "db.adminCommand(''ping'').ok" | grep -q 1']
       interval: 10s

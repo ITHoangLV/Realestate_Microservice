@@ -84,6 +84,21 @@ pnpm infra:logs    # xem log
 pnpm infra:down    # dừng tất cả
 ```
 
+### Khởi tạo database
+
+- Postgres: `infra/compose/postgres/init/01-create-databases.sh` tạo `identity_db`, `listing_db`,
+  `rental_db`, `payment_db`, mỗi DB một user riêng (không phải superuser), `REVOKE CONNECT` từ
+  PUBLIC nên user chỉ vào được DB của mình. `listing_db` bật `postgis`, `pgcrypto`, `uuid-ossp`.
+- MongoDB: `infra/compose/mongo/init/01-create-users.sh` tạo `notification_db` và `maintenance_db`
+  với user `readWrite` riêng. Chuỗi kết nối cần `authSource=<tên DB>`.
+- Các script chỉ chạy **lần đầu** khi volume còn trống. Muốn chạy lại (sẽ mất dữ liệu dev):
+
+```powershell
+pnpm infra:down
+docker volume rm realestate_postgres_data realestate_mongo_data
+pnpm infra:up
+```
+
 ### Object storage (S3)
 
 Dev dùng Silo (tương thích S3, xem `docs/adr/ADR-007-object-storage.md`). Bucket không được tạo
