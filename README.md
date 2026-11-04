@@ -57,6 +57,31 @@ pnpm build
 
 Mục "Chạy hệ thống" (docker compose dev/demo) sẽ bổ sung ở Bước 6.
 
+### Cổng kết nối: laptop và trong Docker
+
+Hạ tầng chỉ publish cổng ra `127.0.0.1`. Có hai cách kết nối, đừng nhầm lẫn:
+
+| Thành phần | Tiến trình chạy trên laptop        | Service chạy trong Docker |
+| ---------- | ---------------------------------- | ------------------------- |
+| Postgres   | `localhost:5433` (`POSTGRES_PORT`) | `postgres:5432`           |
+| Redis      | `localhost:6379`                   | `redis:6379`              |
+| RabbitMQ   | `localhost:5672` (UI `15672`)      | `rabbitmq:5672`           |
+| MongoDB    | `localhost:27017`                  | `mongo:27017`             |
+| S3 (Silo)  | `localhost:9000` (console `9001`)  | `s3:9000`                 |
+
+Postgres dùng cổng **5433** trên laptop vì máy đã cài PostgreSQL trên Windows chiếm 5432.
+Container luôn lắng nghe 5432 bên trong; `POSTGRES_DOCKER_HOST` và `POSTGRES_DOCKER_PORT`
+(`postgres` / `5432`) dành cho service chạy trong Docker.
+
+Lệnh nhanh (đã bọc `--env-file .env` và `-f infra/compose/docker-compose.yml`):
+
+```powershell
+pnpm infra:up      # profile dev
+pnpm infra:demo    # dev + Elasticsearch + Kibana
+pnpm infra:logs    # xem log
+pnpm infra:down    # dừng tất cả
+```
+
 ### Object storage (S3)
 
 Dev dùng Silo (tương thích S3, xem `docs/adr/ADR-007-object-storage.md`). Bucket không được tạo
