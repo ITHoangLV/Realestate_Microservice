@@ -57,7 +57,43 @@ pnpm format:check
 pnpm build
 ```
 
-Mục "Chạy hệ thống" (docker compose dev/demo) sẽ bổ sung ở Bước 6.
+## Chạy hệ thống
+
+Yêu cầu: Docker Desktop đang chạy. Lần đầu, tạo `.env` từ file mẫu (không commit `.env`):
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Các lệnh dưới đây là script trong `package.json`, đã bọc sẵn `--env-file .env` và
+`-f infra/compose/docker-compose.yml`:
+
+```powershell
+pnpm infra:up       # profile dev: Postgres, Redis, RabbitMQ, Mongo, S3 (Silo)
+pnpm infra:demo     # profile demo: dev + Elasticsearch + Kibana (http://127.0.0.1:5601)
+pnpm infra:check    # kiểm tra toàn bộ hạ tầng, in OK/FAIL từng dòng (thoát 0 nếu tất cả OK)
+pnpm infra:logs     # theo dõi log
+pnpm infra:down     # dừng và gỡ container (dữ liệu trong volume được giữ)
+```
+
+Kiểm tra bằng bash (Git Bash, WSL, Linux, macOS): `bash infra/scripts/check-infra.sh`
+(thêm `--demo` để bắt buộc kiểm tra Elasticsearch/Kibana). Bản PowerShell:
+`powershell -NoProfile -ExecutionPolicy Bypass -File infra/scripts/check-infra.ps1`.
+
+`rabbitmq-init` là tác vụ chạy một lần nên trạng thái đúng của nó là `Exited (0)`, không phải
+`healthy`. Elasticsearch và Kibana được kiểm tra khi đang chạy, ngược lại script in `SKIP`.
+
+**Reset toàn bộ dữ liệu dev** (xóa mọi volume của dự án: Postgres, Redis, RabbitMQ, Mongo, S3,
+Elasticsearch; không thể hoàn tác). Các script init DB và topology RabbitMQ sẽ chạy lại:
+
+```powershell
+docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo down -v
+pnpm infra:up
+pnpm infra:check
+```
+
+Chỉ reset riêng một thành phần: `pnpm infra:down` rồi `docker volume rm realestate_<tên>_data`
+(`postgres`, `redis`, `rabbitmq`, `mongo`, `s3`, `es`).
 
 ### Cổng kết nối: laptop và trong Docker
 
@@ -74,15 +110,6 @@ Hạ tầng chỉ publish cổng ra `127.0.0.1`. Có hai cách kết nối, đ�
 Postgres dùng cổng **5433** trên laptop vì máy đã cài PostgreSQL trên Windows chiếm 5432.
 Container luôn lắng nghe 5432 bên trong; `POSTGRES_DOCKER_HOST` và `POSTGRES_DOCKER_PORT`
 (`postgres` / `5432`) dành cho service chạy trong Docker.
-
-Lệnh nhanh (đã bọc `--env-file .env` và `-f infra/compose/docker-compose.yml`):
-
-```powershell
-pnpm infra:up      # profile dev
-pnpm infra:demo    # dev + Elasticsearch + Kibana
-pnpm infra:logs    # xem log
-pnpm infra:down    # dừng tất cả
-```
 
 ### Khởi tạo database
 
