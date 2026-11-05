@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { ClsModule } from 'nestjs-cls';
+import { AppLoggerModule } from './common/logging/logger.module';
 import { AppConfigModule } from './config/config.module';
 
 /**
@@ -9,6 +11,6 @@ import { AppConfigModule } from './config/config.module';
  * vào HealthRegistry. Template CHƯA có code RabbitMQ.
  */
 @Module({
-  imports: [AppConfigModule],
+  imports: [AppConfigModule, ClsModule.forRoot({ global: true }), AppLoggerModule],
 })
 export class AppModule {}

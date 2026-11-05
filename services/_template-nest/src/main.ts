@@ -1,13 +1,16 @@
 import './config/env.bootstrap'; // PHẢI đứng đầu: nạp + validate env trước mọi thứ khác
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { EnvVars } from './config/env.validation';
 
 async function bootstrap(): Promise<void> {
   // abortOnError=false: lỗi khởi động ném ra để ta tự in gọn và thoát, thay vì process.abort()
-  const app = await NestFactory.create(AppModule, { abortOnError: false });
+  // bufferLogs: giữ log khởi động của Nest cho tới khi pino sẵn sàng, để mọi dòng đều là JSON
+  const app = await NestFactory.create(AppModule, { abortOnError: false, bufferLogs: true });
+  app.useLogger(app.get(Logger));
   configureApp(app);
 
   // Graceful shutdown: SIGTERM/SIGINT -> Nest gọi onModuleDestroy (đóng DB/Redis/RabbitMQ)
