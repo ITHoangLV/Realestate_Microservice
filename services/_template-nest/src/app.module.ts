@@ -10,6 +10,7 @@ import { AppLoggerModule } from './common/logging/logger.module';
 import { AppConfigModule } from './config/config.module';
 import { isDatabaseEnabled, isRedisEnabled } from './config/feature-flags';
 import { DatabaseModule } from './database/database.module';
+import { ExampleModule } from './example/example.module';
 import { HealthModule } from './health/health.module';
 import { RedisModule } from './redis/redis.module';
 
@@ -36,6 +37,7 @@ import { RedisModule } from './redis/redis.module';
     AuthModule,
     InternalHttpModule,
     HealthModule,
+    ExampleModule,
     ...(isDatabaseEnabled() ? [DatabaseModule] : []),
     ...(isRedisEnabled() ? [RedisModule] : []),
   ],

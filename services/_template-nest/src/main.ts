@@ -5,6 +5,7 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
 import { EnvVars } from './config/env.validation';
+import { setupSwagger } from './swagger.setup';
 
 async function bootstrap(): Promise<void> {
   // abortOnError=false: lỗi khởi động ném ra để ta tự in gọn và thoát, thay vì process.abort()
@@ -13,10 +14,14 @@ async function bootstrap(): Promise<void> {
   app.useLogger(app.get(Logger));
   configureApp(app);
 
+  const config = app.get<ConfigService<EnvVars, true>>(ConfigService);
+  if (config.get('SWAGGER_ENABLED', { infer: true })) {
+    setupSwagger(app); // Swagger UI: /api/docs
+  }
+
   // Graceful shutdown: SIGTERM/SIGINT -> Nest gọi onModuleDestroy (đóng DB/Redis/RabbitMQ)
   app.enableShutdownHooks();
 
-  const config = app.get<ConfigService<EnvVars, true>>(ConfigService);
   await app.listen(config.get('PORT', { infer: true }), '0.0.0.0');
 }
 

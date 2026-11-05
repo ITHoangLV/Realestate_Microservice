@@ -4,6 +4,7 @@ import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/app.setup';
 import { LOG_STREAM } from '../../src/common/logging/logger.module';
+import { setupSwagger } from '../../src/swagger.setup';
 
 export interface TestApp {
   app: INestApplication;
@@ -21,6 +22,7 @@ export interface TestApp {
 export async function createTestApp(
   controllers: Type[] = [],
   providers: Provider[] = [],
+  options: { swagger?: boolean } = {},
 ): Promise<TestApp> {
   const logs: string[] = [];
   const stream = {
@@ -42,6 +44,7 @@ export async function createTestApp(
 
   const app = moduleRef.createNestApplication({ logger: false });
   configureApp(app);
+  if (options.swagger) setupSwagger(app); // phải gọi TRƯỚC app.init()
   await app.init();
 
   return {
