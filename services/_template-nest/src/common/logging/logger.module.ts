@@ -23,6 +23,16 @@ const REDACT_PATHS = [
   'req.headers.authorization',
   'req.headers.cookie',
   'res.headers["set-cookie"]',
+  // Trường ở gốc object log...
+  'authorization',
+  'cookie',
+  'password',
+  'newPassword',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'secret',
+  // ...và lồng một cấp (user.password, body.token...)
   '*.password',
   '*.newPassword',
   '*.token',

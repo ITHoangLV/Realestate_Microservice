@@ -1,0 +1,48 @@
+import { INestApplication, Type } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import request from 'supertest';
+import { AppModule } from '../../src/app.module';
+import { configureApp } from '../../src/app.setup';
+import { LOG_STREAM } from '../../src/common/logging/logger.module';
+
+export interface TestApp {
+  app: INestApplication;
+  /** Mọi dòng log service ghi ra (mỗi phần tử là một dòng JSON). */
+  logs: string[];
+  http: () => ReturnType<typeof request>;
+  /** Log đã parse JSON. */
+  logRecords: () => Array<Record<string, unknown>>;
+}
+
+/**
+ * Tạo app test giống hệt lúc chạy thật (AppModule + configureApp), thay đích log bằng bộ nhớ
+ * để test kiểm tra được nội dung log. `controllers` để thêm controller chỉ dùng trong test.
+ */
+export async function createTestApp(controllers: Type[] = []): Promise<TestApp> {
+  const logs: string[] = [];
+  const stream = {
+    write: (chunk: string) => {
+      for (const line of chunk.split('\n')) {
+        if (line.trim()) logs.push(line.trim());
+      }
+    },
+  };
+
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule], controllers })
+    .overrideProvider(LOG_STREAM)
+    .useValue(stream)
+    .compile();
+
+  const app = moduleRef.createNestApplication({ logger: false });
+  configureApp(app);
+  await app.init();
+
+  return {
+    app,
+    logs,
+    http: () => request(app.getHttpServer()),
+    logRecords: () => logs.map((l) => JSON.parse(l) as Record<string, unknown>),
+  };
+}
+
+export const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
