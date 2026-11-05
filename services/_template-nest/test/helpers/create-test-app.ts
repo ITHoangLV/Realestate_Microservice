@@ -1,4 +1,4 @@
-import { INestApplication, Type } from '@nestjs/common';
+import { INestApplication, Provider, Type } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '../../src/app.module';
@@ -16,9 +16,12 @@ export interface TestApp {
 
 /**
  * Tạo app test giống hệt lúc chạy thật (AppModule + configureApp), thay đích log bằng bộ nhớ
- * để test kiểm tra được nội dung log. `controllers` để thêm controller chỉ dùng trong test.
+ * để test kiểm tra được nội dung log. `controllers`/`providers` để thêm thành phần chỉ dùng trong test.
  */
-export async function createTestApp(controllers: Type[] = []): Promise<TestApp> {
+export async function createTestApp(
+  controllers: Type[] = [],
+  providers: Provider[] = [],
+): Promise<TestApp> {
   const logs: string[] = [];
   const stream = {
     write: (chunk: string) => {
@@ -28,7 +31,11 @@ export async function createTestApp(controllers: Type[] = []): Promise<TestApp> 
     },
   };
 
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule], controllers })
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule],
+    controllers,
+    providers,
+  })
     .overrideProvider(LOG_STREAM)
     .useValue(stream)
     .compile();
