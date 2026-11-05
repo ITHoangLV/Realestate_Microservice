@@ -54,9 +54,10 @@ done
 st="$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' re-rabbitmq-init 2>/dev/null)"
 report "$(eq "$st" 'exited 0')" "container re-rabbitmq-init đã chạy xong (Exited 0)" "trạng thái: ${st:-không tồn tại}"
 for c in re-elasticsearch re-kibana; do
-  st="$(health "$c")"
-  if [ -n "$st" ] && [ "$st" != "exited" ]; then
-    report "$(eq "$st" healthy)" "container $c healthy" "trạng thái: $st"
+  # Container đã dừng vẫn giữ trạng thái health cũ (unhealthy), nên xét State.Status trước
+  st="$(docker inspect --format '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$c" 2>/dev/null)"
+  if [ "${st%%|*}" = "running" ]; then
+    report "$(eq "${st#*|}" healthy)" "container $c healthy" "trạng thái: ${st#*|}"
   elif [ "$FORCE_DEMO" = "1" ]; then
     report 0 "container $c healthy" "không chạy; bật bằng: pnpm infra:demo"
   else

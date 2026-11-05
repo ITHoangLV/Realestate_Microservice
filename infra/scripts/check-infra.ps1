@@ -69,9 +69,11 @@ $r = Invoke-Docker @('inspect', '--format', '{{.State.Status}} {{.State.ExitCode
 Write-Result ($r.Code -eq 0 -and $r.Out -eq 'exited 0') 'container re-rabbitmq-init da chay xong (Exited 0)' "trang thai: $($r.Out)"
 # Profile demo: chi kiem tra khi dang chay (hoac khi dung -Demo)
 foreach ($c in 're-elasticsearch', 're-kibana') {
-  $r = Invoke-Docker @('inspect', '--format', '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}', $c)
-  if ($r.Code -eq 0 -and $r.Out -ne 'exited') {
-    Write-Result ($r.Out -eq 'healthy') "container $c healthy" "trang thai: $($r.Out)"
+  # Container da dung van giu trang thai health cu (unhealthy), nen xet State.Status truoc
+  $r = Invoke-Docker @('inspect', '--format', '{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}', $c)
+  $parts = $r.Out -split '\|', 2
+  if ($r.Code -eq 0 -and $parts[0] -eq 'running') {
+    Write-Result ($parts[1] -eq 'healthy') "container $c healthy" "trang thai: $($parts[1])"
   } elseif ($Demo) {
     Write-Result $false "container $c healthy" 'khong chay; bat bang: pnpm infra:demo'
   } else {
