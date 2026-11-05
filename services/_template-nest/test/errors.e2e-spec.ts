@@ -1,5 +1,6 @@
 import { Body, Controller, ForbiddenException, Get, Post } from '@nestjs/common';
 import { IsInt, IsString, Min, MinLength } from 'class-validator';
+import { Public } from '../src/common/auth/public.decorator';
 import { AppException } from '../src/common/errors/app.exception';
 import { createTestApp, TestApp, UUID_V4 } from './helpers/create-test-app';
 
@@ -14,6 +15,7 @@ class DemoDto {
 }
 
 // Controller chỉ dùng trong test để ép từng loại lỗi xảy ra
+@Public()
 @Controller('test-errors')
 class TestErrorsController {
   @Get('app-409')

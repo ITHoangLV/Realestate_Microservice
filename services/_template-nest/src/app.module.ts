@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
 import { ClsModule } from 'nestjs-cls';
 import { AllExceptionsFilter } from './common/errors/all-exceptions.filter';
+import { AuthModule } from './common/auth/auth.module';
 import { createValidationPipe } from './common/errors/validation-pipe.factory';
 import { ShutdownLoggerService } from './common/lifecycle/shutdown-logger.service';
 import { AppLoggerModule } from './common/logging/logger.module';
@@ -31,6 +32,7 @@ import { RedisModule } from './redis/redis.module';
     AppConfigModule,
     ClsModule.forRoot({ global: true }),
     AppLoggerModule,
+    AuthModule,
     HealthModule,
     ...(isDatabaseEnabled() ? [DatabaseModule] : []),
     ...(isRedisEnabled() ? [RedisModule] : []),

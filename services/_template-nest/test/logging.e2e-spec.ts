@@ -1,7 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { Public } from '../src/common/auth/public.decorator';
 import { createTestApp, TestApp } from './helpers/create-test-app';
 
+@Public()
 @Controller('test-logging')
 class TestLoggingController {
   constructor(private readonly logger: PinoLogger) {}

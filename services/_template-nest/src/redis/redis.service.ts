@@ -28,8 +28,14 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
+    // quit() chờ lệnh đang chạy xong rồi đóng êm; chỉ dùng khi đã kết nối. Nếu chưa kết nối
+    // (ví dụ Redis đang chết) thì disconnect() để HỦY vòng lặp kết nối lại, tránh treo lúc tắt.
     try {
-      await this.client.quit();
+      if (this.client.status === 'ready') {
+        await this.client.quit();
+      } else {
+        this.client.disconnect();
+      }
     } catch {
       this.client.disconnect();
     }

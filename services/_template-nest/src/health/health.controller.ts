@@ -13,6 +13,7 @@ import {
   HealthIndicatorService,
 } from '@nestjs/terminus';
 import type { Response } from 'express';
+import { Public } from '../common/auth/public.decorator';
 import { EnvVars } from '../config/env.validation';
 import { getServiceVersion } from '../config/service-info';
 import { HealthProbe, HealthRegistry } from './health.registry';
@@ -40,6 +41,7 @@ function runProbe(probe: HealthProbe): Promise<boolean> {
 }
 
 @ApiTags('health')
+@Public() // Docker/hạ tầng gọi không kèm token
 @Controller()
 export class HealthController {
   constructor(
