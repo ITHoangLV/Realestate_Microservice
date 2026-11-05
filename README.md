@@ -1,5 +1,7 @@
 # Hệ thống thuê nhà microservices
 
+> 💡 **Dành cho thành viên mới:** Xem [Hướng dẫn & Phân tích chi tiết hệ thống cho người mới bắt đầu](docs/HUONG_DAN_CHI_TIET_DU_AN.md) để nắm nhanh kiến trúc, nghiệp vụ và các công nghệ cốt lõi trong dự án.
+
 Nền tảng thuê nhà: đặt cọc qua ví trung gian, chatbot gợi ý phòng. Toàn bộ service dùng
 NestJS (TypeScript strict), pnpm workspace.
 
