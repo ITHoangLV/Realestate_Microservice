@@ -1,7 +1,7 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
+import { PinoLogger } from 'nestjs-pino';
 import { getCorrelationId, resolveCorrelationId } from '../logging/correlation-id.middleware';
 import { AppException } from './app.exception';
 import { codeFromStatus, ErrorCode } from './error-codes';
@@ -136,8 +136,10 @@ function mapException(exception: unknown): MappedError {
 export class AllExceptionsFilter implements ExceptionFilter {
   constructor(
     private readonly httpAdapterHost: HttpAdapterHost,
-    @InjectPinoLogger(AllExceptionsFilter.name) private readonly logger: PinoLogger,
-  ) {}
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(AllExceptionsFilter.name);
+  }
 
   catch(exception: unknown, host: ArgumentsHost): void {
     if (host.getType() !== 'http') return;
