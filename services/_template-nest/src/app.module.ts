@@ -5,6 +5,7 @@ import { AllExceptionsFilter } from './common/errors/all-exceptions.filter';
 import { AuthModule } from './common/auth/auth.module';
 import { createValidationPipe } from './common/errors/validation-pipe.factory';
 import { ShutdownLoggerService } from './common/lifecycle/shutdown-logger.service';
+import { InternalHttpModule } from './common/http/internal-http.module';
 import { AppLoggerModule } from './common/logging/logger.module';
 import { AppConfigModule } from './config/config.module';
 import { isDatabaseEnabled, isRedisEnabled } from './config/feature-flags';
@@ -33,6 +34,7 @@ import { RedisModule } from './redis/redis.module';
     ClsModule.forRoot({ global: true }),
     AppLoggerModule,
     AuthModule,
+    InternalHttpModule,
     HealthModule,
     ...(isDatabaseEnabled() ? [DatabaseModule] : []),
     ...(isRedisEnabled() ? [RedisModule] : []),
