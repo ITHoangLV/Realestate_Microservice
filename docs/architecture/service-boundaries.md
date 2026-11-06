@@ -117,8 +117,8 @@ Routing key `<miền>.<sự kiện>`. Mọi event có `eventId` (UUID, để con
 | `payment.refunded`    | payment  | `reservationId`, `paymentId`, `amount`, `payerId`                                          | notification                                                                           |
 | `payment.released`    | payment  | `reservationId`, `paymentId`, `amount`, `payeeId`                                          | notification                                                                           |
 
-Queue hiện có trong `infra/rabbitmq/definitions.json`: `listing.indexer`, `notification.events`,
-`rental.payment-events`. Cần thêm `payment.rental-events` và `listing.rental-events` (làm ở chủ đề Giao tiếp).
+Queue và binding nằm ở `infra/rabbitmq/definitions.json`: `rental.payment-events`, `payment.rental-events`,
+`listing.rental-events`, `notification.events`, `listing.indexer` (bảng chi tiết ở README gốc, mục RabbitMQ).
 
 ## 6. Các ca khó (phải xử lý, không được bỏ qua)
 

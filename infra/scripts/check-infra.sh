@@ -96,12 +96,23 @@ for e in domain.events domain.events.dlx; do
   report "$ok" "rabbitmq: exchange $e tồn tại"
 done
 queues="$(docker exec re-rabbitmq rabbitmqctl list_queues name --no-table-headers 2>/dev/null | tr -d '\r')"
-for q in listing.indexer notification.events rental.payment-events; do
+# Binding mong đợi từ domain.events (phải khớp infra/rabbitmq/definitions.json, sắp xếp a-z)
+expected_bindings="listing.indexer=listing.*
+notification.events=identity.*,payment.*,rental.*
+rental.payment-events=payment.deposited
+payment.rental-events=rental.cancelled,rental.completed,rental.expired,rental.rejected
+listing.rental-events=rental.cancelled,rental.completed,rental.expired,rental.rejected,rental.requested"
+bindings="$(docker exec re-rabbitmq rabbitmqctl list_bindings source_name destination_name routing_key --no-table-headers 2>/dev/null | tr -d '')"
+while IFS='=' read -r q want; do
   echo "$queues" | grep -qx "$q" && ok=1 || ok=0
   report "$ok" "rabbitmq: queue $q tồn tại"
   echo "$queues" | grep -qx "$q.dlq" && ok=1 || ok=0
   report "$ok" "rabbitmq: queue $q.dlq tồn tại"
-done
+  got="$(echo "$bindings" | awk -F'	' -v q="$q" '$1 == "domain.events" && $2 == q { print $3 }' | LC_ALL=C sort | paste -sd, -)"
+  report "$(eq "$got" "$want")" "rabbitmq: binding của $q đúng" "thực tế: $got"
+done <<EOF2
+$expected_bindings
+EOF2
 
 echo "== S3 (Silo)"
 port="${S3_API_PORT:-9000}"

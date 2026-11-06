@@ -113,9 +113,23 @@ foreach ($e in 'domain.events', 'domain.events.dlx') {
   Write-Result ($ex -contains $e) "rabbitmq: exchange $e ton tai"
 }
 $qs = (Invoke-Docker @('exec', 're-rabbitmq', 'rabbitmqctl', 'list_queues', 'name', '--no-table-headers')).Out -split "`n" | ForEach-Object { $_.Trim() }
-foreach ($q in 'listing.indexer', 'notification.events', 'rental.payment-events') {
+# Binding mong doi tu domain.events (phai khop infra/rabbitmq/definitions.json, sap xep a-z)
+$expectedBindings = [ordered]@{
+  'listing.indexer'       = 'listing.*'
+  'notification.events'   = 'identity.*,payment.*,rental.*'
+  'rental.payment-events' = 'payment.deposited'
+  'payment.rental-events' = 'rental.cancelled,rental.completed,rental.expired,rental.rejected'
+  'listing.rental-events' = 'rental.cancelled,rental.completed,rental.expired,rental.rejected,rental.requested'
+}
+foreach ($q in $expectedBindings.Keys) {
   Write-Result ($qs -contains $q) "rabbitmq: queue $q ton tai"
   Write-Result ($qs -contains "$q.dlq") "rabbitmq: queue $q.dlq ton tai"
+}
+$bindRows = (Invoke-Docker @('exec', 're-rabbitmq', 'rabbitmqctl', 'list_bindings', 'source_name', 'destination_name', 'routing_key', '--no-table-headers')).Out -split "`n" |
+  ForEach-Object { , ($_.Trim() -split "`t") } | Where-Object { $_.Count -eq 3 -and $_[0] -eq 'domain.events' }
+foreach ($q in $expectedBindings.Keys) {
+  $actual = (($bindRows | Where-Object { $_[1] -eq $q } | ForEach-Object { $_[2] }) | Sort-Object) -join ','
+  Write-Result ($actual -eq $expectedBindings[$q]) "rabbitmq: binding cua $q dung" "thuc te: $actual"
 }
 
 # ---------------- 5. S3 (Silo) ----------------

@@ -133,8 +133,19 @@ pnpm infra:up
 ### RabbitMQ
 
 - Topology nằm ở `infra/rabbitmq/definitions.json` (không chứa bí mật): exchange `domain.events`
-  (topic) và `domain.events.dlx` (direct); queue `listing.indexer`, `notification.events`,
-  `rental.payment-events`, mỗi queue có DLQ `*.dlq`.
+  (topic) và `domain.events.dlx` (direct). Mỗi queue có DLQ `*.dlq`:
+
+  | Queue                   | Service đọc  | Binding (routing key)                                     |
+  | ----------------------- | ------------ | --------------------------------------------------------- |
+  | `rental.payment-events` | rental       | `payment.deposited`                                       |
+  | `payment.rental-events` | payment      | `rental.rejected/expired/cancelled/completed`             |
+  | `listing.rental-events` | listing      | `rental.requested/rejected/expired/cancelled/completed`   |
+  | `notification.events`   | notification | `identity.*`, `rental.*`, `payment.*`                     |
+  | `listing.indexer`       | listing      | `listing.*` (dành cho index Elasticsearch, chưa có event) |
+
+  Schema event: `contracts/events/`. Đổi binding thì sửa cả `definitions.json` và danh sách mong
+  đợi trong `infra/scripts/check-infra.*`.
+
 - Không dùng `load_definitions`. RabbitMQ tạo user từ `.env` như bình thường, rồi container
   `rabbitmq-init` chạy một lần để POST topology vào Management API. Chạy lại nhiều lần vẫn an toàn.
   Trạng thái đúng của nó là `Exited (0)`.
