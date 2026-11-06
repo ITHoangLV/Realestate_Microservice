@@ -89,6 +89,7 @@ Khi demo, đặt các TTL ngắn (ví dụ 60 giây) để cho hội đồng th�
 ## 4. Gọi đồng bộ (HTTP)
 
 Chỉ dùng khi **cần câu trả lời ngay để quyết định**. Mọi API nội bộ có prefix `/internal`, gateway không expose.
+Spec chi tiết (request, response, mã lỗi) ở [`contracts/openapi/`](../../contracts/openapi/README.md).
 
 | Gọi                   | Endpoint                         | Khi nào                        | Lấy gì                                                                    |
 | --------------------- | -------------------------------- | ------------------------------ | ------------------------------------------------------------------------- |

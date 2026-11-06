@@ -14,7 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "build": "pnpm -r --if-present build",
-    "contracts:check": "node contracts/scripts/check-events.mjs",
+    "contracts:check": "node contracts/scripts/check-events.mjs && node contracts/scripts/check-openapi.mjs",
     "infra:up": "docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev up -d",
     "infra:demo": "docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo up -d",
     "infra:check": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/scripts/check-infra.ps1",
@@ -29,6 +29,7 @@
     "eslint-config-prettier": "^10.1.0",
     "prettier": "^3.6.0",
     "typescript": "^5.9.0",
-    "typescript-eslint": "^8.46.0"
+    "typescript-eslint": "^8.46.0",
+    "yaml": "^2.9.1"
   }
 }

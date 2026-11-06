@@ -10,8 +10,9 @@ NestJS (TypeScript strict), pnpm workspace.
 ```text
 services/            # Các service NestJS (tạo ở GĐ2-4)
 contracts/
-  openapi/           # Hợp đồng REST (OpenAPI)
-  events/            # Schema sự kiện domain
+  openapi/           # Hợp đồng REST nội bộ (OpenAPI 3.1), xem contracts/openapi/README.md
+  events/            # JSON Schema của domain event, xem contracts/events/README.md
+  scripts/           # Script kiểm tra contracts (pnpm contracts:check)
 infra/
   compose/           # docker-compose + script khởi tạo
   elk/               # Cấu hình Elasticsearch/Kibana/Filebeat (GĐ10)
@@ -60,6 +61,7 @@ Tạo service mới bằng cách copy `services/_template-nest` (xem
 pnpm install
 pnpm lint
 pnpm format:check
+pnpm contracts:check   # schema event và spec OpenAPI hợp lệ, khớp topology RabbitMQ
 pnpm build
 ```
 
