@@ -6,7 +6,7 @@
 #   bash infra/scripts/check-infra.sh            # kiểm tra profile dev (+ demo nếu đang chạy)
 #   bash infra/scripts/check-infra.sh --demo     # bắt buộc kiểm tra cả Elasticsearch/Kibana
 #
-# Đọc mật khẩu từ .env gốc. Mọi kiểm tra chạy qua `docker exec`, không cần cài psql/redis-cli/mongosh.
+# Đọc mật khẩu từ .env gốc. Mọi kiểm tra chạy qua `docker exec`, không cần cài psql/redis-cli.
 # File này PHẢI dùng LF (xem .gitattributes).
 # =============================================================================
 set -u
@@ -47,7 +47,7 @@ fi
 health() { docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$1" 2>/dev/null; }
 
 echo "== Container"
-for c in re-postgres re-redis re-rabbitmq re-mongo re-s3; do
+for c in re-postgres re-redis re-rabbitmq re-s3; do
   st="$(health "$c")"
   report "$(eq "$st" healthy)" "container $c healthy" "trạng thái: ${st:-không tồn tại}"
 done
@@ -66,13 +66,13 @@ for c in re-elasticsearch re-kibana; do
 done
 
 echo "== PostgreSQL"
-for s in IDENTITY LISTING RENTAL PAYMENT; do
+for s in IDENTITY LISTING RENTAL PAYMENT NOTIFICATION; do
   u="${s}_DB_USER"; d="${s}_DB_NAME"; p="${s}_DB_PASSWORD"
   # -h postgres: đi qua mạng container nên pg_hba bắt buộc xác thực mật khẩu
   out="$(docker exec -e PGPASSWORD="${!p}" re-postgres psql -h postgres -U "${!u}" -d "${!d}" -tAc 'select 1' 2>/dev/null | tr -d '[:space:]')"
   report "$(eq "$out" 1)" "postgres: ${!u} đăng nhập được vào ${!d}"
 done
-for s in IDENTITY LISTING RENTAL PAYMENT; do
+for s in IDENTITY LISTING RENTAL PAYMENT NOTIFICATION; do
   u="${s}_DB_USER"; d="${s}_DB_NAME"
   sql="select coalesce(string_agg(datname, ',' order by datname), '') from pg_database where datallowconn and has_database_privilege('${!u}', datname, 'CONNECT')"
   out="$(docker exec re-postgres psql -U "$POSTGRES_SUPERUSER" -d postgres -tAc "$sql" 2>/dev/null | tr -d '[:space:]')"
@@ -89,15 +89,6 @@ out="$(docker exec re-redis sh -c 'unset REDISCLI_AUTH; redis-cli ping' 2>/dev/n
 case "$out" in *NOAUTH*) ok=1 ;; *) ok=0 ;; esac
 report "$ok" "redis: từ chối khi không có mật khẩu" "$out"
 
-echo "== MongoDB"
-out="$(docker exec re-mongo mongosh --quiet -u "$MONGO_ROOT_USER" -p "$MONGO_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand('ping').ok" 2>/dev/null | tr -d '[:space:]')"
-report "$(eq "$out" 1)" "mongo: ping (root)" "$out"
-for s in NOTIFICATION MAINTENANCE; do
-  u="${s}_MONGO_USER"; d="${s}_MONGO_DB"; p="${s}_MONGO_PASSWORD"
-  out="$(docker exec re-mongo mongosh --quiet -u "${!u}" -p "${!p}" --authenticationDatabase "${!d}" "127.0.0.1:27017/${!d}" --eval 'db.runCommand({connectionStatus:1}).authInfo.authenticatedUsers[0].user' 2>/dev/null | tr -d '[:space:]')"
-  report "$(eq "$out" "${!u}")" "mongo: ${!u} đăng nhập được vào ${!d}" "$out"
-done
-
 echo "== RabbitMQ"
 exchanges="$(docker exec re-rabbitmq rabbitmqctl list_exchanges name --no-table-headers 2>/dev/null | tr -d '\r')"
 for e in domain.events domain.events.dlx; do
@@ -105,12 +96,23 @@ for e in domain.events domain.events.dlx; do
   report "$ok" "rabbitmq: exchange $e tồn tại"
 done
 queues="$(docker exec re-rabbitmq rabbitmqctl list_queues name --no-table-headers 2>/dev/null | tr -d '\r')"
-for q in listing.indexer notification.events rental.payment-events; do
+# Binding mong đợi từ domain.events (phải khớp infra/rabbitmq/definitions.json, sắp xếp a-z)
+expected_bindings="listing.indexer=listing.*
+notification.events=identity.*,payment.*,rental.*
+rental.payment-events=payment.deposited
+payment.rental-events=rental.cancelled,rental.completed,rental.expired,rental.rejected
+listing.rental-events=rental.cancelled,rental.completed,rental.expired,rental.rejected,rental.requested"
+bindings="$(docker exec re-rabbitmq rabbitmqctl list_bindings source_name destination_name routing_key --no-table-headers 2>/dev/null | tr -d '')"
+while IFS='=' read -r q want; do
   echo "$queues" | grep -qx "$q" && ok=1 || ok=0
   report "$ok" "rabbitmq: queue $q tồn tại"
   echo "$queues" | grep -qx "$q.dlq" && ok=1 || ok=0
   report "$ok" "rabbitmq: queue $q.dlq tồn tại"
-done
+  got="$(echo "$bindings" | awk -F'	' -v q="$q" '$1 == "domain.events" && $2 == q { print $3 }' | LC_ALL=C sort | paste -sd, -)"
+  report "$(eq "$got" "$want")" "rabbitmq: binding của $q đúng" "thực tế: $got"
+done <<EOF2
+$expected_bindings
+EOF2
 
 echo "== S3 (Silo)"
 port="${S3_API_PORT:-9000}"

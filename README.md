@@ -10,8 +10,9 @@ NestJS (TypeScript strict), pnpm workspace.
 ```text
 services/            # Các service NestJS (tạo ở GĐ2-4)
 contracts/
-  openapi/           # Hợp đồng REST (OpenAPI)
-  events/            # Schema sự kiện domain
+  openapi/           # Hợp đồng REST nội bộ (OpenAPI 3.1), xem contracts/openapi/README.md
+  events/            # JSON Schema của domain event, xem contracts/events/README.md
+  scripts/           # Script kiểm tra contracts (pnpm contracts:check)
 infra/
   compose/           # docker-compose + script khởi tạo
   elk/               # Cấu hình Elasticsearch/Kibana/Filebeat (GĐ10)
@@ -27,17 +28,18 @@ docs/
 
 ## Service và cổng
 
-| Service      | Cổng | Ghi chú  |
-| ------------ | ---- | -------- |
-| api-gateway  | 8080 |          |
-| identity     | 3001 |          |
-| listing      | 3002 |          |
-| rental       | 3003 |          |
-| payment      | 3004 |          |
-| notification | 3005 |          |
-| assistant    | 3006 |          |
-| maintenance  | 3007 | tùy chọn |
-| mobility     | 3008 | tùy chọn |
+| Service      | Cổng | Ghi chú                 |
+| ------------ | ---- | ----------------------- |
+| api-gateway  | 8080 |                         |
+| identity     | 3001 |                         |
+| listing      | 3002 | gồm cả tính khoảng cách |
+| rental       | 3003 |                         |
+| payment      | 3004 |                         |
+| notification | 3005 |                         |
+| assistant    | 3006 | nếu còn thời gian       |
+
+`mobility` đã gộp vào listing, `maintenance` đã bỏ (xem
+[ranh giới service](docs/architecture/service-boundaries.md)).
 
 Mỗi service có DB riêng; không service nào đọc DB của service khác.
 
@@ -59,6 +61,7 @@ Tạo service mới bằng cách copy `services/_template-nest` (xem
 pnpm install
 pnpm lint
 pnpm format:check
+pnpm contracts:check   # schema event và spec OpenAPI hợp lệ, khớp topology RabbitMQ
 pnpm build
 ```
 
@@ -74,7 +77,7 @@ Các lệnh dưới đây là script trong `package.json`, đã bọc sẵn `--e
 `-f infra/compose/docker-compose.yml`:
 
 ```powershell
-pnpm infra:up       # profile dev: Postgres, Redis, RabbitMQ, Mongo, S3 (Silo)
+pnpm infra:up       # profile dev: Postgres, Redis, RabbitMQ, S3 (Silo)
 pnpm infra:demo     # profile demo: dev + Elasticsearch + Kibana (http://127.0.0.1:5601)
 pnpm infra:check    # kiểm tra toàn bộ hạ tầng, in OK/FAIL từng dòng (thoát 0 nếu tất cả OK)
 pnpm infra:logs     # theo dõi log
@@ -88,7 +91,7 @@ Kiểm tra bằng bash (Git Bash, WSL, Linux, macOS): `bash infra/scripts/check-
 `rabbitmq-init` là tác vụ chạy một lần nên trạng thái đúng của nó là `Exited (0)`, không phải
 `healthy`. Elasticsearch và Kibana được kiểm tra khi đang chạy, ngược lại script in `SKIP`.
 
-**Reset toàn bộ dữ liệu dev** (xóa mọi volume của dự án: Postgres, Redis, RabbitMQ, Mongo, S3,
+**Reset toàn bộ dữ liệu dev** (xóa mọi volume của dự án: Postgres, Redis, RabbitMQ, S3,
 Elasticsearch; không thể hoàn tác). Các script init DB và topology RabbitMQ sẽ chạy lại:
 
 ```powershell
@@ -98,7 +101,7 @@ pnpm infra:check
 ```
 
 Chỉ reset riêng một thành phần: `pnpm infra:down` rồi `docker volume rm realestate_<tên>_data`
-(`postgres`, `redis`, `rabbitmq`, `mongo`, `s3`, `es`).
+(`postgres`, `redis`, `rabbitmq`, `s3`, `es`).
 
 ### Cổng kết nối: laptop và trong Docker
 
@@ -109,7 +112,6 @@ Hạ tầng chỉ publish cổng ra `127.0.0.1`. Có hai cách kết nối, đ�
 | Postgres   | `localhost:5433` (`POSTGRES_PORT`) | `postgres:5432`           |
 | Redis      | `localhost:6379`                   | `redis:6379`              |
 | RabbitMQ   | `localhost:5672` (UI `15672`)      | `rabbitmq:5672`           |
-| MongoDB    | `localhost:27017`                  | `mongo:27017`             |
 | S3 (Silo)  | `localhost:9000` (console `9001`)  | `s3:9000`                 |
 
 Postgres dùng cổng **5433** trên laptop vì máy đã cài PostgreSQL trên Windows chiếm 5432.
@@ -119,23 +121,33 @@ Container luôn lắng nghe 5432 bên trong; `POSTGRES_DOCKER_HOST` và `POSTGRE
 ### Khởi tạo database
 
 - Postgres: `infra/compose/postgres/init/01-create-databases.sh` tạo `identity_db`, `listing_db`,
-  `rental_db`, `payment_db`, mỗi DB một user riêng (không phải superuser), `REVOKE CONNECT` từ
+  `rental_db`, `payment_db`, `notification_db`, mỗi DB một user riêng (không phải superuser), `REVOKE CONNECT` từ
   PUBLIC nên user chỉ vào được DB của mình. `listing_db` bật `postgis`, `pgcrypto`, `uuid-ossp`.
-- MongoDB: `infra/compose/mongo/init/01-create-users.sh` tạo `notification_db` và `maintenance_db`
-  với user `readWrite` riêng. Chuỗi kết nối cần `authSource=<tên DB>`.
+- Không dùng MongoDB: notification cũng dùng Postgres (xem `docs/adr/ADR-008-drop-mongodb.md`).
 - Các script chỉ chạy **lần đầu** khi volume còn trống. Muốn chạy lại (sẽ mất dữ liệu dev):
 
 ```powershell
 pnpm infra:down
-docker volume rm realestate_postgres_data realestate_mongo_data
+docker volume rm realestate_postgres_data
 pnpm infra:up
 ```
 
 ### RabbitMQ
 
 - Topology nằm ở `infra/rabbitmq/definitions.json` (không chứa bí mật): exchange `domain.events`
-  (topic) và `domain.events.dlx` (direct); queue `listing.indexer`, `notification.events`,
-  `rental.payment-events`, mỗi queue có DLQ `*.dlq`.
+  (topic) và `domain.events.dlx` (direct). Mỗi queue có DLQ `*.dlq`:
+
+  | Queue                   | Service đọc  | Binding (routing key)                                     |
+  | ----------------------- | ------------ | --------------------------------------------------------- |
+  | `rental.payment-events` | rental       | `payment.deposited`                                       |
+  | `payment.rental-events` | payment      | `rental.rejected/expired/cancelled/completed`             |
+  | `listing.rental-events` | listing      | `rental.requested/rejected/expired/cancelled/completed`   |
+  | `notification.events`   | notification | `identity.*`, `rental.*`, `payment.*`                     |
+  | `listing.indexer`       | listing      | `listing.*` (dành cho index Elasticsearch, chưa có event) |
+
+  Schema event: `contracts/events/`. Đổi binding thì sửa cả `definitions.json` và danh sách mong
+  đợi trong `infra/scripts/check-infra.*`.
+
 - Không dùng `load_definitions`. RabbitMQ tạo user từ `.env` như bình thường, rồi container
   `rabbitmq-init` chạy một lần để POST topology vào Management API. Chạy lại nhiều lần vẫn an toàn.
   Trạng thái đúng của nó là `Exited (0)`.

@@ -16,4 +16,11 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  {
+    // Script Node chạy trực tiếp (không qua NestJS), ví dụ contracts/scripts/check-events.mjs
+    files: ['contracts/scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly', structuredClone: 'readonly' },
+    },
+  },
 );

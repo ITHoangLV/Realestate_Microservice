@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Chay tu bat ky thu muc nao:  pwsh/powershell -File infra/scripts/check-infra.ps1
-  Doc mat khau tu .env goc. Cac kiem tra chay qua `docker exec` nen khong can cai psql/redis-cli/mongosh tren may.
+  Doc mat khau tu .env goc. Cac kiem tra chay qua `docker exec` nen khong can cai psql/redis-cli tren may.
   File nay CHI dung ky tu ASCII (PowerShell 5.1 doc UTF-8 khong BOM bi loi dau).
 
 .PARAMETER EnvFile
@@ -60,7 +60,7 @@ if ($r.Code -ne 0) {
 
 # ---------------- 1. Container healthy ----------------
 Write-Host '== Container'
-foreach ($c in 're-postgres', 're-redis', 're-rabbitmq', 're-mongo', 're-s3') {
+foreach ($c in 're-postgres', 're-redis', 're-rabbitmq', 're-s3') {
   $r = Invoke-Docker @('inspect', '--format', '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}', $c)
   Write-Result ($r.Code -eq 0 -and $r.Out -eq 'healthy') "container $c healthy" "trang thai: $($r.Out)"
 }
@@ -83,7 +83,7 @@ foreach ($c in 're-elasticsearch', 're-kibana') {
 
 # ---------------- 2. PostgreSQL ----------------
 Write-Host '== PostgreSQL'
-$svcs = 'IDENTITY', 'LISTING', 'RENTAL', 'PAYMENT'
+$svcs = 'IDENTITY', 'LISTING', 'RENTAL', 'PAYMENT', 'NOTIFICATION'
 foreach ($s in $svcs) {
   $user = $cfg["${s}_DB_USER"]; $db = $cfg["${s}_DB_NAME"]; $pw = $cfg["${s}_DB_PASSWORD"]
   # -h postgres: di qua mang container nen pg_hba bat buoc xac thuc mat khau (khong phai trust qua socket/loopback)
@@ -106,29 +106,33 @@ Write-Result ($r.Out -eq 'PONG') 'redis: PING (co mat khau) tra ve PONG' $r.Out
 $r = Invoke-Docker @('exec', 're-redis', 'sh', '-c', 'unset REDISCLI_AUTH; redis-cli ping')
 Write-Result ($r.Out -match 'NOAUTH') 'redis: tu choi khi khong co mat khau' $r.Out
 
-# ---------------- 4. MongoDB ----------------
-Write-Host '== MongoDB'
-$r = Invoke-Docker @('exec', 're-mongo', 'mongosh', '--quiet', '-u', $cfg['MONGO_ROOT_USER'], '-p', $cfg['MONGO_ROOT_PASSWORD'], '--authenticationDatabase', 'admin', '--eval', "db.adminCommand('ping').ok")
-Write-Result ($r.Out -eq '1') 'mongo: ping (root)' $r.Out
-foreach ($s in 'NOTIFICATION', 'MAINTENANCE') {
-  $user = $cfg["${s}_MONGO_USER"]; $db = $cfg["${s}_MONGO_DB"]; $pw = $cfg["${s}_MONGO_PASSWORD"]
-  $r = Invoke-Docker @('exec', 're-mongo', 'mongosh', '--quiet', '-u', $user, '-p', $pw, '--authenticationDatabase', $db, "127.0.0.1:27017/$db", '--eval', 'db.runCommand({connectionStatus:1}).authInfo.authenticatedUsers[0].user')
-  Write-Result ($r.Out -eq $user) "mongo: $user dang nhap duoc vao $db" $r.Out
-}
-
-# ---------------- 5. RabbitMQ ----------------
+# ---------------- 4. RabbitMQ ----------------
 Write-Host '== RabbitMQ'
 $ex = (Invoke-Docker @('exec', 're-rabbitmq', 'rabbitmqctl', 'list_exchanges', 'name', '--no-table-headers')).Out -split "`n" | ForEach-Object { $_.Trim() }
 foreach ($e in 'domain.events', 'domain.events.dlx') {
   Write-Result ($ex -contains $e) "rabbitmq: exchange $e ton tai"
 }
 $qs = (Invoke-Docker @('exec', 're-rabbitmq', 'rabbitmqctl', 'list_queues', 'name', '--no-table-headers')).Out -split "`n" | ForEach-Object { $_.Trim() }
-foreach ($q in 'listing.indexer', 'notification.events', 'rental.payment-events') {
+# Binding mong doi tu domain.events (phai khop infra/rabbitmq/definitions.json, sap xep a-z)
+$expectedBindings = [ordered]@{
+  'listing.indexer'       = 'listing.*'
+  'notification.events'   = 'identity.*,payment.*,rental.*'
+  'rental.payment-events' = 'payment.deposited'
+  'payment.rental-events' = 'rental.cancelled,rental.completed,rental.expired,rental.rejected'
+  'listing.rental-events' = 'rental.cancelled,rental.completed,rental.expired,rental.rejected,rental.requested'
+}
+foreach ($q in $expectedBindings.Keys) {
   Write-Result ($qs -contains $q) "rabbitmq: queue $q ton tai"
   Write-Result ($qs -contains "$q.dlq") "rabbitmq: queue $q.dlq ton tai"
 }
+$bindRows = (Invoke-Docker @('exec', 're-rabbitmq', 'rabbitmqctl', 'list_bindings', 'source_name', 'destination_name', 'routing_key', '--no-table-headers')).Out -split "`n" |
+  ForEach-Object { , ($_.Trim() -split "`t") } | Where-Object { $_.Count -eq 3 -and $_[0] -eq 'domain.events' }
+foreach ($q in $expectedBindings.Keys) {
+  $actual = (($bindRows | Where-Object { $_[1] -eq $q } | ForEach-Object { $_[2] }) | Sort-Object) -join ','
+  Write-Result ($actual -eq $expectedBindings[$q]) "rabbitmq: binding cua $q dung" "thuc te: $actual"
+}
 
-# ---------------- 6. S3 (Silo) ----------------
+# ---------------- 5. S3 (Silo) ----------------
 Write-Host '== S3 (Silo)'
 $s3port = if ($cfg['S3_API_PORT']) { $cfg['S3_API_PORT'] } else { '9000' }
 foreach ($ep in 'live', 'ready') {

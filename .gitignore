@@ -16,7 +16,6 @@ coverage/
 # source như services/*/src/data hay src/**/secrets)
 /infra/**/data/
 /infra/**/pgdata/
-/infra/**/mongodata/
 /infra/**/miniodata/
 /infra/**/esdata/
 
