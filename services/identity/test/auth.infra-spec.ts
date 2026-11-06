@@ -64,7 +64,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
       OUTBOX_RELAY_ENABLED: 'false',
     });
     const { createTestApp } = await import('./helpers/create-test-app');
-    t = await createTestApp();
+    t = await createTestApp([], [], { swagger: true });
     await t.app.get(DataSource).runMigrations();
   });
 
@@ -101,7 +101,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
         newUser({ email, fullName: '  Trần Thị Bình  ', role: 'LANDLORD' }),
       );
       expect(res.status).toBe(201);
-      expect(res.body).toMatchObject({
+      expect(res.body.data).toMatchObject({
         email: email.toLowerCase(),
         fullName: 'Trần Thị Bình',
         role: 'LANDLORD',
@@ -109,7 +109,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
       expect(JSON.stringify(res.body)).not.toMatch(/password|argon2/i);
 
       const row = (
-        await pg.query(`SELECT email, password_hash FROM users WHERE id = $1`, [res.body.id])
+        await pg.query(`SELECT email, password_hash FROM users WHERE id = $1`, [res.body.data.id])
       ).rows[0];
       expect(row.email).toBe(email.toLowerCase());
       expect(row.password_hash).toMatch(/^\$argon2id\$/);
@@ -122,7 +122,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
       const rows = (
         await pg.query(
           `SELECT envelope, published_at FROM outbox_events WHERE envelope->'payload'->>'userId' = $1`,
-          [res.body.id],
+          [res.body.data.id],
         )
       ).rows;
       expect(rows).toHaveLength(1);
@@ -130,7 +130,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
       expect(event).toMatchObject({
         eventType: 'identity.registered',
         payload: {
-          userId: res.body.id,
+          userId: res.body.data.id,
           email: body.email,
           fullName: body.fullName,
           role: 'LANDLORD',
@@ -146,7 +146,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
       expect((await register(t, body)).status).toBe(201);
       const again = await register(t, { ...body, email: body.email.toUpperCase() });
       expect(again.status).toBe(409);
-      expect(again.body.code).toBe('IDENTITY_EMAIL_TAKEN');
+      expect(again.body.error.code).toBe('IDENTITY_EMAIL_TAKEN');
 
       const events = await pg.query(
         `SELECT 1 FROM outbox_events WHERE envelope->'payload'->>'email' = $1`,
@@ -178,22 +178,66 @@ describe('Luồng xác thực với hạ tầng thật', () => {
       for (const body of cases) {
         const res = await register(t, body);
         expect(res.status).toBe(400);
-        expect(res.body.code).toBe('VALIDATION_FAILED');
+        expect(res.body.error.code).toBe('VALIDATION_FAILED');
       }
+    });
+  });
+
+  describe('khung response', () => {
+    it('thành công là { data, meta }, lỗi là { error, meta }, correlationId khớp header', async () => {
+      const body = newUser();
+      const ok = await t
+        .http()
+        .post('/api/v1/auth/register')
+        .set('X-Request-ID', 'reg-1')
+        .send(body);
+      expect(ok.status).toBe(201);
+      expect(Object.keys(ok.body).sort()).toEqual(['data', 'meta']);
+      expect(ok.body.meta).toEqual({ correlationId: 'reg-1', timestamp: expect.any(String) });
+      expect(ok.headers['x-request-id']).toBe('reg-1');
+
+      const fail = await t
+        .http()
+        .post('/api/v1/auth/login')
+        .set('X-Request-ID', 'login-1')
+        .send({ email: body.email, password: 'Sai-mat-khau-1' });
+      expect(fail.status).toBe(401);
+      expect(Object.keys(fail.body).sort()).toEqual(['error', 'meta']);
+      expect(fail.body.error).toEqual({
+        code: 'IDENTITY_INVALID_CREDENTIALS',
+        message: expect.any(String),
+      });
+      expect(fail.body.meta.correlationId).toBe('login-1');
+    });
+
+    it('logout 204 không có body; /health giữ body phẳng', async () => {
+      const out = await t.http().post('/api/v1/auth/logout').send({ refreshToken: 'bat-ky-token' });
+      expect(out.status).toBe(204);
+      expect(out.text).toBe('');
+      const health = await t.http().get('/health');
+      expect(health.body).not.toHaveProperty('data');
+    });
+
+    it('Swagger mô tả response của auth theo { data, meta }', async () => {
+      const doc = (await t.http().get('/api/docs-json')).body;
+      const login =
+        doc.paths['/api/v1/auth/login'].post.responses['200'].content['application/json'].schema;
+      expect(login.properties.data).toEqual({ $ref: '#/components/schemas/AuthTokensDto' });
+      expect(login.properties.meta).toEqual({ $ref: '#/components/schemas/ResponseMetaDto' });
     });
   });
 
   describe('login, me', () => {
     it('đúng mật khẩu -> access token RS256 kiểm tra được bằng khóa công khai, /me trả đúng user', async () => {
       const body = newUser({ role: 'LANDLORD' });
-      const user = (await register(t, body)).body;
+      const user = (await register(t, body)).body.data;
 
       const res = await login(t, body.email.toUpperCase());
       expect(res.status).toBe(200);
-      expect(res.body).toMatchObject({ tokenType: 'Bearer', expiresIn: 900 });
-      expect(res.body.refreshToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(res.body.data).toMatchObject({ tokenType: 'Bearer', expiresIn: 900 });
+      expect(res.body.data.refreshToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
-      const payload = await new JwtService().verifyAsync(res.body.accessToken, {
+      const payload = await new JwtService().verifyAsync(res.body.data.accessToken, {
         publicKey,
         algorithms: ['RS256'],
         issuer: 'realestate-identity-test',
@@ -203,9 +247,9 @@ describe('Luồng xác thực với hạ tầng thật', () => {
       const me = await t
         .http()
         .get('/api/v1/auth/me')
-        .set('Authorization', `Bearer ${res.body.accessToken}`);
+        .set('Authorization', `Bearer ${res.body.data.accessToken}`);
       expect(me.status).toBe(200);
-      expect(me.body).toMatchObject({ id: user.id, email: body.email, role: 'LANDLORD' });
+      expect(me.body.data).toMatchObject({ id: user.id, email: body.email, role: 'LANDLORD' });
       expect(JSON.stringify(me.body)).not.toMatch(/password|argon2/i);
     });
 
@@ -216,9 +260,9 @@ describe('Luồng xác thực với hạ tầng thật', () => {
       const unknownEmail = await login(t, uniqueEmail());
       expect(wrongPassword.status).toBe(401);
       expect(unknownEmail.status).toBe(401);
-      expect(wrongPassword.body.code).toBe('IDENTITY_INVALID_CREDENTIALS');
-      expect(unknownEmail.body.code).toBe('IDENTITY_INVALID_CREDENTIALS');
-      expect(wrongPassword.body.message).toBe(unknownEmail.body.message);
+      expect(wrongPassword.body.error.code).toBe('IDENTITY_INVALID_CREDENTIALS');
+      expect(unknownEmail.body.error.code).toBe('IDENTITY_INVALID_CREDENTIALS');
+      expect(wrongPassword.body.error.message).toBe(unknownEmail.body.error.message);
     });
 
     it('/me: thiếu token, token giả, token ký bằng khóa lạ -> 401', async () => {
@@ -243,7 +287,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
       );
       const res = await t.http().get('/api/v1/auth/me').set('Authorization', `Bearer ${forged}`);
       expect(res.status).toBe(401);
-      expect(res.body.code).toBe('AUTH_TOKEN_INVALID');
+      expect(res.body.error.code).toBe('AUTH_TOKEN_INVALID');
     });
   });
 
@@ -251,28 +295,31 @@ describe('Luồng xác thực với hạ tầng thật', () => {
     const session = async () => {
       const body = newUser();
       await register(t, body);
-      return (await login(t, body.email)).body as { accessToken: string; refreshToken: string };
+      return (await login(t, body.email)).body.data as {
+        accessToken: string;
+        refreshToken: string;
+      };
     };
 
     it('refresh cấp cặp mới; access token mới dùng được; dùng lại token cũ -> 401 và cả họ bị khóa', async () => {
       const first = await session();
       const second = await refresh(t, first.refreshToken);
       expect(second.status).toBe(200);
-      expect(second.body.refreshToken).not.toBe(first.refreshToken);
+      expect(second.body.data.refreshToken).not.toBe(first.refreshToken);
       expect(
         (
           await t
             .http()
             .get('/api/v1/auth/me')
-            .set('Authorization', `Bearer ${second.body.accessToken}`)
+            .set('Authorization', `Bearer ${second.body.data.accessToken}`)
         ).status,
       ).toBe(200);
 
       const replay = await refresh(t, first.refreshToken);
       expect(replay.status).toBe(401);
-      expect(replay.body.code).toBe('IDENTITY_INVALID_REFRESH_TOKEN');
+      expect(replay.body.error.code).toBe('IDENTITY_INVALID_REFRESH_TOKEN');
       // token mới nhất cùng họ cũng chết
-      expect((await refresh(t, second.body.refreshToken)).status).toBe(401);
+      expect((await refresh(t, second.body.data.refreshToken)).status).toBe(401);
       // và có log cảnh báo bị dùng lại
       expect(t.logRecords().some((r) => String(r.msg).includes('bị dùng lại'))).toBe(true);
     });
@@ -280,8 +327,8 @@ describe('Luồng xác thực với hạ tầng thật', () => {
     it('hai lần đăng nhập là hai họ độc lập: khóa họ này không ảnh hưởng họ kia', async () => {
       const body = newUser();
       await register(t, body);
-      const a = (await login(t, body.email)).body;
-      const b = (await login(t, body.email)).body;
+      const a = (await login(t, body.email)).body.data;
+      const b = (await login(t, body.email)).body.data;
       await t.http().post('/api/v1/auth/logout').send({ refreshToken: a.refreshToken });
       expect((await refresh(t, a.refreshToken)).status).toBe(401);
       expect((await refresh(t, b.refreshToken)).status).toBe(200);

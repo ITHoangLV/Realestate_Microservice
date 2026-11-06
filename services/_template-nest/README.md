@@ -80,17 +80,41 @@ Mỗi service **chỉ** được kết nối DB của mình, không đọc DB c�
 
 ## 2. Quy ước mà template thể hiện
 
-| Chủ đề         | Quy ước                                                                                                                                            |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| API công khai  | Prefix `/api/v1`.                                                                                                                                  |
-| API nội bộ     | Prefix `/internal/...`, chỉ service gọi service, **gateway không expose**, không có trong Swagger.                                                 |
-| Health         | `GET /health` (cho Docker) và alias `GET /api/v1/health`. Body `{ status, service, version, uptime, checks }`, 200 khi ổn, 503 khi phụ thuộc chết. |
-| Lỗi            | Mọi lỗi có dạng `{ code, message, details?, correlationId }`. 4xx nghiệp vụ, 503/504 hạ tầng, 5xx không lộ stack/message.                          |
-| Correlation ID | Đọc header `X-Request-ID` (gateway sinh), thiếu thì tự sinh UUID v4. Có ở response header, mọi dòng log, và tự truyền khi gọi service khác.        |
-| Log            | JSON một dòng ra stdout: `level, time (ISO UTC), service, correlationId, msg` (+ `method, url, statusCode, responseTime` cho request).             |
-| Tiền           | **Số nguyên VND** (`bigint` trong DB, `@IsInt()` trong DTO). Không bao giờ dùng float/decimal.                                                     |
-| Thời gian      | Luôn UTC, ISO-8601 (`2026-11-05T10:00:00.000Z`); cột DB là `timestamptz`.                                                                          |
-| Validation     | `ValidationPipe` toàn cục: bỏ trường thừa → báo lỗi (`forbidNonWhitelisted`), tự ép kiểu.                                                          |
+| Chủ đề         | Quy ước                                                                                                                                                                                                     |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API công khai  | Prefix `/api/v1`.                                                                                                                                                                                           |
+| API nội bộ     | Prefix `/internal/...`, chỉ service gọi service, **gateway không expose**, không có trong Swagger.                                                                                                          |
+| Health         | `GET /health` (cho Docker) và alias `GET /api/v1/health`. Body `{ status, service, version, uptime, checks }`, 200 khi ổn, 503 khi phụ thuộc chết.                                                          |
+| Response       | Thành công: `{ data, meta }`. Lỗi: `{ error: { code, message, details? }, meta }`. `meta` luôn có `correlationId`, `timestamp`; danh sách phân trang thêm `page, pageSize, total, totalPages`. Xem mục 2.1. |
+| Lỗi            | Mã lỗi nằm trong `error.code`. 4xx nghiệp vụ, 503/504 hạ tầng, 5xx không lộ stack/message.                                                                                                                  |
+| Correlation ID | Đọc header `X-Request-ID` (gateway sinh), thiếu thì tự sinh UUID v4. Có ở response header, mọi dòng log, và tự truyền khi gọi service khác.                                                                 |
+| Log            | JSON một dòng ra stdout: `level, time (ISO UTC), service, correlationId, msg` (+ `method, url, statusCode, responseTime` cho request).                                                                      |
+| Tiền           | **Số nguyên VND** (`bigint` trong DB, `@IsInt()` trong DTO). Không bao giờ dùng float/decimal.                                                                                                              |
+| Thời gian      | Luôn UTC, ISO-8601 (`2026-11-05T10:00:00.000Z`); cột DB là `timestamptz`.                                                                                                                                   |
+| Validation     | `ValidationPipe` toàn cục: bỏ trường thừa → báo lỗi (`forbidNonWhitelisted`), tự ép kiểu.                                                                                                                   |
+
+### 2.1 Khung response `{ data, meta }`
+
+`ResponseEnvelopeInterceptor` (đăng ký toàn cục ở `app.module.ts`) bọc kết quả của mọi controller; controller và
+service vẫn chỉ trả dữ liệu thuần. Lỗi do `AllExceptionsFilter` dựng với cùng `meta`.
+
+```jsonc
+// 200/201
+{ "data": { "id": "…" }, "meta": { "correlationId": "abc-123", "timestamp": "2026-11-06T10:00:00.000Z" } }
+
+// danh sách: handler trả `new Paginated(items, page, pageSize, total)`
+{ "data": [ … ], "meta": { "correlationId": "…", "timestamp": "…", "page": 1, "pageSize": 20, "total": 134, "totalPages": 7 } }
+
+// lỗi
+{ "error": { "code": "EXAMPLE_NAME_TAKEN", "message": "…", "details": { } }, "meta": { "correlationId": "…", "timestamp": "…" } }
+```
+
+- **Không bọc**: `/health` (gắn `@RawResponse()`: Docker HEALTHCHECK đọc body phẳng), route `@HttpCode(204)`, `StreamableFile`.
+- Handler không trả gì mà status 200/201 thì `data: null`.
+- Swagger: dùng `@ApiEnvelope(Dto)` hoặc `@ApiEnvelope(Dto, { isArray: true, status: HttpStatus.CREATED })` thay cho
+  `@ApiOkResponse({ type })`; lỗi dùng `ErrorResponseDto` như cũ.
+- `InternalHttpService` gọi service khác tự lấy `data` khi thành công và đọc `error` khi lỗi, nên code gọi vẫn nhận DTO thuần.
+- Idempotency: kết quả lưu là dữ liệu thuần; replay vẫn được bọc với `meta` của request mới.
 
 ### Lỗi: cách ném và mã lỗi
 
@@ -298,9 +322,9 @@ UUID dùng `gen_random_uuid()` của PostgreSQL (TypeORM `uuidExtension: 'pgcryp
 ### Kiểm tra từng tiêu chí
 
 ```powershell
-curl.exe http://localhost:3000/api/v1/health                                   # 200 + { status, service, version, uptime, checks }
+curl.exe http://localhost:3000/api/v1/health                                   # 200 + { status, service, version, uptime, checks } (body phẳng, không bọc)
 curl.exe -i http://localhost:3000/api/v1/examples/0b0a8b5e-7f9e-4c3a-9d2a-2f5f4b9c1a11 -H "X-Request-ID: abc-123"
-                                                                               # 404 { code, message, details, correlationId: "abc-123" } và header X-Request-ID: abc-123
+                                                                               # 404 { error: { code, message, details }, meta: { correlationId: "abc-123", timestamp } } và header X-Request-ID: abc-123
 pnpm lint; pnpm --filter @realestate/template-nest test:e2e                    # xanh
 docker build -f services/_template-nest/Dockerfile -t realestate/template-nest .
 ```

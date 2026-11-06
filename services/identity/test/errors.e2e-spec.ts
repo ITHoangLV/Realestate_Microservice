@@ -63,10 +63,12 @@ describe('Định dạng lỗi thống nhất', () => {
     const res = await t.http().get('/api/v1/test-errors/app-409').set('X-Request-ID', 'abc-123');
     expect(res.status).toBe(409);
     expect(res.body).toEqual({
-      code: 'DEMO_CONFLICT',
-      message: 'Tên đã tồn tại',
-      details: { field: 'name' },
-      correlationId: 'abc-123',
+      error: {
+        code: 'DEMO_CONFLICT',
+        message: 'Tên đã tồn tại',
+        details: { field: 'name' },
+      },
+      meta: { correlationId: 'abc-123', timestamp: expect.any(String) },
     });
     expect(res.headers['x-request-id']).toBe('abc-123');
   });
@@ -74,14 +76,15 @@ describe('Định dạng lỗi thống nhất', () => {
   it('HttpException có sẵn của Nest -> map code theo status', async () => {
     const res = await t.http().get('/api/v1/test-errors/forbidden');
     expect(res.status).toBe(403);
-    expect(res.body).toMatchObject({ code: 'FORBIDDEN', message: 'Bạn không có quyền' });
-    expect(res.body.details).toBeUndefined();
+    expect(res.body.error).toMatchObject({ code: 'FORBIDDEN', message: 'Bạn không có quyền' });
+    expect(res.body.error.details).toBeUndefined();
   });
 
   it('Route không tồn tại -> 404 NOT_FOUND và vẫn có correlationId', async () => {
     const res = await t.http().get('/khong-co-route').set('X-Request-ID', 'nf-1');
     expect(res.status).toBe(404);
-    expect(res.body).toMatchObject({ code: 'NOT_FOUND', correlationId: 'nf-1' });
+    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(res.body.meta.correlationId).toBe('nf-1');
     expect(res.headers['x-request-id']).toBe('nf-1');
   });
 
@@ -91,9 +94,9 @@ describe('Định dạng lỗi thống nhất', () => {
       .post('/api/v1/test-errors/validate')
       .send({ name: 'ab', priceVnd: -1, extra: 1 });
     expect(res.status).toBe(400);
-    expect(res.body.code).toBe('VALIDATION_FAILED');
-    expect(typeof res.body.correlationId).toBe('string');
-    const fields = (res.body.details as Array<{ field: string }>).map((d) => d.field).sort();
+    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    expect(typeof res.body.meta.correlationId).toBe('string');
+    const fields = (res.body.error.details as Array<{ field: string }>).map((d) => d.field).sort();
     expect(fields).toEqual(['extra', 'name', 'priceVnd']);
   });
 
@@ -103,7 +106,7 @@ describe('Định dạng lỗi thống nhất', () => {
       .post('/api/v1/test-errors/validate')
       .send({ name: 'abc', priceVnd: 1500000 });
     expect(res.status).toBe(201);
-    expect(res.body).toEqual({ name: 'abc', priceVnd: 1500000 });
+    expect(res.body.data).toEqual({ name: 'abc', priceVnd: 1500000 });
   });
 
   it('JSON sai cú pháp -> 400 BAD_REQUEST đúng format', async () => {
@@ -113,8 +116,8 @@ describe('Định dạng lỗi thống nhất', () => {
       .set('Content-Type', 'application/json')
       .send('{bad json');
     expect(res.status).toBe(400);
-    expect(res.body).toMatchObject({ code: 'BAD_REQUEST' });
-    expect(res.body.correlationId).toBeDefined();
+    expect(res.body.error).toMatchObject({ code: 'BAD_REQUEST' });
+    expect(res.body.meta.correlationId).toBeDefined();
   });
 
   it('Body quá lớn -> 413 PAYLOAD_TOO_LARGE đúng format', async () => {
@@ -124,9 +127,8 @@ describe('Định dạng lỗi thống nhất', () => {
       .send({ name: 'x'.repeat(200_000), priceVnd: 1 });
     expect(res.status).toBe(413);
     expect(res.body).toEqual({
-      code: 'PAYLOAD_TOO_LARGE',
-      message: expect.any(String),
-      correlationId: expect.any(String),
+      error: { code: 'PAYLOAD_TOO_LARGE', message: expect.any(String) },
+      meta: { correlationId: expect.any(String), timestamp: expect.any(String) },
     });
   });
 
@@ -134,9 +136,8 @@ describe('Định dạng lỗi thống nhất', () => {
     const res = await t.http().get('/api/v1/test-errors/boom').set('X-Request-ID', 'boom-1');
     expect(res.status).toBe(500);
     expect(res.body).toEqual({
-      code: 'INTERNAL_ERROR',
-      message: 'Lỗi hệ thống, vui lòng thử lại sau',
-      correlationId: 'boom-1',
+      error: { code: 'INTERNAL_ERROR', message: 'Lỗi hệ thống, vui lòng thử lại sau' },
+      meta: { correlationId: 'boom-1', timestamp: expect.any(String) },
     });
     const raw = JSON.stringify(res.body);
     expect(raw).not.toContain('hunter2');
@@ -153,19 +154,19 @@ describe('Định dạng lỗi thống nhất', () => {
   it('Lỗi kết nối hạ tầng -> 503 DEPENDENCY_UNAVAILABLE', async () => {
     const res = await t.http().get('/api/v1/test-errors/conn');
     expect(res.status).toBe(503);
-    expect(res.body.code).toBe('DEPENDENCY_UNAVAILABLE');
+    expect(res.body.error.code).toBe('DEPENDENCY_UNAVAILABLE');
     expect(JSON.stringify(res.body)).not.toContain('127.0.0.1');
   });
 
   it('Timeout hạ tầng -> 504 DEPENDENCY_TIMEOUT', async () => {
     const res = await t.http().get('/api/v1/test-errors/timeout');
     expect(res.status).toBe(504);
-    expect(res.body.code).toBe('DEPENDENCY_TIMEOUT');
+    expect(res.body.error.code).toBe('DEPENDENCY_TIMEOUT');
   });
 
   it('Không gửi X-Request-ID -> tự sinh UUID v4, khớp giữa body và header', async () => {
     const res = await t.http().get('/api/v1/test-errors/app-409');
-    expect(res.body.correlationId).toMatch(UUID_V4);
-    expect(res.headers['x-request-id']).toBe(res.body.correlationId);
+    expect(res.body.meta.correlationId).toMatch(UUID_V4);
+    expect(res.headers['x-request-id']).toBe(res.body.meta.correlationId);
   });
 });

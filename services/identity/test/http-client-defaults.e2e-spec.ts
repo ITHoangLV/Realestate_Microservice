@@ -33,7 +33,7 @@ describe('InternalHttpService: timeout mặc định lấy từ env HTTP_TIMEOUT
     const started = Date.now();
     const res = await t.http().get('/api/v1/test-http/default-timeout');
     expect(res.status).toBe(504);
-    expect(res.body.code).toBe('UPSTREAM_TIMEOUT');
+    expect(res.body.error.code).toBe('UPSTREAM_TIMEOUT');
     expect(hitsOf('/slow')).toBe(1);
     expect(Date.now() - started).toBeLessThan(550);
   });

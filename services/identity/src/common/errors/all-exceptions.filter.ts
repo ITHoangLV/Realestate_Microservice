@@ -4,14 +4,20 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { PinoLogger } from 'nestjs-pino';
 import { getCorrelationId, resolveCorrelationId } from '../logging/correlation-id.middleware';
 import { AppException } from './app.exception';
+import { buildMeta, ResponseMeta } from '../response/response-meta';
 import { codeFromStatus, ErrorCode } from './error-codes';
 
-/** Format lỗi thống nhất cho MỌI response lỗi của mọi service. */
-export interface ErrorResponse {
+/** Phần `error` của response lỗi. */
+export interface ErrorBody {
   code: string;
   message: string;
   details?: unknown;
-  correlationId: string;
+}
+
+/** Format lỗi thống nhất cho MỌI response lỗi của mọi service: { error, meta }. */
+export interface ErrorResponse {
+  error: ErrorBody;
+  meta: ResponseMeta;
 }
 
 interface MappedError {
@@ -129,7 +135,7 @@ function mapException(exception: unknown): MappedError {
 
 /**
  * Chuyển MỌI exception (AppException, HttpException, lỗi ValidationPipe, lỗi hạ tầng, lỗi không bắt)
- * về đúng một format: { code, message, details?, correlationId }.
+ * về đúng một format: { error: { code, message, details? }, meta: { correlationId, timestamp } }.
  * Đăng ký qua APP_FILTER trong AppModule để áp dụng cả khi chạy test.
  */
 @Catch()
@@ -156,10 +162,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     const body: ErrorResponse = {
-      code: mapped.code,
-      message: mapped.message,
-      ...(mapped.details !== undefined && { details: mapped.details }),
-      correlationId,
+      error: {
+        code: mapped.code,
+        message: mapped.message,
+        ...(mapped.details !== undefined && { details: mapped.details }),
+      },
+      meta: buildMeta(correlationId),
     };
     this.httpAdapterHost.httpAdapter.reply(res, body, mapped.status);
   }

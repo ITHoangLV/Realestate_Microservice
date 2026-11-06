@@ -95,23 +95,23 @@ describe('@Idempotent() với Idempotency-Key', () => {
   it('thiếu header -> 400 IDEMPOTENCY_KEY_REQUIRED; key chứa ký tự lạ -> 400', async () => {
     const missing = await pay(undefined);
     expect(missing.status).toBe(400);
-    expect(missing.body.code).toBe('IDEMPOTENCY_KEY_REQUIRED');
+    expect(missing.body.error.code).toBe('IDEMPOTENCY_KEY_REQUIRED');
 
     const bad = await pay('key;co dau cach');
     expect(bad.status).toBe(400);
-    expect(bad.body.code).toBe('BAD_REQUEST');
+    expect(bad.body.error.code).toBe('BAD_REQUEST');
     expect(ctrl.calls).toBe(0);
   });
 
   it('cùng key + cùng body -> trả lại response cũ, handler chỉ chạy MỘT lần', async () => {
     const first = await pay('k-0001');
     expect(first.status).toBe(201);
-    expect(first.body).toEqual({ paymentId: 'pay-1', amountVnd: 5000000 });
+    expect(first.body.data).toEqual({ paymentId: 'pay-1', amountVnd: 5000000 });
     expect(first.headers['idempotent-replayed']).toBeUndefined();
 
     const second = await pay('k-0001');
     expect(second.status).toBe(201);
-    expect(second.body).toEqual({ paymentId: 'pay-1', amountVnd: 5000000 });
+    expect(second.body.data).toEqual({ paymentId: 'pay-1', amountVnd: 5000000 });
     expect(second.headers['idempotent-replayed']).toBe('true');
     expect(ctrl.calls).toBe(1);
   });
@@ -126,7 +126,7 @@ describe('@Idempotent() với Idempotency-Key', () => {
   it('key khác -> thao tác mới', async () => {
     await pay('k-0003');
     const other = await pay('k-0004');
-    expect(other.body.paymentId).toBe('pay-2');
+    expect(other.body.data.paymentId).toBe('pay-2');
     expect(ctrl.calls).toBe(2);
   });
 
@@ -134,8 +134,8 @@ describe('@Idempotent() với Idempotency-Key', () => {
     await pay('k-0005', { amountVnd: 100, roomId: 1 });
     const res = await pay('k-0005', { amountVnd: 999, roomId: 1 });
     expect(res.status).toBe(422);
-    expect(res.body.code).toBe('IDEMPOTENCY_KEY_REUSED');
-    expect(res.body.correlationId).toBeDefined();
+    expect(res.body.error.code).toBe('IDEMPOTENCY_KEY_REUSED');
+    expect(res.body.meta.correlationId).toBeDefined();
     expect(ctrl.calls).toBe(1);
   });
 
@@ -145,7 +145,7 @@ describe('@Idempotent() với Idempotency-Key', () => {
     const [a, b] = await Promise.all([post(), post()]);
     expect([a.status, b.status].sort()).toEqual([201, 409]);
     const loser = a.status === 409 ? a : b;
-    expect(loser.body.code).toBe('IDEMPOTENCY_IN_PROGRESS');
+    expect(loser.body.error.code).toBe('IDEMPOTENCY_IN_PROGRESS');
 
     const later = await post();
     expect(later.status).toBe(201);
@@ -158,11 +158,11 @@ describe('@Idempotent() với Idempotency-Key', () => {
       t.http().post('/api/v1/test-idem/flaky').set('Idempotency-Key', 'k-flaky').send({});
     const failed = await post();
     expect(failed.status).toBe(409);
-    expect(failed.body.code).toBe('BIZ_FAILED');
+    expect(failed.body.error.code).toBe('BIZ_FAILED');
 
     const retry = await post();
     expect(retry.status).toBe(201);
-    expect(retry.body).toEqual({ ok: true, n: 1 });
+    expect(retry.body.data).toEqual({ ok: true, n: 1 });
   });
 
   it('cùng key ở route khác nhau không đụng nhau', async () => {
@@ -208,7 +208,7 @@ describe('@Idempotent() khi chưa bật Redis', () => {
         .set('Idempotency-Key', 'k-1')
         .send({ amountVnd: 1, roomId: 1 });
       expect(res.status).toBe(503);
-      expect(res.body.code).toBe('IDEMPOTENCY_UNAVAILABLE');
+      expect(res.body.error.code).toBe('IDEMPOTENCY_UNAVAILABLE');
     } finally {
       await t.app.close();
     }

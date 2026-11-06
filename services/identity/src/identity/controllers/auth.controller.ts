@@ -1,10 +1,8 @@
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
-  ApiCreatedResponse,
   ApiNoContentResponse,
-  ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
@@ -12,6 +10,7 @@ import {
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { Public } from '../../common/auth/public.decorator';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
+import { ApiEnvelope } from '../../common/response/api-envelope.decorator';
 import { AuthService } from '../services/auth.service';
 import { AuthTokensDto } from '../dto/auth-tokens.dto';
 import { LoginDto } from '../dto/login.dto';
@@ -32,7 +31,7 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Đăng ký (chỉ TENANT hoặc LANDLORD)' })
-  @ApiCreatedResponse({ type: UserDto })
+  @ApiEnvelope(UserDto, { status: HttpStatus.CREATED })
   @ApiConflictResponse({ type: ErrorResponseDto, description: 'IDENTITY_EMAIL_TAKEN' })
   register(@Body() dto: RegisterDto): Promise<UserDto> {
     return this.auth.register(dto);
@@ -42,7 +41,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(200)
   @ApiOperation({ summary: 'Đăng nhập bằng email + mật khẩu' })
-  @ApiOkResponse({ type: AuthTokensDto })
+  @ApiEnvelope(AuthTokensDto)
   @ApiUnauthorizedResponse({ type: ErrorResponseDto, description: 'IDENTITY_INVALID_CREDENTIALS' })
   login(@Body() dto: LoginDto): Promise<AuthTokensDto> {
     return this.auth.login(dto);
@@ -52,7 +51,7 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(200)
   @ApiOperation({ summary: 'Đổi refresh token lấy cặp token mới (token cũ chỉ dùng được một lần)' })
-  @ApiOkResponse({ type: AuthTokensDto })
+  @ApiEnvelope(AuthTokensDto)
   @ApiUnauthorizedResponse({
     type: ErrorResponseDto,
     description: 'IDENTITY_INVALID_REFRESH_TOKEN (không có, hết hạn, đã thu hồi hoặc bị dùng lại)',
@@ -73,7 +72,7 @@ export class AuthController {
   @Get('me')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Thông tin người đang đăng nhập' })
-  @ApiOkResponse({ type: UserDto })
+  @ApiEnvelope(UserDto)
   @ApiUnauthorizedResponse({ type: ErrorResponseDto })
   me(@CurrentUser('sub') userId: string): Promise<UserDto> {
     return this.auth.me(userId);

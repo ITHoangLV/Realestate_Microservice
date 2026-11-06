@@ -17,6 +17,22 @@ check và outbox (đọc README của template cho các phần đó).
 Tài khoản `ADMIN` **không** đăng ký qua API; tạo bằng script seed (bên dưới).
 Swagger: `http://localhost:3001/api/docs`.
 
+## Định dạng response
+
+Mọi response theo khung chung của template (xem README template, mục 2.1):
+
+```jsonc
+// POST /api/v1/auth/login → 200
+{ "data": { "accessToken": "…", "refreshToken": "…", "tokenType": "Bearer", "expiresIn": 900 },
+  "meta": { "correlationId": "abc-123", "timestamp": "2026-11-06T10:00:00.000Z" } }
+
+// lỗi → 401
+{ "error": { "code": "IDENTITY_INVALID_CREDENTIALS", "message": "Email hoặc mật khẩu không đúng" },
+  "meta": { "correlationId": "abc-123", "timestamp": "2026-11-06T10:00:00.000Z" } }
+```
+
+`POST /logout` trả 204 không có body; `/health` giữ body phẳng.
+
 ## Cấu trúc thư mục
 
 Code nghiệp vụ nằm trong `src/identity/`, chia theo vai trò của file:

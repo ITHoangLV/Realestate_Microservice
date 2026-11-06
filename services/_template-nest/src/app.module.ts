@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ClsModule } from 'nestjs-cls';
 import { AllExceptionsFilter } from './common/errors/all-exceptions.filter';
 import { AuthModule } from './common/auth/auth.module';
@@ -7,6 +7,7 @@ import { createValidationPipe } from './common/errors/validation-pipe.factory';
 import { ShutdownLoggerService } from './common/lifecycle/shutdown-logger.service';
 import { InternalHttpModule } from './common/http/internal-http.module';
 import { AppLoggerModule } from './common/logging/logger.module';
+import { ResponseEnvelopeInterceptor } from './common/response/response-envelope.interceptor';
 import { AppConfigModule } from './config/config.module';
 import {
   isDatabaseEnabled,
@@ -51,6 +52,8 @@ import { StorageModule } from './storage/storage.module';
   providers: [
     ShutdownLoggerService,
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    // Bọc mọi response thành công thành { data, meta } (lỗi do AllExceptionsFilter dựng { error, meta })
+    { provide: APP_INTERCEPTOR, useClass: ResponseEnvelopeInterceptor },
     { provide: APP_PIPE, useFactory: createValidationPipe },
   ],
 })

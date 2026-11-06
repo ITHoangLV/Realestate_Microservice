@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ResponseMetaDto } from '../response/api-envelope.decorator';
 
-/** Mô tả format lỗi thống nhất trong Swagger/OpenAPI (khớp ErrorResponse trong all-exceptions.filter.ts). */
-export class ErrorResponseDto {
+/** Phần `error` của response lỗi (khớp ErrorBody trong all-exceptions.filter.ts). */
+export class ErrorBodyDto {
   @ApiProperty({
     example: 'EXAMPLE_NAME_TAKEN',
     description: 'Mã lỗi ổn định, client dựa vào đây để xử lý',
@@ -13,7 +14,13 @@ export class ErrorResponseDto {
 
   @ApiPropertyOptional({ description: 'Dữ liệu bổ sung (lỗi từng trường, id liên quan...)' })
   details?: unknown;
+}
 
-  @ApiProperty({ example: 'abc-123', description: 'ID truy vết, trùng header X-Request-ID' })
-  correlationId!: string;
+/** Mô tả format lỗi thống nhất trong Swagger: { error, meta } (khớp ErrorResponse trong all-exceptions.filter.ts). */
+export class ErrorResponseDto {
+  @ApiProperty({ type: ErrorBodyDto })
+  error!: ErrorBodyDto;
+
+  @ApiProperty({ type: ResponseMetaDto })
+  meta!: ResponseMetaDto;
 }

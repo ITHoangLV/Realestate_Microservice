@@ -25,7 +25,7 @@ sửa hai nơi.
 
 - OpenAPI **3.1** (schema là JSON Schema 2020-12, cùng chuẩn với `contracts/events`).
 - Mỗi file tự chứa đủ, chỉ dùng `$ref` trong cùng file (`#/components/...`).
-- Response lỗi theo format chung của template: `{ code, message, details?, correlationId }`.
+- Response theo khung chung của template: thành công `{ data, meta }`, lỗi `{ error: { code, message, details? }, meta }` (`meta` gồm `correlationId`, `timestamp`).
   Mã lỗi riêng có prefix tên service: `LISTING_NOT_FOUND`, `RENTAL_RESERVATION_NOT_FOUND`.
 - Mỗi response JSON phải có `example`. `pnpm contracts:check` kiểm tra example khớp schema.
 - Tiền là số nguyên VND, thời gian ISO 8601 UTC, ID là UUID (giống `contracts/events`).

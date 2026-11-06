@@ -35,7 +35,7 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
     });
   });
 
-  describe('định dạng lỗi { code, message, details, correlationId }', () => {
+  describe('định dạng lỗi { error: { code, message, details }, meta: { correlationId, timestamp } }', () => {
     it('lỗi nghiệp vụ 409 có nghĩa (trùng tên) kèm details', async () => {
       await create('Phòng A101');
       const res = await t
@@ -45,29 +45,31 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
         .send({ name: 'phòng a101', priceVnd: 1 });
       expect(res.status).toBe(409);
       expect(res.body).toEqual({
-        code: 'EXAMPLE_NAME_TAKEN',
-        message: 'Tên "phòng a101" đã tồn tại',
-        details: { name: 'phòng a101' },
-        correlationId: 'err-409',
+        error: {
+          code: 'EXAMPLE_NAME_TAKEN',
+          message: 'Tên "phòng a101" đã tồn tại',
+          details: { name: 'phòng a101' },
+        },
+        meta: { correlationId: 'err-409', timestamp: expect.any(String) },
       });
     });
 
     it('404 nghiệp vụ và id sai định dạng', async () => {
       const missing = await t.http().get('/api/v1/examples/0b0a8b5e-7f9e-4c3a-9d2a-2f5f4b9c1a11');
       expect(missing.status).toBe(404);
-      expect(missing.body.code).toBe('EXAMPLE_NOT_FOUND');
-      expect(missing.body.correlationId).toBeDefined();
+      expect(missing.body.error.code).toBe('EXAMPLE_NOT_FOUND');
+      expect(missing.body.meta.correlationId).toBeDefined();
 
       const bad = await t.http().get('/api/v1/examples/khong-phai-uuid');
       expect(bad.status).toBe(400);
-      expect(bad.body.code).toBe('BAD_REQUEST');
+      expect(bad.body.error.code).toBe('BAD_REQUEST');
     });
 
     it('tiền phải là số nguyên VND: số thập phân bị từ chối', async () => {
       const res = await create('Phòng B202', 1500000.5);
       expect(res.status).toBe(400);
-      expect(res.body.code).toBe('VALIDATION_FAILED');
-      expect(res.body.details).toEqual([
+      expect(res.body.error.code).toBe('VALIDATION_FAILED');
+      expect(res.body.error.details).toEqual([
         { field: 'priceVnd', errors: ['priceVnd must be an integer number'] },
       ]);
     });
@@ -80,7 +82,7 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
         .get('/api/v1/examples/0b0a8b5e-7f9e-4c3a-9d2a-2f5f4b9c1a11')
         .set('X-Request-ID', 'abc-123');
       expect(res.headers['x-request-id']).toBe('abc-123');
-      expect(res.body.correlationId).toBe('abc-123');
+      expect(res.body.meta.correlationId).toBe('abc-123');
       const logged = t.logRecords().filter((r) => r.correlationId === 'abc-123');
       expect(logged.length).toBeGreaterThan(0);
       expect(logged.some((r) => r.statusCode === 404)).toBe(true);
@@ -89,7 +91,7 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
     it('không gửi header: tự sinh UUID v4 và dùng nhất quán', async () => {
       const res = await t.http().get('/api/v1/examples/0b0a8b5e-7f9e-4c3a-9d2a-2f5f4b9c1a11');
       expect(res.headers['x-request-id']).toMatch(UUID_V4);
-      expect(res.body.correlationId).toBe(res.headers['x-request-id']);
+      expect(res.body.meta.correlationId).toBe(res.headers['x-request-id']);
     });
   });
 
@@ -97,9 +99,9 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
     it('bản ghi mới: id UUID, tiền số nguyên, thời gian UTC ISO-8601', async () => {
       const res = await create('Phòng C303', 4200000);
       expect(res.status).toBe(201);
-      expect(res.body.id).toMatch(/^[0-9a-f-]{36}$/);
-      expect(Number.isInteger(res.body.priceVnd)).toBe(true);
-      expect(res.body.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+      expect(res.body.data.id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(Number.isInteger(res.body.data.priceVnd)).toBe(true);
+      expect(res.body.data.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     });
 
     it('API công khai phải có prefix /api/v1', async () => {
@@ -109,11 +111,11 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
 
     it('API nội bộ nằm ở /internal/... (không prefix) và KHÔNG có ở /api/v1/internal', async () => {
       const created = await create('Phòng D404');
-      const internal = await t.http().get(`/internal/examples/${created.body.id}`);
+      const internal = await t.http().get(`/internal/examples/${created.body.data.id}`);
       expect(internal.status).toBe(200);
-      expect(internal.body.name).toBe('Phòng D404');
+      expect(internal.body.data.name).toBe('Phòng D404');
       expect(internal.headers['x-request-id']).toBeDefined();
-      const prefixed = await t.http().get(`/api/v1/internal/examples/${created.body.id}`);
+      const prefixed = await t.http().get(`/api/v1/internal/examples/${created.body.data.id}`);
       expect(prefixed.status).toBe(404);
     });
   });
@@ -126,7 +128,7 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
         .get('/api/v1/examples/me')
         .set('Authorization', `Bearer ${token({ sub: 'u-1', roles: ['TENANT'] })}`);
       expect(ok.status).toBe(200);
-      expect(ok.body).toMatchObject({ sub: 'u-1', roles: ['TENANT'] });
+      expect(ok.body.data).toMatchObject({ sub: 'u-1', roles: ['TENANT'] });
     });
 
     it('/examples/admin-only: ADMIN được, vai trò khác bị 403', async () => {
@@ -135,14 +137,14 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
         .get('/api/v1/examples/admin-only')
         .set('Authorization', `Bearer ${token({ sub: 'boss', roles: ['ADMIN'] })}`);
       expect(admin.status).toBe(200);
-      expect(admin.body.message).toContain('boss');
+      expect(admin.body.data.message).toContain('boss');
 
       const tenant = await t
         .http()
         .get('/api/v1/examples/admin-only')
         .set('Authorization', `Bearer ${token({ sub: 't', roles: ['TENANT'] })}`);
       expect(tenant.status).toBe(403);
-      expect(tenant.body.code).toBe('FORBIDDEN_ROLE');
+      expect(tenant.body.error.code).toBe('FORBIDDEN_ROLE');
     });
   });
 
@@ -153,6 +155,6 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
       .set('Idempotency-Key', 'k-1')
       .send({ name: 'Phòng E505', priceVnd: 1 });
     expect(res.status).toBe(503);
-    expect(res.body.code).toBe('IDEMPOTENCY_UNAVAILABLE');
+    expect(res.body.error.code).toBe('IDEMPOTENCY_UNAVAILABLE');
   });
 });

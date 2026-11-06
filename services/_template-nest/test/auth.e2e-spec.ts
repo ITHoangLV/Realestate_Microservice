@@ -75,7 +75,7 @@ describe('Xác thực JWT: chưa cấu hình khóa', () => {
       expect((await t.http().get('/health')).status).toBe(200);
       const res = await t.http().get('/api/v1/test-auth/me');
       expect(res.status).toBe(503);
-      expect(res.body.code).toBe('AUTH_NOT_CONFIGURED');
+      expect(res.body.error.code).toBe('AUTH_NOT_CONFIGURED');
     });
   });
 });
@@ -97,7 +97,7 @@ describe('Xác thực JWT: HS256 (JWT_SECRET)', () => {
   it('không có token -> 401 AUTH_TOKEN_MISSING; /health và @Public vẫn mở', async () => {
     const res = await t.http().get('/api/v1/test-auth/me');
     expect(res.status).toBe(401);
-    expect(res.body.code).toBe('AUTH_TOKEN_MISSING');
+    expect(res.body.error.code).toBe('AUTH_TOKEN_MISSING');
     expect((await t.http().get('/api/v1/test-auth/public')).status).toBe(200);
     expect((await t.http().get('/health')).status).toBe(200);
   });
@@ -105,17 +105,17 @@ describe('Xác thực JWT: HS256 (JWT_SECRET)', () => {
   it('Authorization không phải Bearer -> AUTH_TOKEN_MISSING', async () => {
     const res = await t.http().get('/api/v1/test-auth/me').set('Authorization', 'Basic abc');
     expect(res.status).toBe(401);
-    expect(res.body.code).toBe('AUTH_TOKEN_MISSING');
+    expect(res.body.error.code).toBe('AUTH_TOKEN_MISSING');
   });
 
   it('token hợp lệ -> 200, @CurrentUser trả { sub, roles, exp }', async () => {
     const token = hs256({ sub: 'user-1', roles: ['LANDLORD'] });
     const res = await t.http().get('/api/v1/test-auth/me').set(bearer(token));
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ sub: 'user-1', roles: ['LANDLORD'], exp: expect.any(Number) });
+    expect(res.body.data).toEqual({ sub: 'user-1', roles: ['LANDLORD'], exp: expect.any(Number) });
 
     const sub = await t.http().get('/api/v1/test-auth/sub').set(bearer(token));
-    expect(sub.body).toEqual({ sub: 'user-1' });
+    expect(sub.body.data).toEqual({ sub: 'user-1' });
   });
 
   it('thiếu roles trong token -> roles = []', async () => {
@@ -123,21 +123,21 @@ describe('Xác thực JWT: HS256 (JWT_SECRET)', () => {
       .http()
       .get('/api/v1/test-auth/me')
       .set(bearer(hs256({ sub: 'u2' })));
-    expect(res.body.roles).toEqual([]);
+    expect(res.body.data.roles).toEqual([]);
   });
 
   it('sai chữ ký -> 401 AUTH_TOKEN_INVALID', async () => {
     const token = hs256({ sub: 'u', roles: [] }, 'mot-bi-mat-khac-nhau-hoan-toan');
     const res = await t.http().get('/api/v1/test-auth/me').set(bearer(token));
     expect(res.status).toBe(401);
-    expect(res.body.code).toBe('AUTH_TOKEN_INVALID');
+    expect(res.body.error.code).toBe('AUTH_TOKEN_INVALID');
   });
 
   it('hết hạn -> 401 AUTH_TOKEN_EXPIRED', async () => {
     const token = hs256({ sub: 'u', roles: [] }, SECRET, -10);
     const res = await t.http().get('/api/v1/test-auth/me').set(bearer(token));
     expect(res.status).toBe(401);
-    expect(res.body.code).toBe('AUTH_TOKEN_EXPIRED');
+    expect(res.body.error.code).toBe('AUTH_TOKEN_EXPIRED');
   });
 
   it('token alg "none" bị từ chối', async () => {
@@ -154,7 +154,7 @@ describe('Xác thực JWT: HS256 (JWT_SECRET)', () => {
     for (const token of [noSub, badRoles, noExp]) {
       const res = await t.http().get('/api/v1/test-auth/me').set(bearer(token));
       expect(res.status).toBe(401);
-      expect(res.body.code).toBe('AUTH_TOKEN_INVALID');
+      expect(res.body.error.code).toBe('AUTH_TOKEN_INVALID');
     }
   });
 
@@ -167,19 +167,18 @@ describe('Xác thực JWT: HS256 (JWT_SECRET)', () => {
 
     const denied = await t.http().get('/api/v1/test-auth/admin').set(bearer(tenant));
     expect(denied.status).toBe(403);
-    expect(denied.body.code).toBe('FORBIDDEN_ROLE');
-    expect(denied.body.details).toEqual({ requiredAnyOf: ['ADMIN'] });
+    expect(denied.body.error.code).toBe('FORBIDDEN_ROLE');
+    expect(denied.body.error.details).toEqual({ requiredAnyOf: ['ADMIN'] });
 
     expect((await t.http().get('/api/v1/test-auth/staff').set(bearer(landlord))).status).toBe(200);
     expect((await t.http().get('/api/v1/test-auth/staff').set(bearer(tenant))).status).toBe(403);
   });
 
-  it('lỗi xác thực có đủ format { code, message, correlationId }', async () => {
+  it('lỗi xác thực có đủ format { error: { code, message }, meta }', async () => {
     const res = await t.http().get('/api/v1/test-auth/me').set('X-Request-ID', 'auth-1');
     expect(res.body).toEqual({
-      code: 'AUTH_TOKEN_MISSING',
-      message: expect.any(String),
-      correlationId: 'auth-1',
+      error: { code: 'AUTH_TOKEN_MISSING', message: expect.any(String) },
+      meta: { correlationId: 'auth-1', timestamp: expect.any(String) },
     });
   });
 });
@@ -218,7 +217,7 @@ describe('Xác thực JWT: RS256 (khóa công khai)', () => {
         .get('/api/v1/test-auth/me')
         .set(bearer(rs256({ sub: 'rsa-user', roles: ['ADMIN'] })));
       expect(res.status).toBe(200);
-      expect(res.body.sub).toBe('rsa-user');
+      expect(res.body.data.sub).toBe('rsa-user');
     });
   });
 
