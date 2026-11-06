@@ -1,0 +1,254 @@
+# =============================================================================
+# Ha tang local cho he thong thue nha.
+# Chay tu thu muc goc repo (de doc .env goc):
+#   docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev up -d
+#   docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo up -d
+#
+# Profile:
+#   dev  : postgres, redis, rabbitmq (+ rabbitmq-init chay mot lan), s3 (Silo), mongo
+#   demo : dev + elasticsearch + kibana (de do RAM; ELK day du o GD10)
+#
+# Chon image: ghim phien ban cu the, khong dung "latest" de ket qua tai lap duoc.
+# Cong chi bind 127.0.0.1 de khong lo ra mang LAN.
+# =============================================================================
+name: realestate
+
+x-restart: &restart
+  restart: unless-stopped
+
+services:
+  # PostGIS 16 (ban 3.5) - listing_db can postgis; ban Debian (khong alpine) cho tuong thich extension.
+  postgres:
+    <<: *restart
+    image: postgis/postgis:16-3.5
+    container_name: re-postgres
+    profiles: [dev, demo]
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:?thieu POSTGRES_SUPERUSER}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?thieu POSTGRES_SUPERUSER_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DEFAULT_DB:-postgres}
+      # Truyền cho script init (infra/compose/postgres/init/01-create-databases.sh)
+      IDENTITY_DB_NAME: ${IDENTITY_DB_NAME:?thieu IDENTITY_DB_NAME}
+      IDENTITY_DB_USER: ${IDENTITY_DB_USER:?thieu IDENTITY_DB_USER}
+      IDENTITY_DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?thieu IDENTITY_DB_PASSWORD}
+      LISTING_DB_NAME: ${LISTING_DB_NAME:?thieu LISTING_DB_NAME}
+      LISTING_DB_USER: ${LISTING_DB_USER:?thieu LISTING_DB_USER}
+      LISTING_DB_PASSWORD: ${LISTING_DB_PASSWORD:?thieu LISTING_DB_PASSWORD}
+      RENTAL_DB_NAME: ${RENTAL_DB_NAME:?thieu RENTAL_DB_NAME}
+      RENTAL_DB_USER: ${RENTAL_DB_USER:?thieu RENTAL_DB_USER}
+      RENTAL_DB_PASSWORD: ${RENTAL_DB_PASSWORD:?thieu RENTAL_DB_PASSWORD}
+      PAYMENT_DB_NAME: ${PAYMENT_DB_NAME:?thieu PAYMENT_DB_NAME}
+      PAYMENT_DB_USER: ${PAYMENT_DB_USER:?thieu PAYMENT_DB_USER}
+      PAYMENT_DB_PASSWORD: ${PAYMENT_DB_PASSWORD:?thieu PAYMENT_DB_PASSWORD}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Script init chỉ chạy lần đầu khi volume trống
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks: [realestate-net]
+
+  # Redis 7.4 (alpine, nhe). Bat mat khau va AOF de khong mat du lieu khi restart.
+  redis:
+    <<: *restart
+    image: redis:7.4-alpine
+    container_name: re-redis
+    profiles: [dev, demo]
+    command:
+      [
+        'redis-server',
+        '--requirepass',
+        '${REDIS_PASSWORD:?thieu REDIS_PASSWORD}',
+        '--appendonly',
+        'yes',
+      ]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    ports:
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks: [realestate-net]
+
+  # RabbitMQ 3.13 (ban 3.x ben vung, co management UI). Chua len 4.x de tranh doi hanh vi.
+  rabbitmq:
+    <<: *restart
+    image: rabbitmq:3.13-management
+    container_name: re-rabbitmq
+    profiles: [dev, demo]
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?thieu RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?thieu RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      - '127.0.0.1:${RABBITMQ_PORT:-5672}:5672'
+      - '127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672'
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ../rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/20-realestate.conf:ro
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 6
+      start_period: 30s
+    networks: [realestate-net]
+
+  # Container chay MOT LAN: POST infra/rabbitmq/definitions.json vao Management API roi thoat.
+  # - Tai khoan lay tu .env (RABBITMQ_USER/PASSWORD) nen .env la nguon duy nhat, file JSON khong chua bi mat.
+  # - POST /api/definitions la idempotent: chay lai nhieu lan van an toan.
+  # - depends_on.restart=true: rabbitmq duoc compose khoi dong lai thi init chay lai.
+  # - Day la tac vu mot lan nen khong co healthcheck; thanh cong khi trang thai "Exited (0)".
+  # - curlimages/curl ghim 8.11.1 (image nho, co curl; image rabbitmq khong co curl).
+  rabbitmq-init:
+    image: docker.io/curlimages/curl:8.11.1
+    container_name: re-rabbitmq-init
+    profiles: [dev, demo]
+    restart: 'no'
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+        restart: true
+    environment:
+      RABBITMQ_USER: ${RABBITMQ_USER:?thieu RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?thieu RABBITMQ_PASSWORD}
+    volumes:
+      - ../rabbitmq/definitions.json:/definitions.json:ro
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >-
+        curl --silent --show-error --fail-with-body
+        --retry 10 --retry-delay 3 --retry-connrefused --retry-all-errors
+        --user "$$RABBITMQ_USER:$$RABBITMQ_PASSWORD"
+        --header 'Content-Type: application/json'
+        --request POST --data-binary @/definitions.json
+        http://rabbitmq:15672/api/definitions
+        && echo 'rabbitmq-init: da nap topology tu definitions.json'
+    networks: [realestate-net]
+
+  # Silo (fork cong dong cua MinIO, tuong thich S3) - xem docs/adr/ADR-007.
+  # Ghim tag RELEASE da kiem tra bang `docker manifest inspect` + `docker pull`.
+  # Entrypoint cua image tu them ten binary `silo`, nen command chi gom doi so.
+  # Image co san curl nen healthcheck dung endpoint /minio/health/live.
+  s3:
+    <<: *restart
+    image: docker.io/pgsty/silo:RELEASE.2026-10-26T00-00-00Z
+    container_name: re-s3
+    profiles: [dev, demo]
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?thieu MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?thieu MINIO_ROOT_PASSWORD}
+    ports:
+      - '127.0.0.1:${S3_API_PORT:-9000}:9000'
+      - '127.0.0.1:${S3_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - s3_data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks: [realestate-net]
+  # MongoDB 7.0 (LTS, co mongosh de healthcheck).
+  mongo:
+    <<: *restart
+    image: mongo:7.0
+    container_name: re-mongo
+    profiles: [dev, demo]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?thieu MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?thieu MONGO_ROOT_PASSWORD}
+      # Truyền cho script init (infra/compose/mongo/init/01-create-users.sh)
+      NOTIFICATION_MONGO_DB: ${NOTIFICATION_MONGO_DB:?thieu NOTIFICATION_MONGO_DB}
+      NOTIFICATION_MONGO_USER: ${NOTIFICATION_MONGO_USER:?thieu NOTIFICATION_MONGO_USER}
+      NOTIFICATION_MONGO_PASSWORD: ${NOTIFICATION_MONGO_PASSWORD:?thieu NOTIFICATION_MONGO_PASSWORD}
+      MAINTENANCE_MONGO_DB: ${MAINTENANCE_MONGO_DB:?thieu MAINTENANCE_MONGO_DB}
+      MAINTENANCE_MONGO_USER: ${MAINTENANCE_MONGO_USER:?thieu MAINTENANCE_MONGO_USER}
+      MAINTENANCE_MONGO_PASSWORD: ${MAINTENANCE_MONGO_PASSWORD:?thieu MAINTENANCE_MONGO_PASSWORD}
+    ports:
+      - '127.0.0.1:${MONGO_PORT:-27017}:27017'
+    volumes:
+      - mongo_data:/data/db
+      # Script init chỉ chạy lần đầu khi volume trống
+      - ./mongo/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'mongosh --quiet --eval "db.adminCommand(''ping'').ok" | grep -q 1']
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 20s
+    networks: [realestate-net]
+
+  # Elasticsearch 8.15 single-node, heap 512m, tat security (CHI cho dev/demo local).
+  # Khong publish cong ra host: Kibana goi qua network noi bo.
+  elasticsearch:
+    <<: *restart
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.5
+    container_name: re-elasticsearch
+    profiles: [demo]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: 'false'
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl -s http://localhost:9200/_cluster/health | grep -Eq ''"status":"(green|yellow)"''',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+    networks: [realestate-net]
+
+  # Kibana cung phien ban voi Elasticsearch (bat buoc cung major.minor).
+  kibana:
+    <<: *restart
+    image: docker.elastic.co/kibana/kibana:8.15.5
+    container_name: re-kibana
+    profiles: [demo]
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      NODE_OPTIONS: --max-old-space-size=512
+    ports:
+      - '127.0.0.1:${KIBANA_PORT:-5601}:5601'
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'curl -s http://localhost:5601/api/status | grep -q ''"level":"available"''']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks: [realestate-net]
+
+networks:
+  realestate-net:
+    name: realestate-net
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  s3_data:
+  mongo_data:
+  es_data:

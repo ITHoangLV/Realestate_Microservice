@@ -1,0 +1,31 @@
+# Dependencies & build
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Môi trường & bí mật
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+/secrets/
+
+# Dữ liệu cục bộ của container (neo về infra/ để không ignore nhầm thư mục
+# source như services/*/src/data hay src/**/secrets)
+/infra/**/data/
+/infra/**/pgdata/
+/infra/**/mongodata/
+/infra/**/miniodata/
+/infra/**/esdata/
+
+# Log & rác hệ điều hành / IDE
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
