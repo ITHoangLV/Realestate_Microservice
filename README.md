@@ -41,6 +41,9 @@ docs/
 
 Mỗi service có DB riêng; không service nào đọc DB của service khác.
 
+Tạo service mới bằng cách copy `services/_template-nest` (xem
+[README của template](services/_template-nest/README.md)).
+
 ## Yêu cầu môi trường
 
 - Node.js 22 LTS (xem `.nvmrc`). Trên Windows với nvm-windows, `nvm use 22` cần terminal
