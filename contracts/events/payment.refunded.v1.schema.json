@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/payment.refunded.v1.schema.json",
+  "title": "payment.refunded",
+  "x-producer": "payment",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "eventType": { "const": "payment.refunded" },
+    "version": { "const": 1 },
+    "producer": { "const": "payment" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reservationId", "paymentId", "amount", "payerId"],
+      "properties": {
+        "reservationId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Reservation (rental sở hữu)"
+        },
+        "paymentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Giao dịch (payment sở hữu)"
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Số tiền đã hoàn (VND, số nguyên)"
+        },
+        "payerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Người nhận lại tiền (người thuê)"
+        }
+      }
+    }
+  }
+}

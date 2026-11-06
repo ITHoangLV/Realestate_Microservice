@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/payment.deposited.v1.schema.json",
+  "title": "payment.deposited",
+  "x-producer": "payment",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "eventType": { "const": "payment.deposited" },
+    "version": { "const": 1 },
+    "producer": { "const": "payment" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reservationId", "paymentId", "amount", "payerId", "payeeId"],
+      "properties": {
+        "reservationId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Reservation (rental sở hữu)"
+        },
+        "paymentId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Giao dịch (payment sở hữu)"
+        },
+        "amount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Số tiền đang giữ trong escrow (VND, số nguyên)"
+        },
+        "payerId": { "type": "string", "format": "uuid", "description": "Người trả (người thuê)" },
+        "payeeId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Người sẽ nhận nếu giải ngân (chủ nhà)"
+        }
+      }
+    }
+  }
+}

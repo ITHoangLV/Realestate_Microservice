@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/envelope.v1.schema.json",
+  "title": "Envelope chung của mọi domain event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "version",
+    "occurredAt",
+    "correlationId",
+    "producer",
+    "payload"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID duy nhất của event; consumer dùng để chống xử lý trùng"
+    },
+    "eventType": {
+      "type": "string",
+      "pattern": "^[a-z]+\\.[a-z]+$",
+      "description": "Bằng routing key, dạng <miền>.<sự kiện>"
+    },
+    "version": { "type": "integer", "minimum": 1, "description": "Phiên bản schema của payload" },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Thời điểm sự kiện xảy ra (ISO 8601 UTC)"
+    },
+    "correlationId": {
+      "type": "string",
+      "pattern": "^[\\w.:-]{1,128}$",
+      "description": "X-Request-ID của request gốc"
+    },
+    "producer": {
+      "enum": ["identity", "listing", "rental", "payment", "notification"],
+      "description": "Service phát event"
+    },
+    "payload": { "type": "object" }
+  }
+}

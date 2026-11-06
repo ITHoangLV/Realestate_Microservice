@@ -1,0 +1,136 @@
+openapi: 3.1.0
+info:
+  title: rental-service, API nội bộ
+  version: 1.0.0
+  description: |
+    API chỉ dành cho service khác gọi (không qua api-gateway, không có prefix /api/v1).
+    Người phụ trách: C (rental). Người gọi: payment (lúc người thuê bắt đầu trả cọc).
+
+    Payment chỉ tạo giao dịch khi đủ cả ba điều kiện:
+    1. `status = PENDING_DEPOSIT`. Ngược lại trả 409 PAYMENT_RESERVATION_NOT_PAYABLE.
+    2. Người đang đăng nhập (`sub` trong JWT) bằng `tenantId`. Ngược lại trả 403 FORBIDDEN.
+    3. Chưa quá `paymentDeadline`.
+
+    Số tiền thu lấy từ `depositAmount` ở đây, không lấy từ request của client.
+servers:
+  - url: http://localhost:3003
+    description: rental chạy trên laptop
+  - url: http://rental:3003
+    description: rental chạy trong Docker
+paths:
+  /internal/reservations/{id}:
+    get:
+      operationId: getReservationInternal
+      summary: Lấy trạng thái và số tiền cọc của reservation
+      parameters:
+        - $ref: '#/components/parameters/ReservationId'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Tìm thấy reservation, ở bất kỳ trạng thái nào
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationInternal'
+              example:
+                id: 3f9a1c2e-8b4d-4e6f-a1b2-c3d4e5f60718
+                listingId: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                tenantId: 7c1e2d34-5b6a-4f70-9e81-2a3b4c5d6e7f
+                landlordId: b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e
+                status: PENDING_DEPOSIT
+                depositAmount: 3000000
+                paymentDeadline: '2026-11-06T08:15:00Z'
+        '400':
+          description: '`id` không phải UUID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: VALIDATION_FAILED
+                message: id phải là UUID
+                correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+        '404':
+          description: Không có reservation này
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: RENTAL_RESERVATION_NOT_FOUND
+                message: Không tìm thấy yêu cầu giữ chỗ
+                correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+components:
+  parameters:
+    ReservationId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      description: InternalHttpService của template tự chuyển tiếp từ request gốc
+      schema:
+        type: string
+        pattern: '^[\w.:-]{1,128}$'
+  schemas:
+    ReservationStatus:
+      type: string
+      description: Trạng thái theo state machine ở docs/architecture/service-boundaries.md, mục 3
+      enum:
+        - PENDING_DEPOSIT
+        - AWAITING_LANDLORD
+        - ACCEPTED
+        - DISPUTED
+        - COMPLETED
+        - REFUNDED
+        - REJECTED
+        - EXPIRED
+        - CANCELLED
+    ReservationInternal:
+      type: object
+      additionalProperties: false
+      required: [id, listingId, tenantId, landlordId, status, depositAmount, paymentDeadline]
+      properties:
+        id:
+          type: string
+          format: uuid
+        listingId:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+          description: Người thuê; payment so với `sub` trong JWT của người đang trả
+        landlordId:
+          type: string
+          format: uuid
+          description: Chủ nhà; payment lưu làm `payeeId`
+        status:
+          $ref: '#/components/schemas/ReservationStatus'
+        depositAmount:
+          type: integer
+          minimum: 1
+          description: Snapshot số tiền cọc lúc tạo reservation (VND, số nguyên)
+        paymentDeadline:
+          type: string
+          format: date-time
+          description: Hạn trả cọc (ISO 8601 UTC), bằng thời điểm tạo cộng DEPOSIT_PAYMENT_TTL_SECONDS
+    ErrorResponse:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]*$'
+          description: Mã lỗi ổn định, người gọi dựa vào đây để xử lý
+        message:
+          type: string
+        details:
+          description: Dữ liệu bổ sung (lỗi từng trường...)
+        correlationId:
+          type: string
