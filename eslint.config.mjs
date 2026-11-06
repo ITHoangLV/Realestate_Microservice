@@ -17,8 +17,8 @@ export default tseslint.config(
     },
   },
   {
-    // Script Node chạy trực tiếp (không qua NestJS), ví dụ contracts/scripts/check-events.mjs
-    files: ['contracts/scripts/**/*.mjs'],
+    // Script Node chạy trực tiếp (không qua NestJS), ví dụ contracts/scripts/check-events.mjs, scripts/generate-jwt-keys.mjs
+    files: ['contracts/scripts/**/*.mjs', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: { console: 'readonly', process: 'readonly', structuredClone: 'readonly' },
     },

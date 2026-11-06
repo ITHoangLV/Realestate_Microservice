@@ -14,6 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "build": "pnpm -r --if-present build",
+    "keys:generate": "node scripts/generate-jwt-keys.mjs",
     "contracts:check": "node contracts/scripts/check-events.mjs && node contracts/scripts/check-openapi.mjs",
     "infra:up": "docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev up -d",
     "infra:demo": "docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo up -d",
