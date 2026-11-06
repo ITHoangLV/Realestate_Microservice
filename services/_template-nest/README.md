@@ -3,10 +3,12 @@
 Template service NestJS dùng chung cho monorepo `Realestate_Microservice`. Mọi service (api-gateway,
 identity, listing, rental, payment, notification, assistant) **copy từ đây**, nên template đã có sẵn
 các quy ước bắt buộc: log JSON, correlation ID, định dạng lỗi thống nhất, health check, JWT/roles,
-idempotency, HTTP client gọi service khác, Swagger và Dockerfile.
+idempotency, HTTP client gọi service khác, publish/consume event qua RabbitMQ (outbox, inbox, DLQ),
+Swagger và Dockerfile.
 
 - NestJS **11.2.8** (CommonJS), TypeScript strict, Node 22 LTS, pnpm workspace.
-- Chạy được ngay, **không cần DB hay Redis**: `DATABASE_URL`/`REDIS_URL` chỉ bật module tương ứng khi có.
+- Chạy được ngay, **không cần DB, Redis hay RabbitMQ**: `DATABASE_URL`/`REDIS_URL`/`RABBITMQ_URL` chỉ bật
+  module tương ứng khi có.
 - Không có code nghiệp vụ. Thư mục `src/example/` là module **mẫu** để học cách dùng, xóa khi tạo service thật.
 
 ## Chạy thử template
@@ -108,7 +110,7 @@ Mã dùng chung (xem `src/common/errors/error-codes.ts`): `VALIDATION_FAILED` (4
 ```text
 src/
 ├── main.ts                 # bootstrap: nạp env, logger, Swagger, shutdown hooks
-├── app.module.ts           # ghép module; DB/Redis chỉ bật khi có env
+├── app.module.ts           # ghép module; DB/Redis/RabbitMQ chỉ bật khi có env
 ├── app.setup.ts            # prefix, middleware (dùng chung main.ts và test)
 ├── swagger.setup.ts        # Swagger UI /api/docs và dựng OpenAPI
 ├── config/                 # đọc + validate biến môi trường (Joi)
@@ -116,9 +118,11 @@ src/
 ├── health/                 # GET /health (Terminus) + HealthRegistry
 ├── database/               # TypeORM (TÙY CHỌN): module, entity mẫu, migration, data-source CLI
 ├── redis/                  # ioredis (TÙY CHỌN)
+├── messaging/              # RabbitMQ (TÙY CHỌN, cần DB): outbox, relay, consumer + inbox
 ├── example/                # module MẪU: xóa khi tạo service thật
 └── scripts/export-openapi.ts
-test/                       # test e2e + helper (createTestApp, upstream giả)
+test/                       # test e2e + helper (createTestApp, upstream giả, expectEventMatchesContract)
+                            # *.infra-spec.ts: test với hạ tầng thật (pnpm test:infra)
 ```
 
 ### `src/common/` làm gì
@@ -161,6 +165,61 @@ export class DepositController {
 `@Roles` nhận **chuỗi tự do**, template không cố định danh sách vai trò (identity-service sẽ quy định, ví dụ
 `ADMIN`, `LANDLORD`, `TENANT`).
 
+### Messaging: publish và consume event
+
+Bật bằng `RABBITMQ_URL` + `DATABASE_URL`, và chạy migration `CreateMessagingTables` (bảng `outbox_events`,
+`processed_events`). Hợp đồng event nằm ở `contracts/events/` gốc repo.
+
+**Publish**: ghi event vào outbox **trong cùng transaction** với thay đổi dữ liệu. `OutboxRelay` gửi lên
+RabbitMQ sau khi commit, nên không bao giờ có cảnh "DB đã lưu mà event mất" hoặc ngược lại.
+
+```ts
+constructor(private readonly dataSource: DataSource, private readonly outbox: OutboxService) {}
+
+async request(dto: CreateReservationDto) {
+  return this.dataSource.transaction(async (manager) => {
+    const r = await manager.save(Reservation, { ...dto, status: 'PENDING_DEPOSIT' });
+    await this.outbox.add(manager, 'rental.requested', { reservationId: r.id, /* ... */ });
+    return r;
+  });
+}
+```
+
+**Consume**: đặt `RABBITMQ_QUEUE` (ví dụ `rental.payment-events`) rồi đăng ký handler. Consumer tự chống xử
+lý trùng theo `eventId` (bảng `processed_events`, cùng transaction với handler), thử lại khi lỗi, quá số lần
+thì đẩy vào `<queue>.dlq`. Event có trên queue mà không có handler thì bỏ qua.
+
+```ts
+@Injectable()
+export class PaymentEventsHandler implements OnModuleInit {
+  constructor(
+    private readonly events: EventHandlerRegistry,
+    private readonly outbox: OutboxService,
+  ) {}
+
+  onModuleInit() {
+    this.events.on<{ reservationId: string }>('payment.deposited', async (event, manager) => {
+      // Mọi thay đổi dùng `manager` (cùng transaction với inbox). Kiểm tra trạng thái hiện tại trước.
+      const moved = await manager.update(
+        Reservation,
+        { id: event.payload.reservationId, status: 'PENDING_DEPOSIT' },
+        { status: 'AWAITING_LANDLORD' },
+      );
+      if (moved.affected === 0) {
+        // Tiền đến muộn (reservation đã EXPIRED): phát lại rental.expired để payment hoàn tiền
+        await this.outbox.add(manager, 'rental.expired', {/* ... */});
+      }
+    });
+  }
+}
+```
+
+- Biết chắc thử lại vô ích (dữ liệu sai): ném `NonRetryableEventError`, message vào DLQ ngay.
+- Log trong handler tự mang `correlationId` của request gốc; event phát tiếp từ handler cũng giữ nguyên nó.
+- Test payload đúng contract: `expectEventMatchesContract(event)` trong `test/helpers/contracts.ts`.
+- Mẫu đầy đủ (publish, consume, chống trùng, DLQ) chạy với hạ tầng thật: `test/messaging.infra-spec.ts`.
+- Service **không** tự tạo exchange/queue. Thêm queue thì sửa `infra/rabbitmq/definitions.json`.
+
 ## 4. Biến môi trường
 
 Validate khi khởi động (`src/config/env.validation.ts`): thiếu biến bắt buộc hoặc sai định dạng thì service
@@ -178,7 +237,13 @@ Validate khi khởi động (`src/config/env.validation.ts`): thiếu biến b�
 | `IDEMPOTENCY_TTL_SECONDS` | `86400`         | Thời gian lưu kết quả `Idempotency-Key`.                                                                           |
 | `DATABASE_URL`            | tắt             | Bật TypeORM + health `db`. Ví dụ laptop: `postgres://identity_user:change_me_identity@localhost:5433/identity_db`. |
 | `REDIS_URL`               | tắt             | Bật Redis + health `redis`. Ví dụ: `redis://:change_me_redis@localhost:6379`.                                      |
-| `RABBITMQ_URL`            | tắt             | Dành chỗ; template **chưa có** code RabbitMQ. vhost `/` phải viết `%2F`.                                           |
+| `RABBITMQ_URL`            | tắt             | Bật MessagingModule + health `rabbitmq`. **Bắt buộc kèm `DATABASE_URL`**. vhost `/` phải viết `%2F`.               |
+| `RABBITMQ_EXCHANGE`       | `domain.events` | Exchange publish event.                                                                                            |
+| `RABBITMQ_QUEUE`          | tắt             | Queue service đọc (có trong `infra/rabbitmq/definitions.json`). Bỏ trống = chỉ publish.                            |
+| `RABBITMQ_PREFETCH`       | `10`            | Số message xử lý song song tối đa.                                                                                 |
+| `RABBITMQ_MAX_RETRIES`    | `3`             | Số lần thử lại khi handler lỗi, sau đó message vào `<queue>.dlq`.                                                  |
+| `OUTBOX_POLL_INTERVAL_MS` | `1000`          | Chu kỳ quét outbox để publish.                                                                                     |
+| `OUTBOX_BATCH_SIZE`       | `50`            | Số event tối đa mỗi lần quét.                                                                                      |
 | `JWT_PUBLIC_KEY`          | tắt             | Khóa công khai PEM (xuống dòng viết `\n`), RS256. Ưu tiên 1.                                                       |
 | `JWT_PUBLIC_KEY_PATH`     | tắt             | Đường dẫn file khóa công khai, RS256. Ưu tiên 2.                                                                   |
 | `JWT_SECRET`              | tắt             | Bí mật HS256 (≥16 ký tự, **chỉ dev**). Ưu tiên 3.                                                                  |
@@ -193,6 +258,7 @@ pnpm --filter @realestate/template-nest dev              # chạy, tự build l�
 pnpm --filter @realestate/template-nest build            # biên dịch ra dist/
 pnpm --filter @realestate/template-nest test             # unit test (config, correlation ID, idempotency)
 pnpm --filter @realestate/template-nest test:e2e         # test e2e (không cần hạ tầng)
+pnpm --filter @realestate/template-nest test:infra       # test với Postgres + RabbitMQ thật (cần pnpm infra:up)
 pnpm --filter @realestate/template-nest openapi:export   # xuất openapi.json để so với contracts/openapi
 pnpm lint                                                # ở gốc repo
 ```
@@ -257,6 +323,8 @@ identity:
   nên bỏ sót `/health`, `/internal/*` và các request 404.
 - **`/health` có hai đường dẫn**: `/health` (Docker, không qua gateway) và `/api/v1/health` (alias).
 - **ConfigModule bỏ qua file `.env`**: `env.bootstrap.ts` nạp file; test e2e vì vậy không đọc `.env` cục bộ.
+- **`amqp-connection-manager` ghim 5.0.0**: bản 5.0.1 kéo `promise-breaker` 7 (chỉ có ESM) vào bản CommonJS, Jest
+  không nạp được. Nâng cấp khi thư viện sửa lỗi này.
 - **Inject `PinoLogger` trực tiếp** rồi `setContext(...)`; đừng dùng `@InjectPinoLogger` (chỉ chạy nếu class được import
   trước `LoggerModule`).
 - **Giới hạn ẩn log**: các trường nhạy cảm (`authorization`, `cookie`, `password`, `token`, `secret`...) được ẩn ở độ sâu

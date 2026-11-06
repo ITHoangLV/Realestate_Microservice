@@ -16,6 +16,13 @@ export interface EnvVars {
   DATABASE_URL?: string;
   REDIS_URL?: string;
   RABBITMQ_URL?: string;
+  // Messaging (chỉ dùng khi có RABBITMQ_URL)
+  RABBITMQ_EXCHANGE: string;
+  RABBITMQ_QUEUE?: string;
+  RABBITMQ_PREFETCH: number;
+  RABBITMQ_MAX_RETRIES: number;
+  OUTBOX_POLL_INTERVAL_MS: number;
+  OUTBOX_BATCH_SIZE: number;
   JWT_PUBLIC_KEY?: string;
   JWT_PUBLIC_KEY_PATH?: string;
   JWT_SECRET?: string;
@@ -49,15 +56,29 @@ export const envSchema = Joi.object<EnvVars>({
   JWT_PUBLIC_KEY_PATH: optionalString,
   JWT_SECRET: optionalString.min(16),
   JWT_ISSUER: optionalString,
-});
+
+  // --- Messaging (RabbitMQ + outbox/inbox), chỉ có tác dụng khi có RABBITMQ_URL ---
+  RABBITMQ_EXCHANGE: Joi.string().trim().min(1).default('domain.events'),
+  // Queue service này đọc (khai báo trong infra/rabbitmq/definitions.json). Trống = chỉ publish.
+  RABBITMQ_QUEUE: optionalString,
+  RABBITMQ_PREFETCH: Joi.number().integer().min(1).max(500).default(10),
+  RABBITMQ_MAX_RETRIES: Joi.number().integer().min(0).max(10).default(3),
+  OUTBOX_POLL_INTERVAL_MS: Joi.number().integer().min(100).default(1000),
+  OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).max(500).default(50),
+})
+  // Outbox và inbox nằm trong DB của service, nên bật RabbitMQ thì bắt buộc có DB.
+  .with('RABBITMQ_URL', 'DATABASE_URL');
 
 /** Gom lỗi Joi thành thông báo tiếng Việt, liệt kê rõ từng biến sai/thiếu. */
 export function formatEnvErrors(error: Joi.ValidationError): string {
   const lines = error.details.map((d) => {
     const name = d.path.join('.');
-    return d.type === 'any.required'
-      ? `  - ${name}: THIẾU (bắt buộc)`
-      : `  - ${name}: ${d.message.replace(/"[^"]+" /, '')}`;
+    if (d.type === 'any.required') return `  - ${name}: THIẾU (bắt buộc)`;
+    if (d.type === 'object.with') {
+      const peer = String(d.context?.peer ?? '');
+      return `  - ${peer}: THIẾU (bắt buộc khi có ${String(d.context?.main ?? '')})`;
+    }
+    return `  - ${name}: ${d.message.replace(/"[^"]+" /, '')}`;
   });
   return `Cấu hình môi trường không hợp lệ:\n${lines.join('\n')}`;
 }

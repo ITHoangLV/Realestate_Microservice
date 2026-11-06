@@ -12,7 +12,8 @@ if (existsSync('.env')) {
 export default new DataSource({
   type: 'postgres',
   url: process.env.DATABASE_URL,
-  entities: [join(__dirname, 'entities', '*.entity.{ts,js}')],
+  // Entity của mọi module (database/entities, messaging/entities, ...)
+  entities: [join(__dirname, '..', '**', '*.entity.{ts,js}')],
   migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
   uuidExtension: 'pgcrypto',
 });

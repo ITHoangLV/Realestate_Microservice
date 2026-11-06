@@ -49,6 +49,25 @@ describe('validateEnv', () => {
     );
   });
 
+  it('RABBITMQ_URL bắt buộc đi kèm DATABASE_URL (outbox/inbox nằm trong DB)', () => {
+    expect(() => validateEnv({ SERVICE_NAME: 'x', RABBITMQ_URL: 'amqp://u:p@h:5672/%2F' })).toThrow(
+      /DATABASE_URL: THIẾU \(bắt buộc khi có RABBITMQ_URL\)/,
+    );
+    const env = validateEnv({
+      SERVICE_NAME: 'x',
+      RABBITMQ_URL: 'amqp://u:p@h:5672/%2F',
+      DATABASE_URL: 'postgres://u:p@h:5433/db',
+    });
+    expect(env).toMatchObject({
+      RABBITMQ_EXCHANGE: 'domain.events',
+      RABBITMQ_PREFETCH: 10,
+      RABBITMQ_MAX_RETRIES: 3,
+      OUTBOX_POLL_INTERVAL_MS: 1000,
+      OUTBOX_BATCH_SIZE: 50,
+    });
+    expect(env.RABBITMQ_QUEUE).toBeUndefined();
+  });
+
   it('JWT_SECRET phải đủ dài (>= 16 ký tự)', () => {
     expect(() => validateEnv({ SERVICE_NAME: 'x', JWT_SECRET: 'ngan' })).toThrow(/JWT_SECRET/);
     expect(
