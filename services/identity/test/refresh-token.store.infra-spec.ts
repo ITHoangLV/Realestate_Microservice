@@ -1,6 +1,9 @@
 import Redis from 'ioredis';
 import { randomUUID } from 'node:crypto';
-import { hashToken, RedisRefreshTokenStore } from '../src/identity/redis-refresh-token.store';
+import {
+  hashToken,
+  RedisRefreshTokenStore,
+} from '../src/identity/stores/redis-refresh-token.store';
 import { readRootEnv } from './helpers/infra';
 
 /**

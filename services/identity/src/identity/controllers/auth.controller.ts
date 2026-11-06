@@ -9,15 +9,15 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CurrentUser } from '../common/auth/current-user.decorator';
-import { Public } from '../common/auth/public.decorator';
-import { ErrorResponseDto } from '../common/errors/error-response.dto';
-import { AuthService } from './auth.service';
-import { AuthTokensDto } from './dto/auth-tokens.dto';
-import { LoginDto } from './dto/login.dto';
-import { RefreshTokenDto } from './dto/refresh.dto';
-import { RegisterDto } from './dto/register.dto';
-import { UserDto } from './dto/user.dto';
+import { CurrentUser } from '../../common/auth/current-user.decorator';
+import { Public } from '../../common/auth/public.decorator';
+import { ErrorResponseDto } from '../../common/errors/error-response.dto';
+import { AuthService } from '../services/auth.service';
+import { AuthTokensDto } from '../dto/auth-tokens.dto';
+import { LoginDto } from '../dto/login.dto';
+import { RefreshTokenDto } from '../dto/refresh.dto';
+import { RegisterDto } from '../dto/register.dto';
+import { UserDto } from '../dto/user.dto';
 
 /**
  * API xác thực công khai: /api/v1/auth/*. Controller chỉ nhận request và gọi AuthService.

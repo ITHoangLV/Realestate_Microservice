@@ -4,8 +4,8 @@ import { JwtService } from '@nestjs/jwt';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { EnvVars } from '../config/env.validation';
-import type { UserRole } from './entities/user.entity';
+import { EnvVars } from '../../config/env.validation';
+import type { UserRole } from '../entities/user.entity';
 
 export interface AccessToken {
   accessToken: string;

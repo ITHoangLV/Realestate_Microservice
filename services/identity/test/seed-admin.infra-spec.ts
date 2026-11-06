@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { DataSource } from 'typeorm';
-import { PasswordService } from '../src/identity/password.service';
-import { seedAdmin, SeedAdminError } from '../src/identity/seed-admin';
+import { PasswordService } from '../src/identity/services/password.service';
+import { seedAdmin, SeedAdminError } from '../src/identity/seed/seed-admin';
 import { expectEventMatchesContract } from './helpers/contracts';
 import { INFRA_TEST_SCHEMA } from './helpers/infra';
 

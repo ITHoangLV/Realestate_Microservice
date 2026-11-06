@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { existsSync } from 'node:fs';
 import { DataSource } from 'typeorm';
-import { seedAdmin, SeedAdminError } from '../identity/seed-admin';
+import { seedAdmin, SeedAdminError } from '../identity/seed/seed-admin';
 
 /**
  * `pnpm seed:admin`: tạo tài khoản ADMIN đầu tiên. Đọc cấu hình từ biến môi trường (lúc chạy,

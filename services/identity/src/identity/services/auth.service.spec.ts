@@ -1,8 +1,8 @@
 import { QueryFailedError } from 'typeorm';
 import { AuthService } from './auth.service';
-import { IdentityError } from './identity.errors';
-import type { RefreshTokenStore, RotateResult } from './refresh-token.store';
-import type { User } from './entities/user.entity';
+import { IdentityError } from '../errors/identity.errors';
+import type { RefreshTokenStore, RotateResult } from '../stores/refresh-token.store';
+import type { User } from '../entities/user.entity';
 
 /**
  * Store giả trong bộ nhớ, mô phỏng đúng quy tắc của Redis store:

@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
-import { buildDomainEvent } from '../messaging/domain-event';
-import { PasswordService } from './password.service';
+import { buildDomainEvent } from '../../messaging/domain-event';
+import { PasswordService } from '../services/password.service';
 
 export interface SeedAdminInput {
   email: string;

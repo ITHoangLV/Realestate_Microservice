@@ -17,6 +17,26 @@ check và outbox (đọc README của template cho các phần đó).
 Tài khoản `ADMIN` **không** đăng ký qua API; tạo bằng script seed (bên dưới).
 Swagger: `http://localhost:3001/api/docs`.
 
+## Cấu trúc thư mục
+
+Code nghiệp vụ nằm trong `src/identity/`, chia theo vai trò của file:
+
+```text
+src/identity/
+  identity.module.ts           ghép các phần bên dưới thành module
+  controllers/                 nhận request HTTP, gọi service (auth.controller.ts)
+  services/                    logic: auth.service (luồng), password.service (argon2id), token.service (JWT)
+  stores/                      lưu refresh token: interface + cài đặt Redis (Lua)
+  dto/                         dữ liệu vào/ra của API, có validate
+  entities/                    bảng DB: users, user_identities
+  errors/                      mã lỗi nghiệp vụ IDENTITY_*
+  config/                      kiểm tra biến môi trường bắt buộc của identity
+  seed/                        tạo tài khoản ADMIN
+```
+
+File test `*.spec.ts` nằm cạnh file được test. Phần dùng chung của template giữ nguyên:
+`src/common/` (auth, lỗi, log), `src/messaging/` (outbox, inbox), `src/database/` (migration), `src/health/`.
+
 ## Thiết kế
 
 ### Hai loại token

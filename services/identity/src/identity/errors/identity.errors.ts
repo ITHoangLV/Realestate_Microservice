@@ -1,4 +1,4 @@
-import { AppException } from '../common/errors/app.exception';
+import { AppException } from '../../common/errors/app.exception';
 
 /** Mã lỗi nghiệp vụ của identity-service. Ổn định: client dựa vào mã này, KHÔNG đổi tên. */
 export const IdentityError = {

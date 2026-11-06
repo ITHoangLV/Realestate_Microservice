@@ -4,7 +4,7 @@
 // Lý do tách riêng: AppModule quyết định bật module DB/Redis dựa trên process.env ngay lúc import,
 // nên env phải đầy đủ và hợp lệ TRƯỚC khi AppModule được nạp.
 import { existsSync } from 'node:fs';
-import { checkIdentityEnv } from '../identity/identity.env';
+import { checkIdentityEnv } from '../identity/config/identity.env';
 import { envSchema, formatEnvErrors } from './env.validation';
 
 if (existsSync('.env')) {
