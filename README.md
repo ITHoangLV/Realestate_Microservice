@@ -28,15 +28,15 @@ docs/
 
 ## Service và cổng
 
-| Service      | Cổng | Ghi chú                 |
-| ------------ | ---- | ----------------------- |
-| api-gateway  | 8080 |                         |
-| identity     | 3001 |                         |
-| listing      | 3002 | gồm cả tính khoảng cách |
-| rental       | 3003 |                         |
-| payment      | 3004 |                         |
-| notification | 3005 |                         |
-| assistant    | 3006 | nếu còn thời gian       |
+| Service      | Cổng | Ghi chú                                          |
+| ------------ | ---- | ------------------------------------------------ |
+| api-gateway  | 8080 |                                                  |
+| identity     | 3001 | JWT RS256, [README](services/identity/README.md) |
+| listing      | 3002 | gồm cả tính khoảng cách                          |
+| rental       | 3003 |                                                  |
+| payment      | 3004 |                                                  |
+| notification | 3005 |                                                  |
+| assistant    | 3006 | nếu còn thời gian                                |
 
 `mobility` đã gộp vào listing, `maintenance` đã bỏ (xem
 [ranh giới service](docs/architecture/service-boundaries.md)).
@@ -63,6 +63,7 @@ pnpm lint
 pnpm format:check
 pnpm contracts:check   # schema event và spec OpenAPI hợp lệ, khớp topology RabbitMQ
 pnpm build
+pnpm keys:generate     # một lần: tạo secrets/jwt-private.pem và jwt-public.pem (khóa ký JWT, không commit)
 ```
 
 ## Chạy hệ thống
