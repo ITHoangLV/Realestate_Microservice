@@ -162,7 +162,8 @@ pnpm infra:up
 
 Dev dùng Silo (tương thích S3, xem `docs/adr/ADR-007-object-storage.md`). Bucket không được tạo
 bằng `mc`/`mcli`: mỗi service tự đảm bảo bucket của mình tồn tại khi khởi động bằng AWS SDK
-(`CreateBucket` chạy lại không lỗi). Việc này làm ở GĐ2 (template) và GĐ6 trở đi.
+(`CreateBucket` chạy lại không lỗi). Template đã có sẵn `StorageModule` làm việc này (biến
+`S3_ENDPOINT`, `S3_BUCKETS`, xem README của template).
 
 ## Quy ước nhánh và commit
 

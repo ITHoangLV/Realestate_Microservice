@@ -68,6 +68,26 @@ describe('validateEnv', () => {
     expect(env.RABBITMQ_QUEUE).toBeUndefined();
   });
 
+  it('S3_ENDPOINT bắt buộc kèm khóa; S3_BUCKETS tách thành mảng và kiểm tra tên', () => {
+    expect(() => validateEnv({ SERVICE_NAME: 'x', S3_ENDPOINT: 'http://localhost:9000' })).toThrow(
+      /S3_ACCESS_KEY: THIẾU \(bắt buộc khi có S3_ENDPOINT\)/,
+    );
+    const base = {
+      SERVICE_NAME: 'x',
+      S3_ENDPOINT: 'http://localhost:9000',
+      S3_ACCESS_KEY: 'k',
+      S3_SECRET_KEY: 's',
+    };
+    expect(validateEnv({ ...base, S3_BUCKETS: ' listing-images, bank-qr ' })).toMatchObject({
+      S3_BUCKETS: ['listing-images', 'bank-qr'],
+      S3_REGION: 'us-east-1',
+      S3_FORCE_PATH_STYLE: true,
+      S3_PRESIGN_TTL_SECONDS: 900,
+    });
+    expect(validateEnv(base).S3_BUCKETS).toEqual([]);
+    expect(() => validateEnv({ ...base, S3_BUCKETS: 'Anh_Phong' })).toThrow(/'Anh_Phong'/);
+  });
+
   it('JWT_SECRET phải đủ dài (>= 16 ký tự)', () => {
     expect(() => validateEnv({ SERVICE_NAME: 'x', JWT_SECRET: 'ngan' })).toThrow(/JWT_SECRET/);
     expect(

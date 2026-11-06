@@ -8,12 +8,18 @@ import { ShutdownLoggerService } from './common/lifecycle/shutdown-logger.servic
 import { InternalHttpModule } from './common/http/internal-http.module';
 import { AppLoggerModule } from './common/logging/logger.module';
 import { AppConfigModule } from './config/config.module';
-import { isDatabaseEnabled, isMessagingEnabled, isRedisEnabled } from './config/feature-flags';
+import {
+  isDatabaseEnabled,
+  isMessagingEnabled,
+  isRedisEnabled,
+  isStorageEnabled,
+} from './config/feature-flags';
 import { DatabaseModule } from './database/database.module';
 import { ExampleModule } from './example/example.module';
 import { HealthModule } from './health/health.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { RedisModule } from './redis/redis.module';
+import { StorageModule } from './storage/storage.module';
 
 /**
  * Module gốc.
@@ -22,7 +28,8 @@ import { RedisModule } from './redis/redis.module';
  *   DATABASE_URL -> DatabaseModule (TypeORM + PostgreSQL)
  *   REDIS_URL    -> RedisModule (ioredis)
  *   RABBITMQ_URL -> MessagingModule (outbox, inbox, consumer; bắt buộc kèm DATABASE_URL)
- * Health check (/health) tự thêm `db`/`redis`/`rabbitmq` vào `checks` khi module tương ứng được bật.
+ *   S3_ENDPOINT  -> StorageModule (S3: tự tạo bucket, presigned URL)
+ * Health check (/health) tự thêm `db`/`redis`/`rabbitmq`/`s3` vào `checks` khi module tương ứng được bật.
  *
  * Filter và pipe đăng ký qua APP_FILTER/APP_PIPE (không dùng app.useGlobalX trong main.ts)
  * để test e2e tạo app từ AppModule cũng chạy đúng cùng hành vi.
@@ -39,6 +46,7 @@ import { RedisModule } from './redis/redis.module';
     ...(isDatabaseEnabled() ? [DatabaseModule] : []),
     ...(isRedisEnabled() ? [RedisModule] : []),
     ...(isMessagingEnabled() ? [MessagingModule] : []),
+    ...(isStorageEnabled() ? [StorageModule] : []),
   ],
   providers: [
     ShutdownLoggerService,

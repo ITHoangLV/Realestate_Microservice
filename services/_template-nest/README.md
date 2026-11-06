@@ -4,11 +4,11 @@ Template service NestJS dùng chung cho monorepo `Realestate_Microservice`. Mọ
 identity, listing, rental, payment, notification, assistant) **copy từ đây**, nên template đã có sẵn
 các quy ước bắt buộc: log JSON, correlation ID, định dạng lỗi thống nhất, health check, JWT/roles,
 idempotency, HTTP client gọi service khác, publish/consume event qua RabbitMQ (outbox, inbox, DLQ),
-Swagger và Dockerfile.
+object storage S3 (tự tạo bucket, presigned URL), Swagger và Dockerfile.
 
 - NestJS **11.2.8** (CommonJS), TypeScript strict, Node 22 LTS, pnpm workspace.
-- Chạy được ngay, **không cần DB, Redis hay RabbitMQ**: `DATABASE_URL`/`REDIS_URL`/`RABBITMQ_URL` chỉ bật
-  module tương ứng khi có.
+- Chạy được ngay, **không cần DB, Redis, RabbitMQ hay S3**: `DATABASE_URL`/`REDIS_URL`/`RABBITMQ_URL`/
+  `S3_ENDPOINT` chỉ bật module tương ứng khi có.
 - Không có code nghiệp vụ. Thư mục `src/example/` là module **mẫu** để học cách dùng, xóa khi tạo service thật.
 
 ## Chạy thử template
@@ -110,7 +110,7 @@ Mã dùng chung (xem `src/common/errors/error-codes.ts`): `VALIDATION_FAILED` (4
 ```text
 src/
 ├── main.ts                 # bootstrap: nạp env, logger, Swagger, shutdown hooks
-├── app.module.ts           # ghép module; DB/Redis/RabbitMQ chỉ bật khi có env
+├── app.module.ts           # ghép module; DB/Redis/RabbitMQ/S3 chỉ bật khi có env
 ├── app.setup.ts            # prefix, middleware (dùng chung main.ts và test)
 ├── swagger.setup.ts        # Swagger UI /api/docs và dựng OpenAPI
 ├── config/                 # đọc + validate biến môi trường (Joi)
@@ -119,6 +119,7 @@ src/
 ├── database/               # TypeORM (TÙY CHỌN): module, entity mẫu, migration, data-source CLI
 ├── redis/                  # ioredis (TÙY CHỌN)
 ├── messaging/              # RabbitMQ (TÙY CHỌN, cần DB): outbox, relay, consumer + inbox
+├── storage/                # S3 (TÙY CHỌN): StorageService, tự tạo bucket, presigned URL
 ├── example/                # module MẪU: xóa khi tạo service thật
 └── scripts/export-openapi.ts
 test/                       # test e2e + helper (createTestApp, upstream giả, expectEventMatchesContract)
@@ -220,6 +221,27 @@ export class PaymentEventsHandler implements OnModuleInit {
 - Mẫu đầy đủ (publish, consume, chống trùng, DLQ) chạy với hạ tầng thật: `test/messaging.infra-spec.ts`.
 - Service **không** tự tạo exchange/queue. Thêm queue thì sửa `infra/rabbitmq/definitions.json`.
 
+### Object storage (S3)
+
+Bật bằng `S3_ENDPOINT` + `S3_ACCESS_KEY` + `S3_SECRET_KEY`. Bucket trong `S3_BUCKETS` được tạo lúc khởi động
+(chạy lại không lỗi, S3 chưa sẵn sàng thì thử lại nền), theo `docs/adr/ADR-007-object-storage.md`.
+
+Upload ảnh từ trình duyệt nên đi thẳng lên S3, không qua service:
+
+```ts
+// 1. Client xin URL upload; service quyết định key (không để client tự đặt key)
+const key = `listings/${listingId}/${randomUUID()}.jpg`;
+const uploadUrl = await this.storage.presignPut('listing-images', key, 'image/jpeg');
+// 2. Client: PUT uploadUrl với header Content-Type: image/jpeg (sai loại file thì S3 trả 403)
+// 3. Client báo xong; service lưu `key` vào DB. Lúc hiển thị:
+const viewUrl = await this.storage.presignGet('listing-images', key);
+```
+
+- Content-Type được ký vào URL, nên client không đổi được loại file. Kích thước file thì presigned PUT
+  **không** giới hạn được: kiểm tra bằng HeadObject trước khi chấp nhận key.
+- Lưu **key** trong DB, không lưu URL (URL hết hạn sau `S3_PRESIGN_TTL_SECONDS`).
+- File nhỏ do service tự tạo (ví dụ ảnh QR): `storage.putObject(bucket, key, buffer, contentType)`.
+
 ## 4. Biến môi trường
 
 Validate khi khởi động (`src/config/env.validation.ts`): thiếu biến bắt buộc hoặc sai định dạng thì service
@@ -244,6 +266,12 @@ Validate khi khởi động (`src/config/env.validation.ts`): thiếu biến b�
 | `RABBITMQ_MAX_RETRIES`    | `3`             | Số lần thử lại khi handler lỗi, sau đó message vào `<queue>.dlq`.                                                  |
 | `OUTBOX_POLL_INTERVAL_MS` | `1000`          | Chu kỳ quét outbox để publish.                                                                                     |
 | `OUTBOX_BATCH_SIZE`       | `50`            | Số event tối đa mỗi lần quét.                                                                                      |
+| `S3_ENDPOINT`             | tắt             | Bật StorageModule + health `s3`. Bắt buộc kèm `S3_ACCESS_KEY`, `S3_SECRET_KEY`. Laptop: `http://localhost:9000`.   |
+| `S3_PUBLIC_ENDPOINT`      | = `S3_ENDPOINT` | Host ghi vào presigned URL. Service chạy trong Docker (`http://s3:9000`) thì đặt `http://localhost:9000`.          |
+| `S3_BUCKETS`              | trống           | Bucket tự tạo lúc khởi động, cách nhau dấu phẩy, ví dụ `listing-images`.                                           |
+| `S3_REGION`               | `us-east-1`     | Region giả lập cho AWS SDK.                                                                                        |
+| `S3_FORCE_PATH_STYLE`     | `true`          | Bắt buộc `true` với S3 tự dựng (Silo).                                                                             |
+| `S3_PRESIGN_TTL_SECONDS`  | `900`           | Thời hạn presigned URL.                                                                                            |
 | `JWT_PUBLIC_KEY`          | tắt             | Khóa công khai PEM (xuống dòng viết `\n`), RS256. Ưu tiên 1.                                                       |
 | `JWT_PUBLIC_KEY_PATH`     | tắt             | Đường dẫn file khóa công khai, RS256. Ưu tiên 2.                                                                   |
 | `JWT_SECRET`              | tắt             | Bí mật HS256 (≥16 ký tự, **chỉ dev**). Ưu tiên 3.                                                                  |
@@ -258,7 +286,7 @@ pnpm --filter @realestate/template-nest dev              # chạy, tự build l�
 pnpm --filter @realestate/template-nest build            # biên dịch ra dist/
 pnpm --filter @realestate/template-nest test             # unit test (config, correlation ID, idempotency)
 pnpm --filter @realestate/template-nest test:e2e         # test e2e (không cần hạ tầng)
-pnpm --filter @realestate/template-nest test:infra       # test với Postgres + RabbitMQ thật (cần pnpm infra:up)
+pnpm --filter @realestate/template-nest test:infra       # test với Postgres + RabbitMQ + S3 thật (cần pnpm infra:up)
 pnpm --filter @realestate/template-nest openapi:export   # xuất openapi.json để so với contracts/openapi
 pnpm lint                                                # ở gốc repo
 ```

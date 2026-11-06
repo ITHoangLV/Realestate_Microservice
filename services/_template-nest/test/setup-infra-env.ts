@@ -3,17 +3,10 @@
 //
 // Đọc mật khẩu từ .env GỐC repo (không hard-code). Test dùng identity_db nhưng trong schema riêng
 // INFRA_TEST_SCHEMA (search_path), tạo mới đầu test và xóa ở cuối, không đụng bảng của identity.
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { parseEnv } from 'node:util';
-import { INFRA_TEST_SCHEMA } from './helpers/infra';
+import { INFRA_TEST_SCHEMA, readRootEnv } from './helpers/infra';
 
-const rootEnv = resolve(__dirname, '..', '..', '..', '.env');
-if (!existsSync(rootEnv)) {
-  throw new Error(`Không thấy ${rootEnv}. Ở thư mục gốc repo chạy: Copy-Item .env.example .env`);
-}
 // Chỉ ĐỌC .env gốc, không nạp vào process.env (tránh biến lạ lọt vào service đang test)
-const root = parseEnv(readFileSync(rootEnv, 'utf8'));
+const root = readRootEnv();
 const need = (name: string): string => {
   const v = root[name];
   if (!v) throw new Error(`Thiếu ${name} trong .env gốc`);
@@ -37,8 +30,15 @@ Object.assign(process.env, {
   DATABASE_URL: databaseUrl,
   RABBITMQ_URL: rabbitUrl,
 });
+// S3 do storage.infra-spec.ts tự bật (để test messaging không có thêm check 's3')
 for (const name of [
   'REDIS_URL',
+  'RABBITMQ_QUEUE',
+  'S3_ENDPOINT',
+  'S3_PUBLIC_ENDPOINT',
+  'S3_ACCESS_KEY',
+  'S3_SECRET_KEY',
+  'S3_BUCKETS',
   'JWT_PUBLIC_KEY',
   'JWT_PUBLIC_KEY_PATH',
   'JWT_SECRET',
