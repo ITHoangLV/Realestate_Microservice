@@ -102,20 +102,22 @@ Nếu listing chết, người thuê không gửi được yêu cầu mới (tr�
 ## 5. Event (RabbitMQ, exchange `domain.events`)
 
 Routing key `<miền>.<sự kiện>`. Mọi event có `eventId` (UUID, để consumer chống xử lý trùng),
-`occurredAt` (ISO UTC), `correlationId`. Schema chi tiết đặt ở `contracts/events/` (chủ đề Giao tiếp).
+`occurredAt` (ISO UTC), `correlationId`. Schema đầy đủ (nguồn sự thật về payload) ở
+[`contracts/events/`](../../contracts/events/README.md). Mọi event của rental mang đủ `tenantId` và
+`landlordId` để notification không phải gọi lại rental.
 
-| Event                 | Phát bởi | Payload chính                                                                              | Ai nghe → làm gì                                                                       |
-| --------------------- | -------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `identity.registered` | identity | `userId`, `email`, `fullName`, `role`                                                      | notification → email chào mừng                                                         |
-| `rental.requested`    | rental   | `reservationId`, `listingId`, `tenantId`, `landlordId`, `depositAmount`, `paymentDeadline` | listing → `isAvailable = false`; notification → nhắc người thuê thanh toán             |
-| `payment.deposited`   | payment  | `reservationId`, `paymentId`, `amount`                                                     | rental → `AWAITING_LANDLORD`; notification → báo chủ nhà có yêu cầu                    |
-| `rental.accepted`     | rental   | `reservationId`, `tenantId`, `landlordId`, `claimDeadline`                                 | notification → báo người thuê                                                          |
-| `rental.rejected`     | rental   | `reservationId`, `listingId`, `tenantId`, `reason`                                         | payment → hoàn cọc; listing → `isAvailable = true`; notification                       |
-| `rental.expired`      | rental   | `reservationId`, `listingId`, `tenantId`, `stage`                                          | payment → hoàn cọc **nếu đang giữ tiền**; listing → `isAvailable = true`; notification |
-| `rental.cancelled`    | rental   | `reservationId`, `listingId`, `tenantId`                                                   | như `rental.expired`                                                                   |
-| `rental.completed`    | rental   | `reservationId`, `listingId`, `landlordId`                                                 | payment → giải ngân cho chủ nhà; listing → đánh dấu đã cho thuê; notification          |
-| `payment.refunded`    | payment  | `reservationId`, `paymentId`, `amount`, `payerId`                                          | notification                                                                           |
-| `payment.released`    | payment  | `reservationId`, `paymentId`, `amount`, `payeeId`                                          | notification                                                                           |
+| Event                 | Phát bởi | Payload chính                                                                                              | Ai nghe → làm gì                                                                       |
+| --------------------- | -------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `identity.registered` | identity | `userId`, `email`, `fullName`, `role`                                                                      | notification → email chào mừng                                                         |
+| `rental.requested`    | rental   | `reservationId`, `listingId`, `tenantId`, `landlordId`, `listingTitle`, `depositAmount`, `paymentDeadline` | listing → `isAvailable = false`; notification → nhắc người thuê thanh toán             |
+| `payment.deposited`   | payment  | `reservationId`, `paymentId`, `amount`, `payerId`, `payeeId`                                               | rental → `AWAITING_LANDLORD`; notification → báo chủ nhà có yêu cầu                    |
+| `rental.accepted`     | rental   | `reservationId`, `listingId`, `tenantId`, `landlordId`, `claimDeadline`                                    | notification → báo người thuê                                                          |
+| `rental.rejected`     | rental   | `reservationId`, `listingId`, `tenantId`, `landlordId`, `reason`                                           | payment → hoàn cọc; listing → `isAvailable = true`; notification                       |
+| `rental.expired`      | rental   | `reservationId`, `listingId`, `tenantId`, `landlordId`, `stage`                                            | payment → hoàn cọc **nếu đang giữ tiền**; listing → `isAvailable = true`; notification |
+| `rental.cancelled`    | rental   | `reservationId`, `listingId`, `tenantId`, `landlordId`, `stage`                                            | như `rental.expired`                                                                   |
+| `rental.completed`    | rental   | `reservationId`, `listingId`, `tenantId`, `landlordId`                                                     | payment → giải ngân cho chủ nhà; listing → đánh dấu đã cho thuê; notification          |
+| `payment.refunded`    | payment  | `reservationId`, `paymentId`, `amount`, `payerId`                                                          | notification                                                                           |
+| `payment.released`    | payment  | `reservationId`, `paymentId`, `amount`, `payeeId`                                                          | notification                                                                           |
 
 Queue và binding nằm ở `infra/rabbitmq/definitions.json`: `rental.payment-events`, `payment.rental-events`,
 `listing.rental-events`, `notification.events`, `listing.indexer` (bảng chi tiết ở README gốc, mục RabbitMQ).

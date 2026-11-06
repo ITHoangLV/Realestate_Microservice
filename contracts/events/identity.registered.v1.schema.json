@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/identity.registered.v1.schema.json",
+  "title": "identity.registered",
+  "x-producer": "identity",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "eventType": { "const": "identity.registered" },
+    "version": { "const": 1 },
+    "producer": { "const": "identity" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["userId", "email", "fullName", "role"],
+      "properties": {
+        "userId": { "type": "string", "format": "uuid", "description": "User mới" },
+        "email": { "type": "string", "format": "email" },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "role": { "enum": ["TENANT", "LANDLORD", "ADMIN"] }
+      }
+    }
+  }
+}

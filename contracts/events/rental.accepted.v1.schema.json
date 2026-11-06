@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/rental.accepted.v1.schema.json",
+  "title": "rental.accepted",
+  "x-producer": "rental",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "eventType": { "const": "rental.accepted" },
+    "version": { "const": 1 },
+    "producer": { "const": "rental" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reservationId", "listingId", "tenantId", "landlordId", "claimDeadline"],
+      "properties": {
+        "reservationId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Reservation (rental sở hữu)"
+        },
+        "listingId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Tin đăng (listing sở hữu)"
+        },
+        "tenantId": { "type": "string", "format": "uuid", "description": "Người thuê (identity)" },
+        "landlordId": { "type": "string", "format": "uuid", "description": "Chủ nhà (identity)" },
+        "claimDeadline": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Hết hạn khiếu nại thì giải ngân (ISO 8601 UTC)"
+        }
+      }
+    }
+  }
+}

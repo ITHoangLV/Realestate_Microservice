@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/rental.requested.v1.schema.json",
+  "title": "rental.requested",
+  "x-producer": "rental",
+  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "properties": {
+    "eventType": { "const": "rental.requested" },
+    "version": { "const": 1 },
+    "producer": { "const": "rental" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reservationId",
+        "listingId",
+        "tenantId",
+        "landlordId",
+        "listingTitle",
+        "depositAmount",
+        "paymentDeadline"
+      ],
+      "properties": {
+        "reservationId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Reservation (rental sở hữu)"
+        },
+        "listingId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Tin đăng (listing sở hữu)"
+        },
+        "tenantId": { "type": "string", "format": "uuid", "description": "Người thuê (identity)" },
+        "landlordId": { "type": "string", "format": "uuid", "description": "Chủ nhà (identity)" },
+        "listingTitle": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Snapshot tiêu đề phòng"
+        },
+        "depositAmount": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Số tiền cọc phải trả (VND, số nguyên)"
+        },
+        "paymentDeadline": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Hạn trả cọc, quá hạn thì EXPIRED (ISO 8601 UTC)"
+        }
+      }
+    }
+  }
+}
