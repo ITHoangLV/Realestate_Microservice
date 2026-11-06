@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Khởi tạo 4 database + 4 user riêng cho Postgres (chạy bởi docker-entrypoint-initdb.d).
+# Khởi tạo 5 database + 5 user riêng cho Postgres (chạy bởi docker-entrypoint-initdb.d).
 #
 # - CHỈ chạy ở lần đầu, khi thư mục dữ liệu còn trống. Muốn chạy lại phải xóa volume:
 #     pnpm infra:down ; docker volume rm realestate_postgres_data
@@ -14,7 +14,7 @@ set -Eeuo pipefail
 
 # Dừng sớm, báo rõ nếu thiếu biến.
 : "${POSTGRES_USER:?thiếu POSTGRES_USER}"
-for v in IDENTITY LISTING RENTAL PAYMENT; do
+for v in IDENTITY LISTING RENTAL PAYMENT NOTIFICATION; do
   for suffix in DB_NAME DB_USER DB_PASSWORD; do
     name="${v}_${suffix}"
     if [ -z "${!name:-}" ]; then
@@ -42,6 +42,7 @@ create_db "$IDENTITY_DB_NAME" "$IDENTITY_DB_USER" "$IDENTITY_DB_PASSWORD"
 create_db "$LISTING_DB_NAME"  "$LISTING_DB_USER"  "$LISTING_DB_PASSWORD"
 create_db "$RENTAL_DB_NAME"   "$RENTAL_DB_USER"   "$RENTAL_DB_PASSWORD"
 create_db "$PAYMENT_DB_NAME"  "$PAYMENT_DB_USER"  "$PAYMENT_DB_PASSWORD"
+create_db "$NOTIFICATION_DB_NAME" "$NOTIFICATION_DB_USER" "$NOTIFICATION_DB_PASSWORD"
 
 # Chặn user ứng dụng vào DB hệ thống (mặc định PUBLIC được CONNECT vào postgres/template1).
 echo ">> Thu hồi CONNECT của PUBLIC trên postgres và template1"
