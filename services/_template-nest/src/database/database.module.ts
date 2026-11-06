@@ -4,7 +4,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { join } from 'node:path';
 import { EnvVars } from '../config/env.validation';
 import { DatabaseHealthRegistrar } from './database.health';
-import { ExampleItem } from './entities/example-item.entity';
 
 /**
  * TÙY CHỌN: chỉ được nạp khi có DATABASE_URL (xem app.module.ts + config/feature-flags.ts).
@@ -12,7 +11,9 @@ import { ExampleItem } from './entities/example-item.entity';
  *
  * - synchronize=false: schema chỉ đổi qua migration (`pnpm migration:generate|run|revert`).
  * - Đóng kết nối khi SIGTERM do TypeOrmModule tự xử lý (enableShutdownHooks trong main.ts).
- * - Module nghiệp vụ dùng DB: `TypeOrmModule.forFeature([Entity])`, entity được tự nạp (autoLoadEntities).
+ * - Module nghiệp vụ dùng DB tự đăng ký entity của mình: `TypeOrmModule.forFeature([Entity])`
+ *   (entity được tự nạp nhờ autoLoadEntities). Module này KHÔNG import entity nào, nên xóa
+ *   entity/migration mẫu trong thư mục database/ không làm vỡ build.
  */
 @Module({
   imports: [
@@ -33,7 +34,6 @@ import { ExampleItem } from './entities/example-item.entity';
         extra: { max: 10, connectionTimeoutMillis: 3000 },
       }),
     }),
-    TypeOrmModule.forFeature([ExampleItem]),
   ],
   providers: [DatabaseHealthRegistrar],
 })

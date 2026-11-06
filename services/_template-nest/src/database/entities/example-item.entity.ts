@@ -2,8 +2,10 @@ import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeor
 import { bigintToNumber } from '../transformers';
 
 /**
- * Entity MẪU để minh họa quy ước (xóa khi copy template sang service thật):
+ * Entity MẪU để minh họa quy ước (xóa cùng migration mẫu khi copy template sang service thật;
+ * không file nào khác tham chiếu tới nó):
  * - id UUID; tiền là bigint VND; thời gian là timestamptz (lưu UTC, ISO-8601 khi ra JSON).
+ * - Để dùng: `TypeOrmModule.forFeature([ExampleItem])` trong module của bạn.
  */
 @Entity({ name: 'example_item' })
 export class ExampleItem {

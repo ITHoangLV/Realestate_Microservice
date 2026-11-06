@@ -117,6 +117,19 @@ describe('Định dạng lỗi thống nhất', () => {
     expect(res.body.correlationId).toBeDefined();
   });
 
+  it('Body quá lớn -> 413 PAYLOAD_TOO_LARGE đúng format', async () => {
+    const res = await t
+      .http()
+      .post('/api/v1/test-errors/validate')
+      .send({ name: 'x'.repeat(200_000), priceVnd: 1 });
+    expect(res.status).toBe(413);
+    expect(res.body).toEqual({
+      code: 'PAYLOAD_TOO_LARGE',
+      message: expect.any(String),
+      correlationId: expect.any(String),
+    });
+  });
+
   it('Lỗi không lường trước -> 500, KHÔNG lộ message/stack, nhưng có log phía server', async () => {
     const res = await t.http().get('/api/v1/test-errors/boom').set('X-Request-ID', 'boom-1');
     expect(res.status).toBe(500);

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
+import { stdSerializers } from 'pino';
 import type { DestinationStream } from 'pino';
 import type { Options } from 'pino-http';
 import { EnvVars } from '../../config/env.validation';
@@ -18,28 +19,44 @@ export const LOG_STREAM = Symbol('LOG_STREAM');
 })
 class LogStreamModule {}
 
-// Không bao giờ in các trường nhạy cảm, dù ai đó vô tình log cả request/body.
-const REDACT_PATHS = [
-  'req.headers.authorization',
-  'req.headers.cookie',
-  'res.headers["set-cookie"]',
-  // Trường ở gốc object log...
+// Không bao giờ in các trường nhạy cảm, dù ai đó vô tình log cả request/body/headers.
+// pino chỉ hỗ trợ ký tự đại diện MỘT cấp, nên liệt kê tường minh độ sâu 0 đến 3
+// (password, a.password, a.b.password, a.b.b.password). Lồng sâu hơn thì KHÔNG được ẩn:
+// đừng log nguyên object lớn, chỉ log các trường cần thiết.
+const SENSITIVE_KEYS = [
   'authorization',
+  'Authorization',
   'cookie',
+  'Cookie',
   'password',
   'newPassword',
   'token',
   'accessToken',
   'refreshToken',
   'secret',
-  // ...và lồng một cấp (user.password, body.token...)
-  '*.password',
-  '*.newPassword',
-  '*.token',
-  '*.accessToken',
-  '*.refreshToken',
-  '*.secret',
 ];
+const REDACT_PATHS = [
+  'res.headers["set-cookie"]',
+  ...SENSITIVE_KEYS,
+  ...SENSITIVE_KEYS.map((k) => `*.${k}`),
+  ...SENSITIVE_KEYS.map((k) => `*.*.${k}`),
+  ...SENSITIVE_KEYS.map((k) => `*.*.*.${k}`),
+];
+
+/**
+ * Serializer cho `{ err }`: lỗi của axios mang theo `config` (có header Authorization/body),
+ * `request` và `response` đầy đủ, nên log thẳng sẽ làm lộ bí mật. Chỉ giữ thông tin chẩn đoán.
+ */
+export function serializeError(err: unknown): Record<string, unknown> {
+  const serialized = stdSerializers.err(err as Error) as unknown as Record<string, unknown>;
+  delete serialized.config;
+  delete serialized.request;
+  const response = serialized.response as { status?: number; statusText?: string } | undefined;
+  if (response) {
+    serialized.response = { status: response.status, statusText: response.statusText };
+  }
+  return serialized;
+}
 
 /**
  * Log JSON một dòng ra stdout bằng nestjs-pino. Mỗi dòng có:
@@ -67,6 +84,7 @@ const REDACT_PATHS = [
             return correlationId ? { correlationId } : {};
           },
           redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
+          serializers: { err: serializeError },
           ...(pretty && {
             transport: {
               target: 'pino-pretty',

@@ -1,4 +1,5 @@
 import { INestApplication, RequestMethod } from '@nestjs/common';
+import type { Express } from 'express';
 import { createAccessLogMiddleware } from './common/logging/access-log.middleware';
 import { createCorrelationMiddleware } from './common/logging/correlation-id.middleware';
 
@@ -13,6 +14,9 @@ export const API_PREFIX = 'api/v1';
  * - /internal/... KHÔNG gắn prefix: API nội bộ service-gọi-service, gateway không expose.
  */
 export function configureApp(app: INestApplication): void {
+  // Không công bố framework (header X-Powered-By: Express) cho kẻ dò quét
+  (app.getHttpAdapter().getInstance() as Express).disable('x-powered-by');
+
   app.use(createCorrelationMiddleware());
   app.use(createAccessLogMiddleware());
 

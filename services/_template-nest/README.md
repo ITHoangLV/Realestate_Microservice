@@ -51,9 +51,11 @@ Kiểm tra: `curl.exe http://localhost:3001/api/v1/health` trả `{"status":"ok"
 
 Việc cần làm tiếp để thành service thật:
 
-1. Xóa module mẫu: thư mục `src/example/`, dòng `ExampleModule` trong `src/app.module.ts`,
-   `test/example.e2e-spec.ts`, và (nếu không dùng DB) `src/database/entities/example-item.entity.ts` cùng
-   migration mẫu. Giữ lại các `test/*.e2e-spec.ts` còn lại: chúng kiểm tra hạ tầng dùng chung.
+1. Xóa module mẫu (đã kiểm chứng: sau khi xóa, `build`, `test` và `test:e2e` vẫn xanh): thư mục `src/example/`,
+   dòng `ExampleModule` (và import của nó) trong `src/app.module.ts`, `test/example.e2e-spec.ts`, và entity +
+   migration mẫu trong `src/database/` (`entities/example-item.entity.ts`,
+   `migrations/1730000000000-create-example-item.ts`; không file nào khác tham chiếu tới chúng). Giữ lại
+   các `test/*.e2e-spec.ts` và `src/**/*.spec.ts` còn lại: chúng kiểm tra hạ tầng dùng chung.
 2. Bật DB: bỏ comment `DATABASE_URL` trong `.env`, đổi sang user/DB của service (bảng bên dưới).
 3. Viết module nghiệp vụ trong `src/<tên-module>/`, mã lỗi nghiệp vụ riêng khai báo trong module đó.
 4. Thêm vào `docker-compose` (xem mục [Docker](#docker)) và thêm file OpenAPI vào `contracts/openapi/`.
@@ -189,6 +191,7 @@ Không cấu hình JWT nào thì mọi route không `@Public()` trả `503 AUTH_
 ```powershell
 pnpm --filter @realestate/template-nest dev              # chạy, tự build lại khi sửa
 pnpm --filter @realestate/template-nest build            # biên dịch ra dist/
+pnpm --filter @realestate/template-nest test             # unit test (config, correlation ID, idempotency)
 pnpm --filter @realestate/template-nest test:e2e         # test e2e (không cần hạ tầng)
 pnpm --filter @realestate/template-nest openapi:export   # xuất openapi.json để so với contracts/openapi
 pnpm lint                                                # ở gốc repo
@@ -258,6 +261,9 @@ identity:
   (Mongoose) khi làm các service đó.
 - **Inject `PinoLogger` trực tiếp** rồi `setContext(...)`; đừng dùng `@InjectPinoLogger` (chỉ chạy nếu class được import
   trước `LoggerModule`).
+- **Giới hạn ẩn log**: các trường nhạy cảm (`authorization`, `cookie`, `password`, `token`, `secret`...) được ẩn ở độ sâu
+  tối đa 3 cấp; lỗi của axios được lược `config`/`request`/`response` để không lộ header `Authorization`.
+  Đừng log nguyên object lớn, chỉ log các trường cần thiết.
 - **`/internal/*` đang `@Public()`**: tạm tin mạng nội bộ; nên thêm xác thực service-to-service khi triển khai thật.
 - **`ConfigModule` chốt giá trị lúc import `AppModule`**: test đổi biến có giá trị mặc định (ví dụ `HTTP_TIMEOUT_MS`) phải
   đặt env **trước** khi import (xem `test/http-client-defaults.e2e-spec.ts`).

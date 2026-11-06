@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import axios from 'axios';
 import { PinoLogger } from 'nestjs-pino';
 import { Public } from '../src/common/auth/public.decorator';
 import { createTestApp, TestApp } from './helpers/create-test-app';
@@ -83,6 +84,39 @@ describe('Log JSON và correlation ID', () => {
     for (const secret of ['tuyet-mat', 'p-ass-1', 'tok-secret-2', 'cookie-3', 'header-4']) {
       expect(line).not.toContain(secret);
     }
+  });
+
+  it('ẩn password/token lồng sâu tới 3 cấp', () => {
+    PinoLogger.root.info(
+      {
+        a: { password: 'p-lv1' },
+        b: { c: { token: 't-lv2' } },
+        d: { e: { f: { secret: 's-lv3' } } },
+      },
+      'redact-deep',
+    );
+    const line = t.logs.find((l) => l.includes('redact-deep')) ?? '';
+    for (const secret of ['p-lv1', 't-lv2', 's-lv3']) {
+      expect(line).not.toContain(secret);
+    }
+  });
+
+  it('log lỗi của axios KHÔNG làm lộ header Authorization/body trong config', async () => {
+    let err: unknown;
+    try {
+      await axios.post(
+        'http://127.0.0.1:1/x',
+        { password: 'BODY-PASSWORD' },
+        { headers: { Authorization: 'Bearer SUPER-SECRET-TOKEN' }, timeout: 500 },
+      );
+    } catch (e) {
+      err = e;
+    }
+    PinoLogger.root.error({ err }, 'axios-error-log');
+    const line = t.logs.find((l) => l.includes('axios-error-log')) ?? '';
+    expect(line).toContain('ECONNREFUSED'); // vẫn đủ thông tin chẩn đoán
+    expect(line).not.toContain('SUPER-SECRET-TOKEN');
+    expect(line).not.toContain('BODY-PASSWORD');
   });
 
   it('ID có ký tự lạ bị bỏ, thay bằng UUID để không chèn rác vào log', async () => {

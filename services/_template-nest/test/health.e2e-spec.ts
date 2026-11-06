@@ -24,6 +24,11 @@ describe('GET /health (không bật DB/Redis)', () => {
     expect(res.headers['x-request-id']).toBeDefined();
   });
 
+  it('không công bố framework qua header X-Powered-By', async () => {
+    const res = await t.http().get('/health');
+    expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+
   it('/health (Docker) không bị log, /api/v1/health thì có', async () => {
     await t.http().get('/health').set('X-Request-ID', 'hc-docker');
     await t.http().get('/api/v1/health').set('X-Request-ID', 'hc-api');
