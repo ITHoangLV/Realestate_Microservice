@@ -79,7 +79,7 @@ stateDiagram-v2
 
 | Hạn                           | Biến                          | Giá trị dev     | Ý nghĩa                                      |
 | ----------------------------- | ----------------------------- | --------------- | -------------------------------------------- |
-| Chờ thanh toán cọc            | `DEPOSIT_PAYMENT_TTL_SECONDS` | 900 (15 phút)   | **Biến mới, cần thêm vào `.env.example`**    |
+| Chờ thanh toán cọc            | `DEPOSIT_PAYMENT_TTL_SECONDS` | 900 (15 phút)   | Đã có                                        |
 | Chờ chủ nhà trả lời           | `RESERVATION_TTL_SECONDS`     | 86400 (24h)     | Đã có                                        |
 | Thời gian khiếu nại sau duyệt | `PAYMENT_CLAIM_TTL_SECONDS`   | 259200 (3 ngày) | Đã có; hết hạn không khiếu nại thì giải ngân |
 | Admin xử khiếu nại            | `ADMIN_SLA_SECONDS`           | 86400 (24h)     | Đã có; chỉ dùng nếu làm phần `DISPUTED`      |
