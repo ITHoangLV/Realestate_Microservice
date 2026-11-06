@@ -70,8 +70,8 @@ Việc cần làm tiếp để thành service thật:
 | listing      | 3002 | `listing_db` / `listing_user` (có PostGIS)    |
 | rental       | 3003 | `rental_db` / `rental_user`                   |
 | payment      | 3004 | `payment_db` / `payment_user`                 |
-| notification | 3005 | MongoDB `notification_db` (xem lưu ý Mongo)   |
-| assistant    | 3006 | tùy thiết kế                                  |
+| notification | 3005 | `notification_db` / `notification_user`       |
+| assistant    | 3006 | không (chỉ gọi API của listing)               |
 
 Mỗi service **chỉ** được kết nối DB của mình, không đọc DB của service khác. Từ laptop, Postgres ở
 `localhost:5433`; trong Docker dùng host `postgres` cổng `5432` (xem README gốc).
@@ -257,8 +257,6 @@ identity:
   nên bỏ sót `/health`, `/internal/*` và các request 404.
 - **`/health` có hai đường dẫn**: `/health` (Docker, không qua gateway) và `/api/v1/health` (alias).
 - **ConfigModule bỏ qua file `.env`**: `env.bootstrap.ts` nạp file; test e2e vì vậy không đọc `.env` cục bộ.
-- **Mongo chưa có**: notification/maintenance dùng MongoDB nhưng template chỉ có PostgreSQL + Redis. Thêm `MongoModule`
-  (Mongoose) khi làm các service đó.
 - **Inject `PinoLogger` trực tiếp** rồi `setContext(...)`; đừng dùng `@InjectPinoLogger` (chỉ chạy nếu class được import
   trước `LoggerModule`).
 - **Giới hạn ẩn log**: các trường nhạy cảm (`authorization`, `cookie`, `password`, `token`, `secret`...) được ẩn ở độ sâu

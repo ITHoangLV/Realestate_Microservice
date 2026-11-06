@@ -27,5 +27,6 @@ một bộ migration hay quy ước khác, và thêm một phần trong script k
   quyết định vận hành, không phải dùng chung dữ liệu.
 - Mất điểm "mỗi service chọn DB phù hợp" khi trình bày. Có thể giải thích bằng ADR này: biết lúc nào
   **không** nên đa dạng hóa công nghệ cũng là một quyết định kiến trúc.
-- Thực hiện thay đổi hạ tầng khi bắt đầu dựng notification-service (chủ đề Dữ liệu). Đến lúc đó Mongo
-  vẫn chạy nhưng không ai dùng.
+- Thay đổi hạ tầng đã thực hiện ngay sau khi chốt ADR (trước khi có service nào), để không còn container
+  chạy mà không ai dùng. Máy đã chạy hạ tầng cũ phải xóa volume `realestate_postgres_data` (để script init
+  tạo `notification_db`) và `realestate_mongo_data`.
