@@ -7,9 +7,9 @@
 | **Quy tắc** | BR-03, BR-05, BR-06, BR-14 |
 | **Quyết định** | ADR-0010 (gộp sản phẩm vào listing), ADR-0007 (S3) |
 | **CSDL** | `listing_db` / `listing_user` (PostGIS, pgcrypto); S3 bucket `listing-images` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
-> Báo cáo v2 Bảng 3.8 chỉ liệt kê **thao tác**. Đường dẫn chốt 2026-11-12 (A6); tên trường, giá trị còn đề xuất gắn `[cần xác nhận]` tại chỗ.
+> Báo cáo v2 Bảng 3.8 chỉ liệt kê **thao tác**. Đường dẫn chốt 2026-11-12 (A6); tên trường, giá trị chốt 2026-11-16.
 
 ## 1. API công khai
 
@@ -32,17 +32,17 @@
 
 | Trường | Kiểu | Ràng buộc |
 |---|---|---|
-| `title` | string | 5–200 `[cần xác nhận]` |
+| `title` | string | 5–200 ký tự |
 | `description` | string | |
-| `propertyType` | string | `ROOM`, `APARTMENT`, `HOUSE` `[cần xác nhận]` |
+| `propertyType` | string | `ROOM` (phòng trọ), `APARTMENT` (căn hộ chung cư), `HOUSE` (nhà nguyên căn) |
 | `priceVnd` | int | > 0, giá thuê tháng |
 | `depositAmountVnd` | int | > 0, tiền cọc (BR-04) |
 | `areaM2` | number | > 0 |
 | `district`, `city`, `address` | string | |
-| `amenities` | string[] | `[cần xác nhận]` danh mục tiện ích |
+| `amenities` | string[] | Mã trong danh mục cố định: `AIR_CONDITIONER`, `WATER_HEATER`, `WASHING_MACHINE`, `FRIDGE`, `WIFI`, `PARKING`, `ELEVATOR`, `PRIVATE_BATHROOM`, `BALCONY`, `FURNISHED`, `PET_ALLOWED`; mã lạ → `400 VALIDATION_FAILED` |
 | `lat`, `lng` | number | WGS84 |
 
-Sửa giá hoặc tiền cọc không ảnh hưởng đơn đã tạo (rental giữ bản chụp). Sửa có đưa tin về `PENDING_REVIEW` không `[cần xác nhận]`.
+Sửa giá hoặc tiền cọc không ảnh hưởng đơn đã tạo (rental giữ bản chụp). Tin `APPROVED` bị sửa `title`, `description`, `propertyType`, `address`/`district`/`city`, `lat`/`lng`, hoặc thêm ảnh (route 8) → về `PENDING_REVIEW`, xóa `reviewed_*`; sửa `priceVnd`, `depositAmountVnd`, `areaM2`, `amenities` → giữ `APPROVED` (chốt 2026-11-16).
 
 ### 1.2 Thứ tự kiểm tra (route 2–5, 7–8)
 
@@ -53,18 +53,19 @@ Sửa giá hoặc tiền cọc không ảnh hưởng đơn đã tạo (rental gi
 | 3 | Route 5: `status ∈ {HELD, DEPOSITED}` | `409 LISTING_HAS_ACTIVE_DEPOSIT` (BR-03, Báo cáo T18) |
 | 4 | Route 3: `status ≠ AVAILABLE` | `409 LISTING_INVALID_STATUS` |
 | 5 | Route 8: ảnh vượt kích thước hoặc không tồn tại | `400 LISTING_IMAGE_INVALID` |
+| 6 | Route 7, 8: tin đã có 10 ảnh | `409 LISTING_IMAGE_LIMIT_REACHED` |
 
 ### 1.3 Tìm kiếm (route 11)
 
-Query: `minPrice`, `maxPrice`, `minArea`, `maxArea`, `district`, `amenities` (mọi tiện ích phải có), `available` (chỉ `AVAILABLE`), `lat` + `lng` + `radiusKm`, `page`, `pageSize`, `sort` (`price_asc`, `price_desc`, `newest`, `distance`) `[cần xác nhận]`. Có `lat/lng/radiusKm` thì dùng `ST_DWithin` trên `geography` (index GiST, Báo cáo T05).
+Query: `minPrice`, `maxPrice`, `minArea`, `maxArea`, `district`, `amenities` (mọi tiện ích phải có), `available` (chỉ `AVAILABLE`), `lat` + `lng` + `radiusKm`, `page`, `pageSize`, `sort` (`price_asc`, `price_desc`, `newest` mặc định, `distance` chỉ khi có `lat/lng`); `pageSize` mặc định 20, tối đa 50. Có `lat/lng/radiusKm` thì dùng `ST_DWithin` trên `geography` (index GiST, Báo cáo T05).
 
 ## 2. API nội bộ
 
-Hợp đồng: `contracts/openapi/listing-internal.v1.yaml`. Đã có route a; route b, c thêm khi viết lại ở T0.3 (A7).
+Hợp đồng: `contracts/openapi/listing-internal.v1.yaml` (viết lại ở T0.3, 2026-11-13). Hợp đồng là nguồn chi tiết cho request, response, example.
 
 | # | Method, đường dẫn | Bên gọi | Kết quả |
 |---|---|---|---|
-| a | `GET /internal/listings/:id` | rental (S1) | Bản chụp: `id, landlordId, landlordName, title, depositAmount, isPublished` (đã có) + đề xuất thêm `status`, `approvalStatus`. `404 LISTING_NOT_FOUND` |
+| a | `GET /internal/listings/:id` | rental (S1) | Bản chụp: `id, ownerId, title, depositAmountVnd, status, approvalStatus` (đổi tên theo thuật ngữ, bỏ `landlordName`, `isPublished`, chốt 2026-11-13). `404 LISTING_NOT_FOUND` |
 | b | `POST /internal/listings/:id/holds` | rental (S1) | Giữ chỗ. Body `{ depositId, heldUntil }`. `200 { status: 'HELD', heldUntil }`; `409 LISTING_NOT_AVAILABLE` |
 | c | `PUT /internal/listings/:id/status` | rental (S1) | Đổi trạng thái theo đơn. Body `{ depositId, status }`, `status ∈ {AVAILABLE, DEPOSITED, RENTED}` |
 
@@ -116,6 +117,7 @@ Không phát, không nghe (Báo cáo v2 §4.2).
 | `LISTING_INVALID_STATUS` | 409 | Không thể chuyển trạng thái tin | | Đề xuất |
 | `LISTING_ALREADY_REVIEWED` | 409 | Tin đã được duyệt hoặc từ chối | | Đề xuất |
 | `LISTING_IMAGE_INVALID` | 400 | Ảnh không hợp lệ hoặc vượt kích thước | | Đề xuất |
+| `LISTING_IMAGE_LIMIT_REACHED` | 409 | Tin đã đủ 10 ảnh | | Chốt 2026-11-16 |
 
 ## 5. Biến môi trường
 
@@ -124,8 +126,9 @@ Không phát, không nghe (Báo cáo v2 §4.2).
 | `PORT` | `3002` | |
 | `DATABASE_URL` | `postgres://listing_user:…@localhost:5433/listing_db` | |
 | `S3_*`, `S3_BUCKETS` | `listing-images` | |
-| `LISTING_IMAGE_MAX_BYTES` | `[cần xác nhận]` | Đề xuất tên biến |
-| `LISTING_IMAGE_TYPES` | `image/jpeg,image/png,image/webp` `[cần xác nhận]` | |
+| `LISTING_IMAGE_MAX_BYTES` | `5242880` (5 MB) | |
+| `LISTING_IMAGE_MAX_COUNT` | `10` | Số ảnh tối đa mỗi tin |
+| `LISTING_IMAGE_TYPES` | `image/jpeg,image/png,image/webp` | |
 
 ## 6. DDL (đề xuất theo Báo cáo Bảng 3.5)
 
@@ -133,10 +136,9 @@ Không phát, không nghe (Báo cáo v2 §4.2).
 CREATE TABLE listings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL,                              -- tham chiếu identity, không FK
-  owner_name varchar(200),                             -- bản chụp cho hợp đồng nội bộ (landlordName) [cần xác nhận] nguồn
   title varchar(200) NOT NULL,
   description text,
-  property_type varchar(20),
+  property_type varchar(20) NOT NULL CHECK (property_type IN ('ROOM','APARTMENT','HOUSE')),
   price_vnd bigint NOT NULL CHECK (price_vnd > 0),
   deposit_amount_vnd bigint NOT NULL CHECK (deposit_amount_vnd > 0),
   area_m2 numeric(8,2) NOT NULL,
@@ -170,10 +172,9 @@ CREATE TABLE listing_images (
 );
 ```
 
-## 7. Điểm [cần xác nhận]
+## 7. Đã chốt 2026-11-16
 
-1. Tên trường §1–2.
-2. Tên giá trị `approval_status`, `property_type`, danh mục tiện ích.
-3. Sửa tin có phải duyệt lại không.
-4. `landlordName` lấy ở đâu: listing không nghe `identity.registered`; đề xuất rental đọc tên từ JWT hoặc bỏ trường này khỏi hợp đồng.
-5. Giới hạn loại và kích thước ảnh.
+1. Trường và ràng buộc §1.1; `propertyType` 3 giá trị; danh mục tiện ích cố định 11 mã.
+2. `approvalStatus`: `PENDING_REVIEW`, `APPROVED`, `REJECTED`.
+3. Sửa nội dung hiển thị hoặc thêm ảnh → duyệt lại; sửa giá, cọc, diện tích, tiện ích → không.
+4. Ảnh: jpeg/png/webp, ≤ 5 MB, ≤ 10 ảnh/tin. Tìm kiếm: `pageSize` 20, tối đa 50.

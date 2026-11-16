@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 **Mục tiêu:** OpenAPI đủ cho mọi service, collection Postman chạy được bằng Newman trên máy sạch.
 
-**Hạn:** M4 — 2026-12-11 (cuối S5).
+**Hạn:** M4 — 2026-12-11 cho T5.1, T5.2; T5.3, T5.4: 2026-12-16 (dời 2026-11-16).
 
 **Điều kiện xong:** Newman xanh trên máy sạch trong ≤ 10 phút dựng (NFR05).
 
@@ -17,7 +17,7 @@
 | | |
 |---|---|
 | **Người làm** | Mỗi người phần mình; A tổng hợp |
-| **Thời lượng** | `[cần xác nhận]` |
+| **Thời lượng** | ~3 giờ mỗi người + 1 giờ A tổng hợp (ước 2026-11-16) |
 | **Hạn** | M4 — 2026-12-11 |
 | **Đọc trước** | `guides/RE_OpenAPI_Postman_Guide.md §1–3` |
 | **Phụ thuộc** | Phase 2–4 |
@@ -33,7 +33,7 @@
 | | |
 |---|---|
 | **Người làm** | B; mỗi người thư mục của mình |
-| **Thời lượng** | `[cần xác nhận]` |
+| **Thời lượng** | ~6 giờ (ước 2026-11-16) |
 | **Hạn** | M4 — 2026-12-11 |
 | **Mã WBS** | E7-2 |
 | **Đọc trước** | `guides/RE_OpenAPI_Postman_Guide.md §4` |
@@ -48,8 +48,8 @@
 | | |
 |---|---|
 | **Người làm** | B |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M4 — 2026-12-11 |
+| **Thời lượng** | ~4 giờ (ước 2026-11-16) |
+| **Hạn** | M5 — 2026-12-16 (dời, sau khi nộp báo cáo) |
 | **Phụ thuộc** | T5.2, T1.1 |
 
 **DoD:** Job `e2e` dựng compose, chạy Newman, in log khi lỗi.
@@ -60,9 +60,9 @@
 
 | | |
 |---|---|
-| **Người làm** | A, chạy trên máy B hoặc C |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M4 — 2026-12-11 |
+| **Người làm** | B, chạy trên máy C (chuyển từ A 2026-11-16) |
+| **Thời lượng** | ~3 giờ (ước 2026-11-16) |
+| **Hạn** | M5 — 2026-12-16 (dời) |
 | **Đọc trước** | `guides/RE_Docker_Local_Guide.md` |
 
 **Các bước:** clone, `pnpm install`, `.env`, `pnpm keys:generate`, `infra:up`, migration, `apps up`, Newman. Bấm giờ.

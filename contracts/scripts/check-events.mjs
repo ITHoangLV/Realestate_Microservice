@@ -30,7 +30,7 @@ const schemaFiles = readdirSync(eventsDir).filter(
 );
 const eventTypes = [];
 for (const file of schemaFiles) {
-  const m = /^([a-z]+\.[a-z]+)\.v(\d+)\.schema\.json$/.exec(file);
+  const m = /^([a-z]+\.[a-z-]+)\.v(\d+)\.schema\.json$/.exec(file);
   if (!m) {
     fail(`${file}: tên file phải có dạng <miền>.<sự kiện>.v<số>.schema.json`);
     continue;

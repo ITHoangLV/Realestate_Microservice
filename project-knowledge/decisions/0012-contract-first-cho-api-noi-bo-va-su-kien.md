@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Trạng thái** | Proposed |
+| **Trạng thái** | Accepted |
 | **Ngày** | 2026-11-10 |
 | **Người quyết định** | Nhóm 5 |
 | **Liên quan** | `contracts/openapi/README.md`, `contracts/events/README.md`, `standards/git-workflow.md §3` |

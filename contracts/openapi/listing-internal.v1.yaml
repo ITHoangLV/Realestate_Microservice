@@ -1,16 +1,17 @@
 openapi: 3.1.0
 info:
   title: listing-service, API nội bộ
-  version: 1.0.0
+  version: 2.0.0
   description: |
     API chỉ dành cho service khác gọi (không qua api-gateway, không có prefix /api/v1).
     Response theo khung chung của template: thành công `{ data, meta }`, lỗi `{ error, meta }`.
     `InternalHttpService` tự lấy `data` khi thành công và đọc `error` khi lỗi.
-    Người phụ trách: B (listing). Người gọi: rental (lúc người thuê gửi yêu cầu giữ chỗ).
+    Người phụ trách: B (listing). Người gọi: rental (S1, `architecture.md §7.1`).
+    Thiết kế: `project-knowledge/design/LISTING/RE.LISTING/API_Spec.md §2`.
 
-    Rental dùng kết quả để quyết định có tạo reservation hay không, rồi lưu snapshot
-    `depositAmount`, `landlordId`, `title`. Rental **không** dựa vào `isAvailable` của listing
-    (xem docs/architecture/service-boundaries.md, mục 2), nên response không có trường đó.
+    Rental đọc bản chụp khi tạo đơn, gọi giữ chỗ, rồi đổi trạng thái BĐS theo đơn.
+    Quyết định "còn trống hay không" nằm ở câu UPDATE có điều kiện của giữ chỗ (BR-06),
+    không dựa vào `status` của lần đọc bản chụp.
 servers:
   - url: http://localhost:3002
     description: listing chạy trên laptop
@@ -20,54 +21,142 @@ paths:
   /internal/listings/{id}:
     get:
       operationId: getListingInternal
-      summary: Lấy thông tin tin đăng để tạo reservation
+      summary: Đọc bản chụp tin đăng để tạo đơn đặt cọc
       parameters:
         - $ref: '#/components/parameters/ListingId'
         - $ref: '#/components/parameters/RequestId'
       responses:
         '200':
-          description: Tìm thấy tin đăng (kể cả khi đã ẩn; người gọi tự kiểm tra `isPublished`)
+          description: Tìm thấy tin đăng (kể cả khi đang ẩn hoặc chưa duyệt; rental tự xử lý)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListingInternalResponse'
+                $ref: '#/components/schemas/ListingSnapshotResponse'
               example:
                 data:
                   id: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
-                  landlordId: b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e
-                  landlordName: Trần Thị Bình
+                  ownerId: b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e
                   title: Phòng 25m2 gần ĐH Bách Khoa
-                  depositAmount: 3000000
-                  isPublished: true
+                  depositAmountVnd: 3000000
+                  status: AVAILABLE
+                  approvalStatus: APPROVED
                 meta:
                   correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
-                  timestamp: '2026-11-06T08:00:00Z'
+                  timestamp: '2026-11-20T08:00:00Z'
         '400':
-          description: '`id` không phải UUID'
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              example:
-                error:
-                  code: VALIDATION_FAILED
-                  message: id phải là UUID
-                meta:
-                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
-                  timestamp: '2026-11-06T08:00:00Z'
+          $ref: '#/components/responses/ValidationFailed'
         '404':
-          description: Không có tin đăng này (hoặc đã bị xóa hẳn)
+          $ref: '#/components/responses/ListingNotFound'
+  /internal/listings/{id}/holds:
+    post:
+      operationId: holdListing
+      summary: Giữ chỗ BĐS cho một đơn đặt cọc (BR-05, BR-06)
+      description: |
+        Một câu UPDATE có điều kiện: chỉ chuyển sang HELD khi tin đã duyệt, chưa xóa và đang
+        AVAILABLE, hoặc đang HELD nhưng đã quá `heldUntil` (A9). Gọi lại cùng `depositId` khi
+        chỗ giữ của chính đơn đó còn hiệu lực → 200 (idempotent). Rental **không** retry lời gọi
+        này (`reliability-standard.md §3`); kết quả không rõ thì `heldUntil` tự nhả.
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoldRequest'
+            example:
+              depositId: 3f9a1c2e-8b4d-4e6f-a1b2-c3d4e5f60718
+              heldUntil: '2026-11-20T08:10:00Z'
+      responses:
+        '200':
+          description: Giữ chỗ thành công (hoặc đơn này đã giữ trước đó)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldResponse'
+              example:
+                data:
+                  listingId: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                  depositId: 3f9a1c2e-8b4d-4e6f-a1b2-c3d4e5f60718
+                  status: HELD
+                  heldUntil: '2026-11-20T08:10:00Z'
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-20T08:00:00Z'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '404':
+          $ref: '#/components/responses/ListingNotFound'
+        '409':
+          description: BĐS đang được người khác giữ, đã đặt cọc, đã thuê, đang ẩn hoặc chưa duyệt
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
                 error:
-                  code: LISTING_NOT_FOUND
-                  message: Không tìm thấy tin đăng
+                  code: LISTING_NOT_AVAILABLE
+                  message: Bất động sản đang được người khác giữ chỗ
                 meta:
                   correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
-                  timestamp: '2026-11-06T08:00:00Z'
+                  timestamp: '2026-11-20T08:00:00Z'
+  /internal/listings/{id}/status:
+    put:
+      operationId: changeListingStatusByDeposit
+      summary: Đổi trạng thái BĐS theo đơn đặt cọc
+      description: |
+        Cặp chuyển hợp lệ (điều kiện chung `held_by_deposit_id = depositId`):
+        HELD → AVAILABLE (hết hạn, bù trừ), HELD → DEPOSITED (đơn PAID),
+        DEPOSITED → RENTED (đơn RELEASED), DEPOSITED → AVAILABLE (đơn REFUNDED).
+        Đã ở trạng thái đích với cùng `depositId` → 200 (idempotent, rental được retry).
+        Về AVAILABLE thì listing xóa `held_until`, `held_by_deposit_id`.
+      parameters:
+        - $ref: '#/components/parameters/ListingId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeStatusRequest'
+            example:
+              depositId: 3f9a1c2e-8b4d-4e6f-a1b2-c3d4e5f60718
+              status: DEPOSITED
+      responses:
+        '200':
+          description: Đã ở trạng thái đích
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeStatusResponse'
+              example:
+                data:
+                  listingId: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                  status: DEPOSITED
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-20T08:05:30Z'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '404':
+          $ref: '#/components/responses/ListingNotFound'
+        '409':
+          description: Cặp chuyển không hợp lệ hoặc BĐS không do đơn này giữ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: LISTING_INVALID_STATUS
+                  message: Không thể chuyển bất động sản sang trạng thái này
+                  details:
+                    current: AVAILABLE
+                    target: DEPOSITED
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-20T08:05:30Z'
 components:
   parameters:
     ListingId:
@@ -85,43 +174,130 @@ components:
       schema:
         type: string
         pattern: '^[\w.:-]{1,128}$'
+  responses:
+    ValidationFailed:
+      description: Tham số hoặc body sai
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: VALIDATION_FAILED
+              message: id phải là UUID
+            meta:
+              correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+              timestamp: '2026-11-20T08:00:00Z'
+    ListingNotFound:
+      description: Không có tin đăng này (hoặc đã xóa mềm)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: LISTING_NOT_FOUND
+              message: Không tìm thấy tin đăng
+            meta:
+              correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+              timestamp: '2026-11-20T08:00:00Z'
   schemas:
-    ListingInternal:
+    ListingStatus:
+      enum: [AVAILABLE, HELD, DEPOSITED, RENTED, HIDDEN]
+      description: Trạng thái BĐS (Báo cáo Bảng 3.5)
+    ListingSnapshot:
       type: object
       additionalProperties: false
-      required: [id, landlordId, landlordName, title, depositAmount, isPublished]
+      required: [id, ownerId, title, depositAmountVnd, status, approvalStatus]
       properties:
         id:
           type: string
           format: uuid
-        landlordId:
+        ownerId:
           type: string
           format: uuid
-          description: Chủ nhà (identity). Rental lưu snapshot.
-        landlordName:
-          type: string
-          minLength: 1
-          maxLength: 200
-          description: Snapshot tên chủ nhà mà listing đang giữ
+          description: Chủ trọ (identity). Rental lưu bản chụp `owner_id`.
         title:
           type: string
           minLength: 1
           maxLength: 200
-        depositAmount:
+          description: Rental lưu bản chụp `listing_title`
+        depositAmountVnd:
           type: integer
           minimum: 1
-          description: Số tiền cọc (VND, số nguyên). Rental lưu snapshot, payment thu đúng số này.
-        isPublished:
-          type: boolean
-          description: |
-            true khi tin đang hiển thị và chủ nhà còn nhận yêu cầu. false thì rental trả
-            409 RENTAL_LISTING_NOT_AVAILABLE cho người thuê.
-    ListingInternalResponse:
+          description: Tiền cọc (VND). Rental lưu bản chụp `amount_vnd`, payment thu đúng số này (BR-04).
+        status:
+          $ref: '#/components/schemas/ListingStatus'
+        approvalStatus:
+          enum: [PENDING_REVIEW, APPROVED, REJECTED]
+          description: Trạng thái duyệt tin (tên giá trị còn đề xuất, RE.LISTING §7)
+    ListingSnapshotResponse:
       type: object
       required: [data, meta]
       properties:
         data:
-          $ref: '#/components/schemas/ListingInternal'
+          $ref: '#/components/schemas/ListingSnapshot'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+    HoldRequest:
+      type: object
+      additionalProperties: false
+      required: [depositId, heldUntil]
+      properties:
+        depositId:
+          type: string
+          format: uuid
+          description: Đơn đặt cọc (rental sinh trước khi giữ chỗ)
+        heldUntil:
+          type: string
+          format: date-time
+          description: Hạn giữ chỗ = now + HOLD_TTL_SECONDS (BR-07)
+    HoldResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [listingId, depositId, status, heldUntil]
+          properties:
+            listingId:
+              type: string
+              format: uuid
+            depositId:
+              type: string
+              format: uuid
+            status:
+              const: HELD
+            heldUntil:
+              type: string
+              format: date-time
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+    ChangeStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [depositId, status]
+      properties:
+        depositId:
+          type: string
+          format: uuid
+        status:
+          enum: [AVAILABLE, DEPOSITED, RENTED]
+    ChangeStatusResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [listingId, status]
+          properties:
+            listingId:
+              type: string
+              format: uuid
+            status:
+              $ref: '#/components/schemas/ListingStatus'
         meta:
           $ref: '#/components/schemas/ResponseMeta'
     ResponseMeta:
@@ -150,6 +326,6 @@ components:
             message:
               type: string
             details:
-              description: Dữ liệu bổ sung (lỗi từng trường...)
+              description: Dữ liệu bổ sung (lỗi từng trường, trạng thái hiện tại...)
         meta:
           $ref: '#/components/schemas/ResponseMeta'

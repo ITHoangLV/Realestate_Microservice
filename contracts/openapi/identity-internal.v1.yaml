@@ -1,0 +1,144 @@
+openapi: 3.1.0
+info:
+  title: identity-service, API nội bộ
+  version: 1.0.0
+  description: |
+    API chỉ dành cho service khác gọi (không qua api-gateway, không có prefix /api/v1).
+    Response theo khung chung của template: thành công `{ data, meta }`, lỗi `{ error, meta }`.
+    Người phụ trách: A (identity). Người gọi: payment (S3, khi tạo lệnh rút).
+    Thiết kế: `project-knowledge/design/IDENTITY/RE.IDENTITY/API_Spec.md §2`.
+
+    Trả số tài khoản đầy đủ để quản trị viên chuyển khoản; payment chỉ lưu bản chụp đã che
+    (bốn số cuối) trong `withdrawal_requests.bank_snapshot`. Không log trường `accountNumber`
+    (`security-policy.md`).
+servers:
+  - url: http://localhost:3001
+    description: identity chạy trên laptop
+  - url: http://identity:3001
+    description: identity chạy trong Docker
+paths:
+  /internal/users/{id}/bank-account:
+    get:
+      operationId: getBankAccountForPayout
+      summary: Lấy tài khoản nhận tiền của người dùng
+      description: Chỉ đọc, payment được retry.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Người dùng đã khai tài khoản nhận tiền
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BankAccountResponse'
+              example:
+                data:
+                  userId: b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e
+                  bankName: Vietcombank
+                  accountHolder: TRAN THI BINH
+                  accountNumber: '0123456789'
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-23T09:00:00Z'
+        '400':
+          description: '`id` không phải UUID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: VALIDATION_FAILED
+                  message: id phải là UUID
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-23T09:00:00Z'
+        '404':
+          description: Chưa khai tài khoản nhận tiền (hoặc không có người dùng)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: IDENTITY_BANK_ACCOUNT_NOT_FOUND
+                  message: Chưa khai tài khoản nhận tiền
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-23T09:00:00Z'
+components:
+  parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      description: InternalHttpService của template tự chuyển tiếp từ request gốc
+      schema:
+        type: string
+        pattern: '^[\w.:-]{1,128}$'
+  schemas:
+    BankAccount:
+      type: object
+      additionalProperties: false
+      required: [userId, bankName, accountHolder, accountNumber]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        bankName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        accountHolder:
+          type: string
+          minLength: 1
+          maxLength: 200
+        accountNumber:
+          type: string
+          pattern: '^[0-9]{6,19}$'
+          description: Số đầy đủ, đã giải mã (độ dài còn đề xuất, RE.IDENTITY §1.4)
+    BankAccountResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/BankAccount'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+    ResponseMeta:
+      type: object
+      required: [correlationId, timestamp]
+      properties:
+        correlationId:
+          type: string
+          description: Trùng header X-Request-ID, dùng để truy vết một request qua nhiều service
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời điểm server tạo response (ISO 8601 UTC)
+    ErrorResponse:
+      type: object
+      required: [error, meta]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              pattern: '^[A-Z][A-Z0-9_]*$'
+              description: Mã lỗi ổn định, người gọi dựa vào đây để xử lý
+            message:
+              type: string
+            details:
+              description: Dữ liệu bổ sung
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'

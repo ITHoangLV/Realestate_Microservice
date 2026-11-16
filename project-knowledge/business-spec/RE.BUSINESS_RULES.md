@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 | **Phạm vi** | Toàn hệ thống |
 | **Nguồn** | Báo cáo giữa kỳ `Bao_cao_Real-estate_hoan_chinh_v2.docx` (Nhóm 5, 11-2026) — **nguồn chuẩn**. Khi tài liệu khác lệch (`nghiep-vu-dat-coc-payos.md`, `docs/architecture/service-boundaries.md`, `contracts/`, kế hoạch sprint xlsx) → ghi vào `implementation/van-de-can-quyet-dinh.md`, không tự sửa |
 | **Phiên bản** | v1.0 — 2026-11-10 |
@@ -27,7 +27,7 @@ Real-estate là nền tảng tìm kiếm, thuê và đặt cọc nhà ở, căn 
 |---|---|---|---|
 | Khách | Xem, tìm tin đăng | không đăng nhập | Không đặt lịch, không đặt cọc |
 | Người thuê | Đặt lịch xem, đặt cọc, xác nhận nhận phòng, yêu cầu hoàn, xem ví, thông báo | `TENANT` | Chỉ thao tác trên đơn, giao dịch của mình; hoàn chỉ trong 48 giờ kể từ lúc thanh toán |
-| Chủ trọ | Quản lý sản phẩm của mình, phản hồi lịch xem, xác nhận đơn được bàn giao, rút tiền | `LANDLORD` | Chỉ trên sản phẩm, đơn của mình; chỉ rút khi đơn `RELEASED`; không nhận cọc ngoài hệ thống |
+| Chủ trọ | Quản lý sản phẩm của mình, xem danh sách người đăng ký xem và từ chối, xác nhận đơn được bàn giao, rút tiền | `LANDLORD` | Chỉ trên sản phẩm, đơn của mình; chỉ rút khi đơn `RELEASED`; không nhận cọc ngoài hệ thống |
 | Quản trị viên | Duyệt tin, bàn giao đơn, xử lý hoàn và rút, quản lý vai trò | `ADMIN` | Không tự đăng ký; mọi khoản chi ra phải có chứng từ |
 | payOS | Tạo link/QR, gửi webhook kết quả | hệ thống ngoài | Chỉ webhook đúng chữ ký, mã đơn, số tiền được chấp nhận |
 | Công việc nền | Hết hạn giữ chỗ, nhắc và tự giải ngân, đối soát saga | hệ thống | Chỉ chuyển trạng thái theo bảng §5 |
@@ -46,7 +46,7 @@ Báo cáo v2 đặt 7 mã UC; các mã còn lại do nhóm đặt để truy v�
 | UC-LST-01 | Thêm, sửa, ẩn/hiện, xóa mềm sản phẩm; xem sản phẩm của tôi; tải ảnh | Chủ trọ | listing | FR02, US08 | Đề xuất |
 | UC-LST-02 | Duyệt sản phẩm | Quản trị viên | listing | FR02, FR08 | Đề xuất |
 | UC-LST-03 | Tìm kiếm, lọc, bán kính, xem chi tiết | Khách, người thuê | listing | FR03, US01 | Đề xuất |
-| UC-VIE-01 | Đặt lịch xem, phản hồi lịch, xác nhận đã xem | Người thuê, chủ trọ | rental | FR04 | Đề xuất |
+| UC-VIE-01 | Đặt lịch xem (chốt giờ qua chat), từ chối, hủy, xác nhận đã xem | Người thuê, chủ trọ | rental | FR04 | Đề xuất |
 | UC-DEP-01 | **Đặt cọc qua payOS** (luồng chính) | Người thuê, payOS | rental + listing + payment | FR05, US02, US03 | Báo cáo §3.2.1 |
 | UC-DEP-02 | Giữ chỗ tin đăng (bao gồm trong UC-DEP-01) | Hệ thống | listing | BR-06 | Báo cáo §3.2.1 |
 | UC-DEP-03 | Bàn giao đơn cho chủ trọ, chủ trọ xác nhận | Quản trị viên, chủ trọ | rental | BR-11 | Đề xuất |
@@ -133,7 +133,7 @@ stateDiagram-v2
 - Đơn saga thất bại (giữ chỗ được nhưng không tạo được link): `PENDING_PAYMENT → CANCELLED` do hệ thống (`CompensationService`), phát `DepositCancelled`. Bảng 3.4 không có dòng này; nhóm chốt tên `CANCELLED` 2026-11-12 (A1). `CANCELLED` là trạng thái kết thúc.
 - Đơn `REFUNDED` do người thuê tự hủy: chủ trọ rút phần còn lại (BR-15 sửa); đơn giữ `REFUNDED`, ghi `withdrawn_at`.
 
-**Trạng thái bất động sản (listing):** `AVAILABLE → HELD → DEPOSITED → RENTED`; `HELD → AVAILABLE` khi hết hạn hoặc bù trừ; `DEPOSITED → AVAILABLE` khi hoàn tiền; `HIDDEN` do chủ trọ ẩn. Trạng thái duyệt tin tách riêng `[cần xác nhận]` tên giá trị.
+**Trạng thái bất động sản (listing):** `AVAILABLE → HELD → DEPOSITED → RENTED`; `HELD → AVAILABLE` khi hết hạn hoặc bù trừ; `DEPOSITED → AVAILABLE` khi hoàn tiền; `HIDDEN` do chủ trọ ẩn. Trạng thái duyệt tin tách riêng: `PENDING_REVIEW`, `APPROVED`, `REJECTED` (chốt 2026-11-16).
 
 ## 6. Luồng nghiệp vụ chính
 
@@ -164,7 +164,7 @@ stateDiagram-v2
 - Hồ sơ người thuê: cắt 2026-11-12, ghi hạn chế ở báo cáo cuối kỳ.
 - Một tài khoản nhiều vai trò: mỗi tài khoản một vai trò (B9).
 
-## 8. Điểm [cần xác nhận]
+## 8. Đã chốt 2026-11-16
 
-1. Tên giá trị trạng thái duyệt tin và trạng thái lịch xem.
-2. Khi tiền đến muộn với số tiền khác số tiền cọc thì xử lý thế nào (báo cáo §7.3).
+1. Trạng thái duyệt tin: `PENDING_REVIEW`, `APPROVED`, `REJECTED` (`RE.LISTING §7`). Luồng lịch xem: `RE.VIEWING §5`.
+2. Tiền đến muộn với số tiền khác tiền cọc, hoặc trả hai lần cho một order: ghi nhận đúng số thực nhận, tạo yêu cầu hoàn 100% số đó (`RE.PAYMENT §7`).

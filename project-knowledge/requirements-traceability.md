@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 ## 1. Yêu cầu bắt buộc
 
@@ -59,12 +59,12 @@ Số route công khai theo thiết kế (đường dẫn listing, rental, paymen
 |---|---|---|---|
 | identity | 5 có + 12 đề xuất (gồm OTP, quên mật khẩu, Google, khóa tài khoản) | 1 | `409 IDENTITY_EMAIL_TAKEN`, `401 IDENTITY_INVALID_CREDENTIALS` |
 | listing | 12 | 3 | `403 LISTING_NOT_OWNER`, `409 LISTING_NOT_AVAILABLE`, `409 LISTING_HAS_ACTIVE_DEPOSIT` |
-| rental | 4 (lịch xem) + 1 (đặt cọc) + 7 (vòng đời) | 1 | `409 RENTAL_REFUND_WINDOW_CLOSED`, `409 RENTAL_NOT_HANDED_OVER`, `409 LISTING_NOT_AVAILABLE` |
+| rental | 5 (lịch xem) + 1 (đặt cọc) + 7 (vòng đời) | 1 | `409 RENTAL_REFUND_WINDOW_CLOSED`, `409 RENTAL_NOT_HANDED_OVER`, `409 LISTING_NOT_AVAILABLE` |
 | payment | 1 (webhook) + 12 (payout) | 4 | `409 PAYMENT_WITHDRAWAL_NOT_ELIGIBLE`, `409 PAYMENT_RECEIPT_ALREADY_USED` |
 | notification | 2 (thông báo) + 4 (chat) | 0 | `404 NOTIFICATION_NOT_FOUND`, `403 NOTIFICATION_CONVERSATION_FORBIDDEN` |
 
 ## 5. Việc còn cần nhóm chốt
 
-1. `[cần xác nhận]` Hạn nộp, số slide, thang điểm cộng. Bảo vệ: 2026-12-18 (M5).
+1. Hạn nộp báo cáo 2026-12-11 (M4, chốt 2026-11-16); bảo vệ 2026-12-18 (M5). `[cần xác nhận]` số slide, thang điểm cộng (hỏi giảng viên).
 2. `[cần xác nhận]` Bản gốc yêu cầu bài tập lớn (Báo cáo v2 trích dẫn [1]) không có trong repo; bảng §1 lấy theo Phụ lục B của báo cáo.
-3. Các mục A ở `implementation/van-de-can-quyet-dinh.md`.
+3. ~~Các mục A ở `implementation/van-de-can-quyet-dinh.md`~~ Đã chốt hết (A, B, C) 2026-11-16.

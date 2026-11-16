@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/rental.deposit-cancelled.v1.schema.json",
+  "title": "rental.deposit-cancelled",
+  "description": "DepositCancelled: saga thất bại sau khi giữ chỗ, đơn CANCELLED (A1)",
+  "x-producer": "rental",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    }
+  ],
+  "properties": {
+    "eventType": {
+      "const": "rental.deposit-cancelled"
+    },
+    "version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "rental"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["depositId", "listingId", "tenantId", "ownerId"],
+      "properties": {
+        "depositId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Đơn đặt cọc (rental sở hữu)"
+        },
+        "listingId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Tin đăng (listing sở hữu)"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Người thuê (identity)"
+        },
+        "ownerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Chủ trọ (identity)"
+        }
+      }
+    }
+  }
+}

@@ -24,30 +24,42 @@ flowchart LR
 | Phase | File | Mục tiêu | A | B | C | Điều kiện xong | Hạn |
 |---|---|---|---|---|---|---|---|
 | 0 | `PHASE-0.md` | Chốt `[cần xác nhận]` chặn code, hợp đồng nội bộ và sự kiện | ✓ | ✓ | ✓ | `pnpm contracts:check` xanh với hợp đồng v2 | M0 · 2026-11-13 |
-| 1 | `PHASE-1.md` | Gateway chạy, identity sau gateway, CI | ✓ | ✓ (CI) | | Tag `v0.1-skeleton` | M0 · 2026-11-13 |
-| 2 | `PHASE-2.md` | Identity bổ sung, listing đủ API công khai và nội bộ | ✓ | ✓ | | API nội bộ listing sẵn sàng cho saga | M1 · 2026-11-20 |
-| 3 | `PHASE-3.md` | Đặt cọc, hết hạn, hoàn, rút chạy được | | | ✓ | Tag `v0.5-deposit-flow` | M2 · 2026-11-27 |
-| 4 | `PHASE-4.md` | Notification, chat, outbox trên mọi service | ✓ | | ✓ (phát sự kiện) | Tắt notification không ảnh hưởng đặt cọc | M3 · 2026-12-04 |
-| 5 | `PHASE-5.md` | OpenAPI, Postman, Newman, CI e2e | ✓ | ✓ | ✓ | Newman xanh trên máy sạch | M4 · 2026-12-11 |
-| 6 | `PHASE-6.md` | Số liệu E1–E10 | | ✓ | ✓ | Bảng 5.3 báo cáo đã điền | M4 · 2026-12-11 |
-| 7 | `PHASE-7.md` | Báo cáo, slide, demo | ✓ | ✓ | ✓ | Tag `v1.0-submission` | M5 · 2026-12-18 |
+| 1 | `PHASE-1.md` | Gateway chạy, identity sau gateway, CI | ✓ | ✓ (CI) | | Tag `v0.1-skeleton` | 2026-11-20 (dời từ M0) |
+| 2 | `PHASE-2.md` | Identity bổ sung, listing đủ API công khai và nội bộ | ✓ | ✓ | | API nội bộ listing sẵn sàng cho saga | M1 · 2026-11-27; T2.5 M2 · 2026-12-04 |
+| 3 | `PHASE-3.md` | Đặt cọc, hết hạn, hoàn, rút chạy được | | ✓ (T3.5) | ✓ | Tag `v0.5-deposit-flow` | M2 · 2026-12-04; T3.6 M3 · 2026-12-09 |
+| 4 | `PHASE-4.md` | Notification, chat, outbox trên mọi service | ✓ | | ✓ (T4.1, phát sự kiện) | Tắt notification không ảnh hưởng đặt cọc | M2 · 2026-12-04; T4.4 M3 · 2026-12-09 |
+| 5 | `PHASE-5.md` | OpenAPI, Postman, Newman, CI e2e | ✓ | ✓ | ✓ | Newman xanh trên máy sạch | M4 · 2026-12-11; T5.3, T5.4 2026-12-16 |
+| 6 | `PHASE-6.md` | Số liệu E1–E10 | | ✓ | ✓ | Bảng 5.3 báo cáo đã điền (E1–E3) | E1–E3 2026-12-10; E4–E10 2026-12-16 |
+| 7 | `PHASE-7.md` | Báo cáo, slide, demo | ✓ | ✓ | ✓ | Nộp báo cáo M4; tag `v1.0-submission` | Báo cáo M4 · 2026-12-11; còn lại M5 · 2026-12-18 |
 
 ### Lịch và mốc
 
-Nguồn: kế hoạch sprint `docs/pm/ke-hoach-sprint-va-tai-lieu.xlsx` (đã nhóm xác nhận 2026-11-12). 6 sprint trong 6 tuần, 2026-11-09 → 2026-12-18; mỗi mốc rơi vào thứ Sáu cuối một sprint.
+Nguồn gốc: kế hoạch sprint `docs/pm/ke-hoach-sprint-va-tai-lieu.xlsx` (nhóm xác nhận 2026-11-12). 6 sprint, 2026-11-09 → 2026-12-18. **Dời mốc ngày 2026-11-16** sau khi ước thời lượng: mốc cũ M0–M2 không khả thi với khối việc của luồng payOS.
 
-| Mốc | Ngày | Ý nghĩa | Cuối sprint | Phase phải xong |
+| Mốc | Ngày | Ý nghĩa | Cuối sprint | Phải xong |
 |---|---|---|---|---|
-| M0 | 2026-11-13 | Nền móng | S1 | 0, 1 |
-| M1 | 2026-11-20 | Lát cắt đồng bộ | S2 | 2 |
-| M2 | 2026-11-27 | Saga chạy — **điểm cắt giảm** | S3 | 3 |
-| M3 | 2026-12-04 | Feature freeze | S4 | 4 |
-| M4 | 2026-12-11 | Release candidate | S5 | 5, 6 |
-| M5 | 2026-12-18 | Bảo vệ | S6 | 7 |
+| M0 | 2026-11-20 (cũ 11-13) | Nền móng | S2 | Phase 0, 1 |
+| M1 | 2026-11-27 (cũ 11-20) | Lát cắt đồng bộ | S3 | T2.1–T2.4; saga luồng thành công chạy được |
+| M2 | 2026-12-04 (cũ 11-27) | Saga đủ — **điểm cắt giảm** | S4 | T2.5, T3.1–T3.5, T4.1–T4.3, T6.1 |
+| M3 | 2026-12-09 (cũ 12-04) | Feature freeze | S5 | T3.6, T4.4 |
+| M4 | 2026-12-11 | Release candidate, **nộp báo cáo cuối kỳ** | S5 | T5.1, T5.2, T6.2 (E1–E3, 12-10), T7.1 |
+| M5 | 2026-12-18 | Bảo vệ | S6 | T5.3, T5.4, T6.3 (12-16), T7.2–T7.4 |
 
-**Năng lực:** 17 giờ/người/tuần × hệ số tập trung 0,75 = 12,75 giờ hiệu dụng/người/tuần. Thời lượng từng task `[cần xác nhận]`, ước theo năng lực này. Task trong xlsx theo luồng reservation cũ; mã WBS ghi ở từng task để đối chiếu.
+### Năng lực và tải (ước 2026-11-16)
 
-Phase 2 (B) và Phase 4 (A) chạy song song. C bắt đầu Phase 3 bằng phần không cần listing thật (entity, máy trạng thái, payment) khi hợp đồng Phase 0 đã chốt.
+Năng lực gốc: 17 giờ/người/tuần × hệ số tập trung 0,75 = 12,75 giờ hiệu dụng (64 giờ cho S2–S6). Tổng việc còn lại ~240 giờ, chia lại cân ba người (~80 giờ mỗi người) → kế hoạch tính **16 giờ hiệu dụng/người/tuần** (≈ 21 giờ danh nghĩa). `[cần xác nhận]` B, C cam kết được mức này; không được thì cắt theo §6 (bắt đầu từ chat T4.4).
+
+| Người | Tổng | S2 (16–20/11) | S3 (23–27/11) | S4 (30/11–4/12) | S5 (7–11/12) | S6 (14–18/12) |
+|---|---|---|---|---|---|---|
+| A | ~78 h | T1.2, T1.3 (15) | T2.1, T2.5 phần đầu (16) | T2.5 còn lại, T4.2, T4.3 (16) | T4.4, T5.1, T7.1 (20) | T7.2–T7.4 (10) |
+| B | ~80 h | T1.1, T2.2 (16) | T2.2 còn lại, T2.3, T2.4 (16) | T3.5, T6.1 (15) | T6.2, T5.1, T5.2, T7.1 (21) | T5.3, T5.4, T6.3 E9, T7.3 (12) |
+| C | ~81 h | T3.1, T3.2 phần đầu (16) | T3.2 còn lại, T3.3 phần đầu (16) | T3.3 còn lại, T3.4, T4.1 (17) | T3.6, T5.1, T7.1 (23) | T6.3, T7.3 (9) |
+
+S5 quá 16 giờ ở cả ba người: nếu tới 2026-12-04 còn trễ, cắt T4.4 chat (A) và E6–E9 trước.
+
+Chuyển việc ngày 2026-11-16 để cân tải: T3.5 vòng đời đơn C → B (C review); T4.1 binding queue A → C (A duyệt `definitions.json`); T5.4 kiểm tra máy sạch A → B.
+
+Phase 2 (B) và Phase 3 (C) chạy song song: C bắt đầu bằng phần không cần listing thật (payment, entity, máy trạng thái), mock `ListingClient` theo `example` trong hợp đồng.
 
 ## 2. Phân công
 
@@ -58,6 +70,8 @@ Theo Báo cáo v2 Phụ lục A.
 | **A** | Lưu Việt Hoàng (B23DCCC073) | Quản lý dự án, `api-gateway`, `identity`, `notification`, `contracts/`, `_template-nest`, `infra/` | Gateway, JWT, outbox/consumer/DLQ, thông báo, quy trình |
 | **B** | Đỗ Trung Thành (B23DCCC149) | `listing` (sản phẩm, ảnh S3, PostGIS, giữ chỗ), CI, kiểm thử tải, kịch bản lỗi | Giữ chỗ nguyên tử, tìm kiếm bán kính, số liệu thí nghiệm |
 | **C** | Đỗ Trung Thông (B23DCCC153) | `rental`, `payment` (saga, máy trạng thái, công việc nền, payOS, ví) | Saga, bù trừ, webhook, ví, hoàn và rút |
+
+Ngoại lệ phạm vi sửa code (2026-11-16): B sửa module vòng đời đơn trong `services/rental` cho T3.5, PR do C review; C sửa `infra/rabbitmq/definitions.json` cho T4.1, A duyệt.
 
 Mọi người trả lời được cơ bản về luồng đặt cọc (`design/RENTAL/RE.DEPOSIT_SAGA/Processing_Flow.md`).
 
@@ -70,7 +84,7 @@ Mọi người trả lời được cơ bản về luồng đặt cọc (`design
 | Danh mục sự kiện + schema | A (khung), C (sự kiện rental/payment) | T0.4 | Consumer test bằng example |
 | Gateway định tuyến | A | T1.2 | Gọi thẳng service, tự gắn `Authorization` |
 | `GET /internal/users/:id/bank-account` | A | T2.1 | C mock |
-| Binding queue mới | A | T4.1 | Test consumer với hạ tầng thật của template |
+| Binding queue mới | C (A duyệt) | T4.1 | Test consumer với hạ tầng thật của template |
 
 ## 3. Quy trình cho mỗi task
 
@@ -125,11 +139,12 @@ Cắt từ trên xuống. Báo cáo §4.7.3 gọi Phase 3 kết thúc là "đi�
 | Rủi ro | Dấu hiệu | Cách xử lý |
 |---|---|---|
 | Saga kéo dài | Hết tuần chưa xong nhánh lỗi | Làm thành công trước (T3.2), thêm bù trừ (T3.3), hết hạn (T3.4) |
-| C quá tải (rental + payment) | Phase 3 trễ | A nhận payout (`RE.PAYOUT`) sau khi xong Phase 4 `[cần xác nhận]` |
+| C quá tải (rental + payment) | 2026-11-27 saga luồng thành công (T3.2) chưa chạy | Đã chuyển T3.5 sang B. Nếu vẫn trễ: B nhận thêm T3.6 payout sau T3.5, C chỉ giữ saga (T3.1–T3.4) |
 | Webhook không về máy local | Đơn không `PAID` khi demo | Đường hầm ổn định; script giả webhook có chữ ký cho test |
 | Nguồn tài liệu lệch nhau | Code theo hợp đồng cũ | `van-de-can-quyet-dinh.md`; Báo cáo v2 là chuẩn |
 | Tích hợp vỡ muộn | Ghép lại lỗi | Sau mỗi merge chạy compose + Newman |
 | Máy yếu | Container bị kill | Không bật profile `demo` khi phát triển |
+| Báo cáo nộp cùng M4 với thí nghiệm (Phase 6) | Tới 2026-12-04 chưa có số E1–E3 | Viết báo cáo song song từ M3; ưu tiên E1–E3 trước E4–E10 (cắt E6–E9 theo §6) |
 
 ## 8. Việc cần chốt ngay
 

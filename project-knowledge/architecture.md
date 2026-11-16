@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Nguồn** | Báo cáo v2 Chương 4, ADR-0001 đến ADR-0014 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.0 |
 
 ## 1. Tổng quan
 
@@ -76,14 +76,16 @@ Listing dừng thì không đặt cọc được: cái giá của một lời g�
 | Hạng mục | Lựa chọn |
 |---|---|
 | Service, gateway | NestJS 11 (CommonJS), TypeScript strict, Node.js 22 LTS |
+| Gateway | `http-proxy-middleware` (proxy, WebSocket), `@nestjs/throttler` (rate limit, bộ đếm trong bộ nhớ) — chốt 2026-11-16 |
+| Công việc nền | `@nestjs/schedule` (hết hạn giữ chỗ, tự giải ngân, đối soát) — chốt 2026-11-16 |
 | Monorepo | pnpm workspace |
 | Lưu trữ | PostgreSQL 16 + PostGIS 3.5, TypeORM, migration (ADR-0013) |
 | Dữ liệu tạm | Redis 7.4 |
 | Sự kiện | RabbitMQ 3.13, amqplib |
-| Thanh toán | payOS (link, VietQR, webhook) |
+| Thanh toán | payOS (link, VietQR, webhook), SDK `@payos/node` — chốt 2026-11-16; phiên bản và cách tắt retry của SDK chốt ở T3.1 |
 | Xác thực | JWT RS256, argon2id |
 | Lưu tệp | Silo, API S3, AWS SDK (ADR-0007) |
-| Thời gian thực | Socket.IO |
+| Thời gian thực | Socket.IO: `@nestjs/websockets`, `@nestjs/platform-socket.io` — chốt 2026-11-16 |
 | Email | SMTP qua nodemailer ở identity (OTP, đặt lại mật khẩu); Mailpit khi dev |
 | Đăng nhập Google | Google Sign-In ở Next.js; identity kiểm ID token bằng `google-auth-library` (chốt 2026-11-13) |
 | Log | pino JSON; Filebeat, Elasticsearch, Kibana ở profile demo |
@@ -123,7 +125,7 @@ Identity, rental, payment ghi sự kiện vào `outbox_events` cùng transaction
 - Hạ tầng chỉ publish cổng ra `127.0.0.1`. Postgres trên laptop `5433`, trong Docker `postgres:5432`.
 - Bản demo: năm database trong một container PostgreSQL, mỗi database một user riêng không phải superuser, `REVOKE CONNECT` từ `PUBLIC` (ADR-0002).
 
-## 9. Điểm [cần xác nhận]
+## 9. Đã chốt
 
-1. Cách gateway chuyển tiếp webhook payOS mà giữ body thô (chữ ký tính trên body): `design/SHARED/RE.GATEWAY/API_Spec.md §6`. Đường dẫn đã chốt (A6).
-2. S4 (payment → rental kiểm tra điều kiện rút) tạo phụ thuộc hai chiều rental ⇄ payment; báo cáo chấp nhận, chưa có ADR riêng.
+1. ~~Cách gateway chuyển tiếp webhook payOS mà giữ body thô~~ Đã chốt 2026-11-16: gateway tắt body parser, proxy bằng `http-proxy-middleware` (`design/SHARED/RE.GATEWAY/API_Spec.md §6`).
+2. ~~S4 tạo phụ thuộc hai chiều rental ⇄ payment~~ Chấp nhận 2026-11-16, không tạo ADR riêng: S4 chỉ đọc (`GET` điều kiện rút), không nằm trong cùng request với S2 nên không tạo vòng gọi; rental dừng thì chỉ tạo lệnh rút bị ảnh hưởng (§4).

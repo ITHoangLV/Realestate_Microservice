@@ -6,7 +6,7 @@
 | **Service** | `rental` (cổng 3003) |
 | **Quy tắc** | BR-11, BR-12, BR-13, BR-15, BR-16, BR-18, BR-19 |
 | **CSDL** | `rental_db`: `deposits` (DDL ở `RE.DEPOSIT_SAGA/API_Spec.md §6`), `audit_log` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 > Đường dẫn chốt 2026-11-12 (A6). Thao tác lấy theo Báo cáo v2 Bảng 3.9. Hồ sơ người thuê đã cắt (`implementation/van-de-can-quyet-dinh.md` D).
 
@@ -32,7 +32,7 @@
 | 4 | 3 | `status ≠ PAID` (đã nhận phòng, đã có yêu cầu) | `409 RENTAL_INVALID_TRANSITION` (Báo cáo T11) |
 | 4 | 4 | `now() > refund_deadline_at` | `409 RENTAL_REFUND_WINDOW_CLOSED` (Báo cáo T11) |
 | 6 | 3 | `status = REFUND_REQUESTED` | `409 RENTAL_REFUND_PENDING` |
-| 6 | 4 | `status ∉ {PAID, RELEASED}` `[cần xác nhận]` | `409 RENTAL_INVALID_TRANSITION` |
+| 6 | 4 | `status ∉ {PAID, RELEASED}` (đơn đã tự giải ngân vẫn bàn giao được: chỉ ghi `admin_confirmed_at`, giữ `RELEASED`) | `409 RENTAL_INVALID_TRANSITION` |
 | 6 | 5 | Đã bàn giao | `200`, không đổi (idempotent) |
 | 7 | 3 | `admin_confirmed_at IS NULL` | `409 RENTAL_NOT_HANDED_OVER` |
 | 7 | 4 | Đã xác nhận | `200`, không đổi |
@@ -70,7 +70,7 @@ BR-15 (sửa 2026-11-12):
 |---|---|
 | `rental.deposit-handed-over` (AdminConfirmedToSeller) | Route 6 |
 | `rental.deposit-released` | Route 3 (`TENANT`) hoặc `AutoReleaseJob` (`AUTO`) |
-| `rental.release-reminder` `[cần xác nhận]` | `DeadlineJob`, trước `auto_release_at` 24 giờ |
+| `rental.release-reminder` | `DeadlineJob`, trước `auto_release_at` 24 giờ |
 
 | Nghe | Xử lý |
 |---|---|
@@ -78,7 +78,7 @@ BR-15 (sửa 2026-11-12):
 | `payment.refunded`, `requesterType = SYSTEM` | Không đổi (tiền đến muộn, đơn `EXPIRED`) |
 | `payment.refund-rejected` | `REFUND_REQUESTED → PAID` |
 | `payment.withdrawal-completed` | `RELEASED → WITHDRAWN`. Đơn `REFUNDED`: chỉ ghi `withdrawn_at`, giữ `REFUNDED` |
-| `payment.withdrawal-requested`, `payment.withdrawal-failed` | Báo cáo liệt kê rental là bên nghe, chưa nêu xử lý `[cần xác nhận]` |
+| `payment.withdrawal-requested`, `payment.withdrawal-failed` | Rental **không** nghe (chốt 2026-11-16, C10); chỉ notification nghe. Queue `rental.payment-events` không bind hai khóa này |
 
 ## 5. Catalog mã lỗi (rental, phần vòng đời)
 
@@ -96,7 +96,7 @@ BR-15 (sửa 2026-11-12):
 | `REFUND_WINDOW_SECONDS` | `172800` (48 giờ) | Báo cáo Bảng 5.1, đổi đơn vị theo A3 |
 | `AUTO_RELEASE_SECONDS` | `259200` (72 giờ) | Báo cáo Bảng 5.1, đổi đơn vị theo A3 |
 | `RELEASE_REMINDER_SECONDS` | `86400` (24 giờ) | Báo cáo Bảng 5.1, đổi đơn vị theo A3 |
-| `AUTO_RELEASE_INTERVAL_MS`, `DEADLINE_INTERVAL_MS` | `[cần xác nhận]` | Đề xuất |
+| `AUTO_RELEASE_INTERVAL_MS`, `DEADLINE_INTERVAL_MS` | `10000`, `10000` | Chốt 2026-11-16 |
 
 Demo rút ngắn xuống vài chục giây. Báo cáo cuối kỳ sửa tên biến ở Bảng 5.1.
 
@@ -119,7 +119,7 @@ CREATE INDEX ix_audit_log_target ON audit_log (target_type, target_id, created_a
 
 Cùng khuôn với `audit_log` của payment (`RE.PAYOUT/API_Spec.md`). Lần bàn giao lặp lại (idempotent, `200` không đổi) không ghi thêm dòng.
 
-## 8. Điểm [cần xác nhận]
+## 8. Đã chốt 2026-11-16
 
-1. Bàn giao được khi đơn đã `RELEASED` (tự giải ngân trước khi quản trị viên bàn giao) không.
-2. Rental xử lý gì với `WithdrawalRequested`, `WithdrawalFailed`.
+1. Bàn giao được khi đơn đã `RELEASED`: chỉ ghi mốc, không đổi trạng thái.
+2. Rental không nghe `payment.withdrawal-requested`, `payment.withdrawal-failed`.

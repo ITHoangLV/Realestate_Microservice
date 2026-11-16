@@ -110,7 +110,7 @@
 |---|---|
 | `design/RENTAL/RE.VIEWING/API_Spec.md` | Làm route lịch xem |
 | `design/RENTAL/RE.VIEWING/Component_Class_Design.md` | Code `ViewingService` |
-| `design/RENTAL/RE.VIEWING/Processing_Flow.md` | Cần luồng đặt lịch, phản hồi, xác nhận |
+| `design/RENTAL/RE.VIEWING/Processing_Flow.md` | Cần luồng đặt lịch, từ chối, hủy, tự hủy khi có người cọc, xác nhận đã xem |
 
 #### RE.DEPOSIT_SAGA — Saga đặt cọc, bù trừ, hết hạn, đối soát (module của rental, C)
 
@@ -183,6 +183,7 @@
 | `guides/RE_Failure_Experiment_Guide.md` | Làm thí nghiệm E1–E10, ghi kết quả |
 | `guides/RE_Report_Defense_Guide.md` | Báo cáo, slide, kịch bản demo, vấn đáp |
 | `guides/_template_Code_Walkthrough.md` | Viết file giải thích code `RE_<Thành_phần>_Code_Walkthrough.md` sau mỗi task có code (`CLAUDE.md` gốc §8). Mỗi file walkthrough thêm một dòng ở bảng này |
+| `guides/RE_Contracts_Code_Walkthrough.md` | Hiểu `contracts/` (4 API nội bộ, 17 sự kiện), topology RabbitMQ, lệnh `contracts:check`; vấn đáp contract-first |
 
 ### 2.6 Kế hoạch triển khai
 

@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/identity/src/identity/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/security-policy.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Cấu trúc
 
@@ -90,13 +90,14 @@ classDiagram
     GoogleAuthService --> AuthService
 ```
 
-`revokeAllForUser` chưa có trong store hiện tại; cần khi đổi vai trò, khóa tài khoản, đặt lại mật khẩu (Bảng 2.6) `[cần xác nhận]` cách đánh chỉ mục họ token theo user trên Redis.
+`revokeAllForUser(userId)` (chốt 2026-11-16): mỗi lần cấp họ token mới, `SADD identity:user-families:<userId> <familyId>` và gia hạn TTL 7 ngày; thu hồi = đọc set, đặt `identity:revoked:<familyId>` cho từng phần tử rồi xóa set. Gọi khi đổi vai trò, khóa tài khoản, đặt lại mật khẩu (Bảng 2.6).
 
 ## 3. Redis
 
 ```text
 identity:rt:<sha256(token)>   hash {userId, familyId, used}   TTL 7 ngày
 identity:revoked:<familyId>   "1"                             TTL 7 ngày
+identity:user-families:<userId> set {familyId}                TTL 7 ngày (gia hạn khi thêm)
 identity:otp:<userId>         hash {otpHash, attempts}        TTL OTP_TTL_SECONDS
 identity:otp-cooldown:<userId> "1"                            TTL OTP_RESEND_COOLDOWN_SECONDS
 identity:pwreset:<sha256(token)> userId                       TTL PASSWORD_RESET_TTL_SECONDS
@@ -121,7 +122,7 @@ OTP băm bằng SHA-256 kèm `userId` trước khi lưu; so sánh hằng thời 
 | 7 | Đăng ký ghi outbox cùng transaction | Rollback thì không có sự kiện | Có |
 | 8 | `identity.registered` đúng schema | `expectEventMatchesContract` | Kiểm lại |
 | 9 | Khai tài khoản ngân hàng | Lưu mã hóa, response chỉ bốn số cuối | Mới |
-| 10 | Đổi vai trò | Refresh token cũ của người đó `401` | Mới |
+| 10 | Đổi vai trò | Refresh token cũ của người đó `401`; Redis lỗi khi thu hồi → `503` | Mới |
 | 11 | `/internal/users/:id/bank-account` chưa khai | `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND` | Mới |
 | 12 | Seed chạy hai lần | Không đổi gì | Có (`seed-admin.infra-spec.ts`) |
 | 13 | Đăng ký mới | `status = PENDING_VERIFICATION`, Mailpit nhận một email OTP | Mới |
@@ -137,6 +138,6 @@ OTP băm bằng SHA-256 kèm `userId` trước khi lưu; so sánh hằng thời 
 | 22a | Mở khóa tài khoản chưa xác minh | Về `PENDING_VERIFICATION`; đã xác minh thì về `ACTIVE` | Mới |
 | 23 | `phone` trùng | `409 IDENTITY_PHONE_TAKEN` | Mới |
 
-## 6. Điểm [cần xác nhận]
+## 6. Đã chốt
 
-1. Cách thu hồi mọi phiên của một người dùng trên Redis (§2).
+Thu hồi mọi phiên của một người dùng: set họ token theo user (§2, §3), chốt 2026-11-16.

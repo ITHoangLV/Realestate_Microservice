@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/payment.withdrawal-completed.v1.schema.json",
+  "title": "payment.withdrawal-completed",
+  "description": "WithdrawalCompleted: quản trị viên chuyển tiền xong, có chứng từ",
+  "x-producer": "payment",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    }
+  ],
+  "properties": {
+    "eventType": {
+      "const": "payment.withdrawal-completed"
+    },
+    "version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "payment"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["withdrawalId", "depositId", "ownerId", "amountVnd"],
+      "properties": {
+        "withdrawalId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Lệnh rút (payment sở hữu)"
+        },
+        "depositId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Đơn đặt cọc (rental sở hữu)"
+        },
+        "ownerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Chủ trọ (identity)"
+        },
+        "amountVnd": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Số tiền đã chi (VND)"
+        }
+      }
+    }
+  }
+}

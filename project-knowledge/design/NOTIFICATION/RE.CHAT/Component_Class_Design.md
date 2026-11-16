@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/notification/src/chat/` |
 | **Quy ước** | `standards/coding-convention.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Cấu trúc
 
@@ -52,6 +52,6 @@ classDiagram
 | 4 | Kết nối socket sai token | Bị ngắt |
 | 5 | Danh sách | Sắp theo `last_message_at` |
 
-## 4. Điểm [cần xác nhận]
+## 4. Đã chốt
 
-Xem `API_Spec.md §5`.
+Xem `API_Spec.md §5` (2026-11-16).

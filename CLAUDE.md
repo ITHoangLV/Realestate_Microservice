@@ -64,6 +64,9 @@
 | `debug` | Gỡ lỗi có hệ thống 4 bước |
 | `decisions-relevance` | Rà kho ADR: lỗi thời, mồ côi, mâu thuẫn |
 | `tdd-workflow` | Áp chu trình Red → Green → Refactor khi playbook TDD bật (§5) |
+| `contract-change` | Đổi API nội bộ hoặc sự kiện — sửa `contracts/` trước code, chạy `pnpm contracts:check` (§8) |
+| `service-scaffold` | Tạo service mới từ `services/_template-nest` và nối vào compose, gateway |
+| `code-walkthrough` | Task có code đã xanh — viết `guides/RE_<Thành_phần>_Code_Walkthrough.md` trước `code-review` (§8) |
 
 ---
 
@@ -80,7 +83,8 @@
 ## §6 — Hooks (`.claude/settings.json`)
 
 - **PostToolUse** (`Write|Edit|MultiEdit`) → `tdd-guard.js`: sửa file `.ts` trong `services/*/src/` mà chưa có `.spec.ts` cạnh nó thì nhắc (`warn`) hoặc chặn (`block`). Chỉ chạy khi `playbooks.tdd.enabled = true`. Lỗi nội bộ thì cho qua.
-- Chưa bật hook chặn thao tác nguy hiểm và hook quét secret. Quy tắc tương ứng vẫn bắt buộc theo `standards/security-policy.md`.
+- **permissions**: `allow` các lệnh chỉ đọc hoặc kiểm tra (`pnpm lint`, `format:check`, `build`, `contracts:check`, `pnpm --filter @realestate/<service> test*` và `build`, `git status/diff/log`); `ask` trước `git commit/push/merge`, `pnpm add/install`, xóa volume, sửa `.env`; `deny` đọc/sửa `secrets/`, `*.pem`, `*.key`, `git push --force`, `git reset --hard`, `rm -rf`. Cấu hình riêng từng máy để ở `.claude/settings.local.json` (không commit).
+- Chưa có hook quét secret. Quy tắc tương ứng vẫn bắt buộc theo `standards/security-policy.md`.
 
 ---
 
@@ -101,7 +105,10 @@ Nguồn chính của task là `project-knowledge/implementation/` (task, hạn t
 ```
 
 - `<dev-id>` = phần trước `@` của `git config user.email`, chữ thường, ký tự ngoài `[a-z0-9._-]` đổi thành `-`; rỗng thì `local-dev`.
+- `/cf-task T<x.y>` nhận task: đọc `PHASE-x.md`, kiểm phụ thuộc, `task-state-init`, vào `developer` tới cổng duyệt kế hoạch.
+- `/cf-status` xem task đang làm, phase trễ, việc đang chặn, task nên nhận tiếp (chỉ đọc).
 - `/cf-handoff` lưu phiên đang dở; `/cf-resume` đọc lại và **hỏi trước khi code tiếp**.
+- `.claude/logs/` (log hook) và `.claude/settings.local.json` nằm trong `.gitignore`, không commit.
 
 ---
 

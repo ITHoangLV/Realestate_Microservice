@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Trạng thái** | Proposed |
+| **Trạng thái** | Accepted |
 | **Ngày** | 2026-11-10 |
 | **Người quyết định** | Nhóm 5 |
 | **Liên quan** | `infra/compose/postgres/init/01-create-databases.sh`, ADR-0008 |

@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Đặt cọc thành công, bù trừ, hết hạn giữ chỗ, đối soát, bảng xử lý từng điểm lỗi |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, ADR-0004, Báo cáo v2 Hình 3.9–3.11, Bảng 4.9 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Luồng thành công
 
@@ -20,7 +20,7 @@ sequenceDiagram
     T->>R: POST /api/v1/deposits + Idempotency-Key
     R->>Rd: SET lock:listing:{id} NX PX
     R->>L: GET /internal/listings/:id
-    L-->>R: owner, title, depositAmount, status
+    L-->>R: ownerId, title, depositAmountVnd, status, approvalStatus
     R->>L: POST /internal/listings/:id/holds {depositId, heldUntil}
     L-->>R: 200 HELD
     R->>DB: BEGIN, INSERT deposits PENDING_PAYMENT, saga_log, outbox deposit-created, COMMIT
@@ -35,7 +35,7 @@ sequenceDiagram
     PO->>P: webhook (qua gateway)
     P->>P: kiểm chữ ký, số tiền, mã giao dịch, PAID, DEPOSIT_IN, outbox payment.deposited
     P--)R: payment.deposited
-    R->>DB: PENDING_PAYMENT → PAID, mốc 48h/72h, đích listing DEPOSITED
+    R->>DB: PENDING_PAYMENT → PAID, mốc 48h/72h, đích listing DEPOSITED, hủy lịch xem REQUESTED của người khác (RE.VIEWING)
     R->>L: PUT /internal/listings/:id/status DEPOSITED (job)
 ```
 

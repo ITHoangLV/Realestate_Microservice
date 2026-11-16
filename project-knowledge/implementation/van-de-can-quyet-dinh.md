@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 ## A. Chặn code — đã chốt ở T0.1 (2026-11-12)
 
@@ -43,6 +43,8 @@ Nhóm chốt 2026-11-12. Điểm lệch chủ ý so với Báo cáo v2 được 
 | B12 | Rental lưu "audit log" khi bàn giao (§3.5) | `rental_db` (Bảng 3.5) không có bảng audit | `RE.DEPOSIT_LIFECYCLE` || Thêm bảng `audit_log` ở `rental_db` |
 | B13 | Phần 30% của chủ trọ khi người thuê tự hủy "rút qua yêu cầu rút riêng gắn với đơn `REFUNDED`" (§3.3) | BR-15 cùng báo cáo: chỉ rút khi `RELEASED` | `RE.PAYOUT`, `RE.DEPOSIT_LIFECYCLE` || Cho rút 30% trong hệ thống; sửa BR-15 (xem D) |
 | B14 | ADR mới ở `project-knowledge/decisions/` (0001–0014) | `docs/adr/ADR-007`, `ADR-008`, `docs/architecture/service-boundaries.md` | Hai nơi ghi quyết định || Xóa `docs/adr/`, `docs/architecture/service-boundaries.md`. Báo cáo cuối kỳ sửa §6.1, [4], [7] |
+| B15 | FR04: đặt lịch xem, **chủ trọ phản hồi**, người thuê xác nhận đã xem | Chốt 2026-11-16: không chọn giờ (chốt giờ qua chat), chủ trọ chỉ từ chối, không có bước đồng ý; người thuê hủy được; tự hủy yêu cầu của người khác khi tin có đơn `PAID` | `RE.VIEWING`, `contracts/events/rental.viewing-*` || Lệch chủ ý; Báo cáo cuối kỳ sửa FR04 và bảng `viewings` (bỏ giờ hẹn) |
+| B16 | Luồng `deposits` payOS, hoàn 70%, không có trợ lý chat; nguồn duy nhất là `project-knowledge/` (B14) | `docs/TONG_QUAN_TOAN_DIEN_DU_AN.md` và `docs/HUONG_DAN_CHI_TIET_DU_AN.md` (hai bản gần như trùng nhau): chatbot AI, chủ nhà không duyệt trong 24 giờ thì hoàn 100%, `service-boundaries.md` là "luật tối cao", nhánh `feature/identity`. `docs/pm/prompt-lead-be.md`: thứ tự nguồn cũ (`service-boundaries.md` đứng đầu), reservation, sổ kép | Thành viên mới đọc `docs/` trước `project-knowledge/` sẽ hiểu sai nghiệp vụ; bản `claude/prompt-lead-be.md` trên Project đã xóa 2026-11-12 nhưng bản trong repo còn. Đề xuất (rà soát 2026-11-16): xóa hai cẩm nang trùng, thay bằng một dòng trỏ `project-knowledge/README.md`; xóa hoặc viết lại `docs/pm/prompt-lead-be.md` theo thứ tự nguồn hiện hành || Chốt 2026-11-16: xóa 3 file (`git rm`), thêm `docs/README.md` trỏ `project-knowledge/README.md` |
 
 ## C. Đề xuất thiết kế chờ duyệt (không chặn)
 
@@ -50,19 +52,22 @@ Mỗi mục có chi tiết ở mục "Điểm [cần xác nhận]" cuối tài l
 
 | # | Chủ đề | Nơi |
 |---|---|---|
-| C1 | Tên giá trị `approval_status`, `property_type`, danh mục tiện ích; sửa tin có duyệt lại không | `RE.LISTING` |
-| C2 | Trạng thái lịch xem, có hủy/`NO_SHOW` không | `RE.VIEWING` |
-| C3 | Trạng thái payment order; trạng thái khi tạo link payOS lỗi | `RE.PAYMENT` |
-| C4 | Cách tính, làm tròn 70% | `RE.PAYOUT` |
-| C5 | Tải chứng từ multipart qua payment hay presigned URL | `RE.PAYOUT` |
-| C6 | Tiền đến muộn với số tiền khác tiền cọc; thanh toán hai lần cho một order | `RE.PAYMENT` |
-| C7 | Thư viện proxy, timeout, rate limit, WebSocket ở gateway | `RE.GATEWAY` |
-| C8 | Gửi thông báo cho quản trị viên; người tham gia kênh `SUPPORT`; hiển thị tên trong chat | `RE.NOTIFICATION`, `RE.CHAT` |
-| C10 | Rental xử lý `WithdrawalRequested`, `WithdrawalFailed` | `RE.DEPOSIT_LIFECYCLE` |
-| C11 | Mã lỗi mới (cột "Nguồn = Đề xuất" trong mọi catalog) | Mọi `API_Spec.md` |
-| C12 | Queue dự phòng `payment.rental-events`, `listing.rental-events`, `listing.indexer` và schema sự kiện luồng cũ | `RE.MESSAGING` |
-| C13 | Ngày công từng task, hạn nộp báo cáo, số slide | `implementation/` |
-| C14 | `InternalHttpService` phân biệt "chưa thực hiện" với "chưa biết" | `RE.SERVICE_TEMPLATE`, `RE.DEPOSIT_SAGA` |
+| C1 | ~~Tên giá trị `approval_status`, `property_type`, danh mục tiện ích; sửa tin có duyệt lại không~~ Đã chốt 2026-11-16 (mục D) | `RE.LISTING §7` |
+| C2 | ~~Trạng thái lịch xem; route `respond`/`decline`; `/cancel`; `NO_SHOW`; yêu cầu đã tự hủy khi đơn bị hoàn~~ Đã chốt 2026-11-16 (mục D) | `RE.VIEWING §5` |
+| C15 | ~~Ghi outbox nhiều dòng khi tự hủy lịch xem~~ Đã chốt 2026-11-16 (mục D) | `RE.VIEWING/Component_Class_Design.md §2` |
+| C16 | ~~Mã lỗi mới `RENTAL_VIEWING_DUPLICATE`~~ Đã chốt 2026-11-16 (C11) | `RE.VIEWING/API_Spec.md §3` |
+| C3 | ~~Trạng thái payment order; khi tạo link payOS lỗi~~ Đã chốt 2026-11-16 (mục D) | `RE.PAYMENT §7` |
+| C4 | ~~Cách tính, làm tròn 70%~~ Đã chốt 2026-11-16 (mục D) | `RE.PAYOUT §8` |
+| C5 | ~~Tải chứng từ multipart hay presigned URL~~ Đã chốt 2026-11-16 (mục D) | `RE.PAYOUT §8` |
+| C6 | ~~Tiền đến muộn sai số tiền; thanh toán hai lần~~ Đã chốt 2026-11-16 (mục D) | `RE.PAYMENT §7` |
+| C7 | ~~Thư viện proxy, timeout, rate limit, WebSocket ở gateway~~ Đã chốt 2026-11-16 (mục D). Còn mở: `CORS_ORIGINS` thật của Next.js | `RE.GATEWAY §6` |
+| C8 | ~~Thông báo cho quản trị viên; người tham gia `SUPPORT`; tên trong chat~~ Đã chốt 2026-11-16 (mục D) | `RE.NOTIFICATION §7`, `RE.CHAT §5` |
+| C10 | ~~Rental xử lý `WithdrawalRequested`, `WithdrawalFailed`~~ Đã chốt 2026-11-16 (mục D) | `RE.DEPOSIT_LIFECYCLE §8` |
+| C11 | ~~Mã lỗi mới (cột "Nguồn = Đề xuất" trong mọi catalog)~~ Đã chốt 2026-11-16 (mục D) | Mọi `API_Spec.md` |
+| C13 | ~~Hạn nộp báo cáo, thời lượng task~~ Đã chốt 2026-11-16 (mục D). Còn mở: số slide, thang điểm cộng (hỏi giảng viên); B, C xác nhận mức 16 giờ hiệu dụng/tuần | `implementation/` |
+| C14 | ~~`InternalHttpService` phân biệt "chưa thực hiện" với "chưa biết"~~ Đã chốt 2026-11-16 (mục D) | `RE.SERVICE_TEMPLATE`, `RE.DEPOSIT_SAGA` |
+| C17 | ~~Thư viện thiết kế đã dùng nhưng chưa có trong `architecture.md §5`~~ Đã chốt 2026-11-16 (mục D) | `architecture.md §5` |
+| C18 | ~~`OUTBOX_RELAY_ENABLED` có ở identity, thiếu ở `_template-nest`~~ Đã chốt 2026-11-16 (mục D) | `services/_template-nest`, `RE.MESSAGING` |
 
 ## D. Đã quyết
 
@@ -111,3 +116,40 @@ Mỗi mục có chi tiết ở mục "Điểm [cần xác nhận]" cuối tài l
 | 2026-11-13 | Thư viện kiểm ID token Google | `google-auth-library`, thêm vào `architecture.md §5` |
 | 2026-11-13 | Hạn T2.5 | M2 — 2026-11-27, làm trong S3 (tuần A còn trống) |
 | 2026-11-13 | Mở khóa tài khoản | Về trạng thái trước khi khóa: chưa xác minh email thì `PENDING_VERIFICATION` |
+| 2026-11-13 | Schema luồng cũ, queue dự phòng (C12) | Xóa 7 schema `rental.requested/accepted/rejected/expired/cancelled/completed`, `payment.released` và queue `payment.rental-events`, `listing.rental-events`, `listing.indexer` |
+| 2026-11-13 | Phiên bản `payment.deposited`, `payment.refunded` | Viết lại trong `v1` (chưa có code phát hay nghe); ngoại lệ một lần ghi ở `contracts/events/README.md` |
+| 2026-11-13 | Tên trường hợp đồng nội bộ listing | `ownerId`, `title`, `depositAmountVnd`, `status`, `approvalStatus`; bỏ `landlordName`, `isPublished`, cột `owner_name` |
+| 2026-11-13 | Binding `rental.payment-events` | `payment.deposited`, `payment.refunded`, `payment.refund-rejected`, `payment.withdrawal-completed`; `withdrawal-requested`, `withdrawal-failed` chờ C10 |
+| 2026-11-16 | Nguồn chuẩn (hỏi lại) | Giữ quyết định 2026-11-10/12: Báo cáo v2 → code đã merge → tài liệu khác. `claude/nghiep-vu-dat-coc-payos.md` chỉ để tham khảo |
+| 2026-11-16 | Cọc trực tiếp ngoài hệ thống (chủ trọ bấm "Đã đặt cọc trực tiếp") | Không làm; giữ BR-14 (mọi khoản cọc qua hệ thống) |
+| 2026-11-16 | Lịch xem: giờ hẹn | Mỗi tin là một căn/phòng duy nhất. Người thuê bấm Đặt lịch xem, không chọn giờ; hai bên nhắn tin chốt giờ. Bỏ `scheduledAt` khỏi API, bảng `viewings` và schema sự kiện |
+| 2026-11-16 | Lịch xem: bước chủ trọ | Không có bước đồng ý (`ACCEPTED` bỏ). Chủ trọ xem danh sách người đăng ký và có thể từ chối (`DECLINED`). `REQUESTED → CONFIRMED` khi người thuê xác nhận đã xem |
+| 2026-11-16 | Lịch xem: mở chat | Người dùng bấm nút Nhắn tin (route `POST /conversations` của `RE.CHAT`); backend không tự tạo hội thoại |
+| 2026-11-16 | Lịch xem: hủy, trùng | Người thuê hủy được khi còn `REQUESTED`; mỗi người thuê một yêu cầu `REQUESTED` trên mỗi tin (`409 RENTAL_VIEWING_DUPLICATE`) |
+| 2026-11-16 | Lịch xem: khi tin có người cọc | Rental nhận `payment.deposited` → trong cùng transaction hủy mọi yêu cầu `REQUESTED` của người khác trên tin (`cancel_reason = LISTING_DEPOSITED`), phát `rental.viewing-cancelled`, notification báo họ. Yêu cầu `CONFIRMED` giữ nguyên |
+| 2026-11-16 | Sự kiện lịch xem | Sửa thẳng `v1` (chưa có code phát hay nghe): bỏ `scheduledAt` ở 3 schema, `decision` chỉ còn `DECLINED`, thêm `rental.viewing-cancelled` (`reason`). Binding `rental.*` của `notification.events` đã bao, không đổi `definitions.json` |
+| 2026-11-16 | `claude/nghiep-vu-dat-coc-payos.md` trong Project | Xóa khỏi Project (lỗi thời: bắt buộc `VERIFIED`, sổ kép, MongoDB). Các điểm lệch đã tóm ở mục B1–B8 |
+| 2026-11-16 | Gateway (C7) | `http-proxy-middleware`; gateway tắt body parser nên webhook payOS giữ nguyên body; `GATEWAY_PROXY_TIMEOUT_MS=10000`; `@nestjs/throttler` bộ đếm trong bộ nhớ, 60 giây: 100 request/IP, 300 request/người dùng; WebSocket `/ws` chỉ chuyển tiếp upgrade, notification kiểm token trong handshake; không làm `/health/services`. Ghi ở `RE.GATEWAY/API_Spec.md §5–6` |
+| 2026-11-16 | Thư viện được phép (C17) | Thêm vào `architecture.md §5`: `http-proxy-middleware`, `@nestjs/throttler`, `@nestjs/schedule`, `@payos/node`, `@nestjs/websockets`, `@nestjs/platform-socket.io`. Cài các thư viện này không cần hỏi lại |
+| 2026-11-16 | `OUTBOX_RELAY_ENABLED` (C18) | Đưa vào `_template-nest` (`outbox.relay.ts`, `env.validation.ts`, `.env.example`) trước khi tạo service mới; làm ở bước 0 của T1.2 (A) |
+| 2026-11-16 | Tài liệu cũ trong `docs/` (B16) | Xóa `docs/TONG_QUAN_TOAN_DIEN_DU_AN.md`, `docs/HUONG_DAN_CHI_TIET_DU_AN.md`, `docs/pm/prompt-lead-be.md`; `docs/README.md` trỏ `project-knowledge/README.md` |
+| 2026-11-16 | ADR (T0.2) | Accept 0001–0006, 0009–0014. Thiết kế v1.0 thành baseline: từ nay sửa `design/` phải kèm `CHANGELOG.md` (`design-standards.md §9`) |
+| 2026-11-16 | Tài khoản nhận tiền, số điện thoại (T2.1) | Một người một tài khoản (`PUT` ghi đè); `bankName` tự do 2–100 ký tự; `accountNumber` `^\d{6,19}$`; `BANK_ACCOUNT_ENCRYPTION_KEY` AES-256-GCM 32 byte base64; API nội bộ trả số đầy đủ cho payment, payment chỉ lưu bốn số cuối; `phone` `^0\d{9}$` |
+| 2026-11-16 | Thu hồi mọi phiên của một người (T2.1) | Set `identity:user-families:<userId>`; thu hồi từng `familyId` trong set. Ghi ở `RE.IDENTITY/Component_Class_Design.md §2–3` |
+| 2026-11-16 | Listing (C1) | `propertyType` `ROOM`/`APARTMENT`/`HOUSE`; `approvalStatus` `PENDING_REVIEW`/`APPROVED`/`REJECTED`; 11 mã tiện ích cố định; `title` 5–200; sửa nội dung hiển thị hoặc thêm ảnh → duyệt lại, sửa giá/cọc/diện tích/tiện ích → không; ảnh jpeg/png/webp ≤ 5 MB, ≤ 10 ảnh/tin (`409 LISTING_IMAGE_LIMIT_REACHED`); `pageSize` 20, tối đa 50. A chốt thay, B xem lại ở T2.2 |
+| 2026-11-16 | Lịch xem (C2, C15) | Giữ `respond` (`DECLINE`) và `/cancel`; chủ tin tự đặt lịch → `403 RENTAL_VIEWING_OWN_LISTING`; không `NO_SHOW`; yêu cầu đã tự hủy giữ `CANCELLED`; outbox ghi từng dòng cùng transaction. A chốt thay, C xem lại ở T3.2 |
+| 2026-11-16 | Payment (C3, C6) | Order `PENDING`/`PAID`/`CANCELLED`; tạo link lỗi giữ `PENDING` không link; tiền đến muộn sai số hoặc trả hai lần → ghi đúng số thực nhận, hoàn 100%; `PAYOS_TIMEOUT_MS=2500`; `returnUrl`/`cancelUrl` `http://localhost:3000/payment/return`, `/payment/cancel`; không làm job đối soát payOS (ghi hạn chế) |
+| 2026-11-16 | Payout (C4, C5) | `floor(amount × 70 / 100)`, tỉ lệ hằng số; chứng từ multipart qua payment, ≤ 5 MB, jpeg/png/pdf; hoàn `FAILED` không phát sự kiện; `tenantId` lấy từ `payment_orders`; ví thiếu → `409 PAYMENT_WALLET_INSUFFICIENT` + log `error` |
+| 2026-11-16 | Saga | `DEPOSIT_LOCK_TTL_MS=10000`, `HOLD_EXPIRY_INTERVAL_MS=5000`, `SAGA_RECONCILE_INTERVAL_MS=15000`, `SAGA_STUCK_AFTER_SECONDS=30`, `AUTO_RELEASE_INTERVAL_MS=DEADLINE_INTERVAL_MS=10000`; lỗi `LISTING_*` chuyển nguyên; `DEPOSITED` đẩy ở lượt job kế; một bản sao rental, không `SKIP LOCKED` (ghi hạn chế) |
+| 2026-11-16 | Kết quả lời gọi liên service (C14) | Sửa template: `InternalHttpService` gắn `details.outcome` — `NOT_EXECUTED` khi chưa gửi được request (`ECONNREFUSED`, `ENOTFOUND`), còn lại `UNKNOWN`. A làm ở bước 0 T1.2 |
+| 2026-11-16 | Vòng đời đơn (C10) | Bàn giao được khi đơn đã `RELEASED` (chỉ ghi mốc); rental không nghe `payment.withdrawal-requested`, `payment.withdrawal-failed` |
+| 2026-11-16 | Notification, chat (C8) | Thông báo của người khác → `404`; quản trị viên nhận theo vai trò (`recipient_role='ADMIN'`, phòng `role:ADMIN`); đẩy WebSocket sau commit; email X3 ngoài phạm vi. Chat: `TENANT_LANDLORD`, `SUPPORT`; tin 1–2000 ký tự; admin trả lời đầu tiên thành người tham gia `SUPPORT`; tên từ `user_snapshots` (bản chụp `identity.registered`) |
+| 2026-11-16 | Mã lỗi (C11), CORS | Mọi mã "Đề xuất" trong các catalog thành chính thức; mã mới phát sinh khi code phải thêm vào thiết kế trước. `CORS_ORIGINS=http://localhost:3000` |
+| 2026-11-16 | Hạn nộp báo cáo (C13) | 2026-12-11 (M4), trước bảo vệ một tuần. T7.1 dời hạn về M4; viết song song Phase 6 từ M3 |
+| 2026-11-16 | Idempotency khi handler lỗi | Đã kiểm code template: xóa khóa với mọi lỗi (`4xx`, `5xx`) |
+| 2026-11-16 | Phân trang chung | Mặc định 20, tối đa 50 cho mọi API (`api-convention.md`) |
+| 2026-11-16 | Đổi vai trò, Redis lỗi khi thu hồi phiên | `503 DEPENDENCY_UNAVAILABLE`, gọi lại để thu hồi (giống khóa tài khoản). `RE.IDENTITY` v1.1 |
+| 2026-11-16 | Retry gọi payOS | Tra cứu, hủy link: có retry; tạo link: không (`reliability-standard.md §3`) |
+| 2026-11-16 | Phụ thuộc hai chiều rental ⇄ payment (S4) | Chấp nhận, không tạo ADR: S4 chỉ đọc, không cùng request với S2 (`architecture.md §9`) |
+| 2026-11-16 | Thời lượng task, tải, mốc | Ước từng task ở `PHASE-x.md`; tổng ~240 giờ. Dời M0 → 11-20, M1 → 11-27, M2 → 12-04, M3 → 12-09; giữ M4 12-11, M5 12-18. Kế hoạch tính 16 giờ hiệu dụng/người/tuần (chờ B, C xác nhận) |
+| 2026-11-16 | Chia lại việc | T3.5 C → B (C review); T4.1 A → C (A duyệt `definitions.json`); T5.4 A → B. Dự phòng: 2026-11-27 saga luồng thành công chưa chạy → B nhận thêm T3.6, C giữ T3.1–T3.4. Thay phương án cũ "A nhận payout" |

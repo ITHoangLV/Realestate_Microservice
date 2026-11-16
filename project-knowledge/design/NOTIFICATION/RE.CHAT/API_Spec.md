@@ -6,18 +6,18 @@
 | **Service** | `notification` (cổng 3005) |
 | **Quy tắc** | BR-19; FR07 |
 | **CSDL** | `notification_db`: `conversations`, `conversation_participants`, `messages` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
-> Báo cáo v2 Bảng 3.11 nêu bốn thao tác: xem hội thoại và tin nhắn, gửi tin nhắn (đẩy qua WebSocket), `403` nếu không tham gia. Đường dẫn chốt 2026-11-12 (A6); loại hội thoại là **đề xuất** `[cần xác nhận]`.
+> Báo cáo v2 Bảng 3.11 nêu bốn thao tác: xem hội thoại và tin nhắn, gửi tin nhắn (đẩy qua WebSocket), `403` nếu không tham gia. Đường dẫn chốt 2026-11-12 (A6); loại hội thoại chốt 2026-11-16.
 
 ## 1. API công khai
 
 | # | Method, đường dẫn | Quyền | Kết quả |
 |---|---|---|---|
 | 1 | `POST /api/v1/conversations` | user | Mở hội thoại. Body `{ type: 'TENANT_LANDLORD', participantId, listingId? }` hoặc `{ type: 'SUPPORT' }`. Đã có cùng cặp + tin → `200` hội thoại cũ |
-| 2 | `GET /api/v1/conversations` | user | Hội thoại của tôi, sắp theo tin nhắn mới nhất; admin thấy thêm mọi `SUPPORT` `[cần xác nhận]` |
+| 2 | `GET /api/v1/conversations` | user | Hội thoại của tôi, sắp theo tin nhắn mới nhất; admin thấy thêm mọi `SUPPORT`; kèm `participants[{ userId, fullName }]` từ `user_snapshots` (thiếu → `"Người dùng"`) |
 | 3 | `GET /api/v1/conversations/:id/messages` | người tham gia | Phân trang, mới nhất trước; không tham gia → `403 NOTIFICATION_CONVERSATION_FORBIDDEN` |
-| 4 | `POST /api/v1/conversations/:id/messages` | người tham gia | `201`; body `{ text }` ≤ 2000 ký tự `[cần xác nhận]`; đẩy WebSocket tới người còn lại |
+| 4 | `POST /api/v1/conversations/:id/messages` | người tham gia | `201`; body `{ text }` 1–2000 ký tự; đẩy WebSocket tới người còn lại. Hội thoại `SUPPORT`: admin gửi tin đầu tiên được thêm vào `conversation_participants` |
 
 ## 2. Catalog mã lỗi
 
@@ -29,9 +29,9 @@
 
 ## 3. WebSocket (Socket.IO)
 
-| Mục | Đề xuất `[cần xác nhận]` |
+| Mục | Chốt 2026-11-16 |
 |---|---|
-| Đường dẫn | `/ws` qua gateway |
+| Đường dẫn | `/ws` qua gateway (gateway chỉ chuyển tiếp upgrade, `RE.GATEWAY §6`) |
 | Xác thực | `auth.token` = access token khi kết nối; sai → ngắt |
 | Phòng | `user:<userId>` (thông báo), `conversation:<id>` (tin nhắn) |
 | Sự kiện server → client | `notification`, `message` |
@@ -62,11 +62,17 @@ CREATE TABLE messages (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX ix_messages_conversation ON messages (conversation_id, created_at DESC);
+CREATE TABLE user_snapshots (               -- ghi từ identity.registered, chỉ để hiển thị tên
+  user_id uuid PRIMARY KEY,
+  full_name varchar(200) NOT NULL,
+  role varchar(20) NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 ```
 
-## 5. Điểm [cần xác nhận]
+## 5. Đã chốt 2026-11-16
 
-1. Loại hội thoại, giới hạn độ dài tin.
-2. Ai là người tham gia của hội thoại `SUPPORT` (một quản trị viên cụ thể hay mọi `ADMIN`).
-3. Hiển thị tên người tham gia: notification không có bảng người dùng; lưu bản chụp từ `identity.registered` hay bỏ.
-4. Cách gateway chuyển tiếp WebSocket.
+1. Loại hội thoại `TENANT_LANDLORD`, `SUPPORT`; tin 1–2000 ký tự.
+2. `SUPPORT`: mọi `ADMIN` thấy; admin trả lời đầu tiên thành người tham gia.
+3. Tên hiển thị từ `user_snapshots` (bản chụp `identity.registered`); tài khoản tạo bằng seed không có bản chụp → `"Người dùng"`.
+4. WebSocket qua gateway: `RE.GATEWAY §6`.

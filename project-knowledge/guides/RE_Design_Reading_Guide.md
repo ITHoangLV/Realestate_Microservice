@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 ## 1. Dự án đang ở đâu
 
@@ -15,9 +15,9 @@ Real-estate là nền tảng thuê nhà, đặt cọc qua payOS vào ví trung g
 |---|---|
 | `services/_template-nest` | Có, kèm test. Khung kỹ thuật mọi service copy từ đây |
 | `services/identity` | Có: đăng ký, đăng nhập, làm mới, đăng xuất, `/me` |
-| `infra/`, `contracts/` | Có (hợp đồng phiên bản đầu theo luồng cũ, sẽ viết lại ở Phase 0) |
+| `infra/`, `contracts/` | Có; hợp đồng v2 (luồng payOS) viết lại xong ở T0.3, T0.4 (2026-11-16) |
 | `api-gateway`, `listing`, `rental`, `payment`, `notification` | **Chưa có code** |
-| `project-knowledge/` | Tài liệu thiết kế v1.0, nhiều điểm `[cần xác nhận]` |
+| `project-knowledge/` | Thiết kế baseline v1.0, các điểm chưa chốt đã chốt 2026-11-16 (v1.1, xem `CHANGELOG.md` từng chức năng); còn `PAYMENT_CALL_TIMEOUT_MS` chờ đo |
 
 Tiến độ thật ở `implementation/progress.md`.
 

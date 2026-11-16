@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 **Mục tiêu:** số liệu thật cho Bảng 5.3 và 5.4 của báo cáo.
 
-**Hạn:** M4 — 2026-12-11 (cuối S5).
+**Hạn:** T6.1 2026-12-04; T6.2 2026-12-10; T6.3 2026-12-16 (dời 2026-11-16).
 
 **Điều kiện xong:** không còn ô "Chưa đo" ở Bảng 5.3; có file thô cho mỗi lần chạy.
 
@@ -17,8 +17,8 @@
 | | |
 |---|---|
 | **Người làm** | B |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M4 — 2026-12-11 |
+| **Thời lượng** | ~5 giờ (ước 2026-11-16) |
+| **Hạn** | M2 — 2026-12-04 (làm sớm, không phụ thuộc saga) |
 | **Đọc trước** | `guides/RE_Failure_Experiment_Guide.md §1–3` |
 | **Phụ thuộc** | Phase 3, 4 |
 
@@ -33,8 +33,8 @@
 | | |
 |---|---|
 | **Người làm** | B |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M4 — 2026-12-11 |
+| **Thời lượng** | ~8 giờ (ước 2026-11-16) |
+| **Hạn** | M4 — 2026-12-10 (cần số cho Bảng 5.3 trước hạn nộp) |
 | **Mã WBS** | E7-3, E7-4 |
 | **Đọc trước** | `guides/RE_Failure_Experiment_Guide.md §4–6` |
 | **Phụ thuộc** | T6.1 |
@@ -48,8 +48,8 @@
 | | |
 |---|---|
 | **Người làm** | C (E4–E8, E10), B (E9) |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M4 — 2026-12-11 |
+| **Thời lượng** | ~6 giờ C, ~2 giờ B (ước 2026-11-16) |
+| **Hạn** | M5 — 2026-12-16 (dùng cho slide và vấn đáp, không bắt buộc trong báo cáo) |
 | **Đọc trước** | `guides/RE_Failure_Experiment_Guide.md §7–8` |
 | **Phụ thuộc** | T6.1 |
 

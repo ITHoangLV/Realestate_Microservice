@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/rental/src/rental/` (cấu trúc chung ở `RE.DEPOSIT_SAGA/Component_Class_Design.md §1`) |
 | **Quy ước** | `standards/coding-convention.md §4` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Thành phần
 

@@ -21,8 +21,8 @@
     },
     "eventType": {
       "type": "string",
-      "pattern": "^[a-z]+\\.[a-z]+$",
-      "description": "Bằng routing key, dạng <miền>.<sự kiện>"
+      "pattern": "^[a-z]+\\.[a-z-]+$",
+      "description": "Bằng routing key, dạng <miền>.<sự kiện>; sự kiện cho phép gạch ngang (A4)"
     },
     "version": { "type": "integer", "minimum": 1, "description": "Phiên bản schema của payload" },
     "occurredAt": {

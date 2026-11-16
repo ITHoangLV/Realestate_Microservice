@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 **Mục tiêu:** mọi sự kiện đi qua outbox → RabbitMQ → consumer chống trùng; thông báo và nhắn tin chạy.
 
-**Hạn:** M3 — 2026-12-04 (cuối S4).
+**Hạn:** M2 — 2026-12-04 cho T4.1–T4.3; T4.4: M3 — 2026-12-09 (dời 2026-11-16).
 
 **Điều kiện xong:** tắt notification, đặt cọc vẫn `201`; bật lại thông báo đến đủ.
 
@@ -16,9 +16,9 @@
 
 | | |
 |---|---|
-| **Người làm** | A |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M3 — 2026-12-04 |
+| **Người làm** | C (chuyển từ A 2026-11-16; A duyệt `definitions.json`) |
+| **Thời lượng** | ~3 giờ (ước 2026-11-16) |
+| **Hạn** | M2 — 2026-12-04 |
 | **Đọc trước** | `design/SHARED/RE.MESSAGING/` |
 | **Phụ thuộc** | T0.4 |
 
@@ -33,8 +33,8 @@
 | | |
 |---|---|
 | **Người làm** | A |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M3 — 2026-12-04 |
+| **Thời lượng** | ~8 giờ (ước 2026-11-16) |
+| **Hạn** | M2 — 2026-12-04 |
 | **Mã WBS** | E6-1, E6-2, E6-3 |
 | **Đọc trước** | `design/NOTIFICATION/RE.NOTIFICATION/` |
 | **Phụ thuộc** | T4.1 |
@@ -54,8 +54,8 @@
 | | |
 |---|---|
 | **Người làm** | A |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M3 — 2026-12-04 |
+| **Thời lượng** | ~5 giờ (ước 2026-11-16) |
+| **Hạn** | M2 — 2026-12-04 |
 | **Mã WBS** | E6-4 |
 | **Phụ thuộc** | T4.2 |
 
@@ -78,8 +78,8 @@ docker compose ... start notification
 | | |
 |---|---|
 | **Người làm** | A |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M3 — 2026-12-04 |
+| **Thời lượng** | ~10 giờ (ước 2026-11-16) |
+| **Hạn** | M3 — 2026-12-09; quá hạn thì cắt (mục 1 ở `README.md §6`) |
 | **Đọc trước** | `design/NOTIFICATION/RE.CHAT/` |
 | **Phụ thuộc** | T4.2, T1.2 (chuyển tiếp WebSocket) |
 

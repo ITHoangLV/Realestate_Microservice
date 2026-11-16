@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 **Mục tiêu:** identity đủ phần payment cần; listing đủ API công khai và nội bộ cho saga.
 
-**Hạn:** M1 — 2026-11-20 (cuối S2).
+**Hạn:** M1 — 2026-11-27 (cuối S3; dời 2026-11-16). T2.5: M2 — 2026-12-04.
 
 **Điều kiện xong:** API nội bộ listing chạy đúng hợp đồng T0.3.
 
@@ -17,8 +17,8 @@
 | | |
 |---|---|
 | **Người làm** | A |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M1 — 2026-11-20 |
+| **Thời lượng** | ~8 giờ (ước 2026-11-16) |
+| **Hạn** | M1 — 2026-11-27 (dời) |
 | **Mã WBS** | E2-4, E2-5, E2-6 |
 | **Đọc trước** | `design/IDENTITY/RE.IDENTITY/` |
 | **Phụ thuộc** | T0.1 (B9 chốt: giữ `users.role`), T0.3 |
@@ -46,8 +46,8 @@ pnpm --filter @realestate/identity test:infra
 | | |
 |---|---|
 | **Người làm** | B |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M1 — 2026-11-20 |
+| **Thời lượng** | ~14 giờ (ước 2026-11-16) |
+| **Hạn** | M1 — 2026-11-27 (dời) |
 | **Mã WBS** | E3-1, E3-2, E3-3 |
 | **Đọc trước** | `design/LISTING/RE.LISTING/`, ADR-0010 |
 | **Phụ thuộc** | T1.2 |
@@ -75,8 +75,8 @@ pnpm --filter @realestate/listing test:infra
 | | |
 |---|---|
 | **Người làm** | B |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M1 — 2026-11-20 |
+| **Thời lượng** | ~10 giờ (ước 2026-11-16) |
+| **Hạn** | M1 — 2026-11-27 (dời) |
 | **Mã WBS** | E3-4, E3-5 |
 | **Đọc trước** | `RE.LISTING/API_Spec.md §1.3, §2`, `Processing_Flow.md §3` |
 | **Phụ thuộc** | T2.2, T0.3 |
@@ -102,8 +102,8 @@ EXPLAIN SELECT ... WHERE ST_DWithin(location, ST_MakePoint(105.84, 21.00)::geogr
 | | |
 |---|---|
 | **Người làm** | B |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M1 — 2026-11-20 |
+| **Thời lượng** | ~3 giờ (ước 2026-11-16) |
+| **Hạn** | M1 — 2026-11-27 (dời) |
 | **Mã WBS** | E3-7 |
 | **Phụ thuộc** | T2.3, T2.1 (tài khoản chủ trọ) |
 
@@ -118,8 +118,8 @@ EXPLAIN SELECT ... WHERE ST_DWithin(location, ST_MakePoint(105.84, 21.00)::geogr
 | | |
 |---|---|
 | **Người làm** | A |
-| **Thời lượng** | 10–13 giờ (ước tính 2026-11-13), làm trong S3 |
-| **Hạn** | M2 — 2026-11-27 |
+| **Thời lượng** | ~12 giờ (ước 2026-11-16) |
+| **Hạn** | M2 — 2026-12-04 (dời) |
 | **Mã WBS** | Ngoài file xlsx (thêm theo quyết định B10, C2 ngày 2026-11-12) |
 | **Đọc trước** | `design/IDENTITY/RE.IDENTITY/API_Spec.md §1.1–1.10`, `Processing_Flow.md §3a–3d` |
 | **Phụ thuộc** | T2.1 (`revokeAllForUser`) |

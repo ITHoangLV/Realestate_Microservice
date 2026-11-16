@@ -45,7 +45,8 @@ Nhận request
 ### `developer`
 
 - **Trigger:** "implement", "viết", "tạo", "build", "thêm tính năng", "làm task T<x.y>", "sửa code".
-- **Làm:** `task-state-init` → đọc context (thiết kế, kiến trúc, quy chuẩn, hợp đồng, playbook) → `reuse-scan` → ghi kế hoạch chi tiết và **chờ duyệt** → code + test theo playbook → chạy test, dán output → `progress-tracker` sau mỗi bước.
+- **Làm:** `task-state-init` → đọc context (thiết kế, kiến trúc, quy chuẩn, hợp đồng, playbook) → `reuse-scan` → ghi kế hoạch chi tiết và **chờ duyệt** → (`contract-change` nếu đổi hợp đồng, `service-scaffold` nếu tạo service) → code + test theo playbook → chạy test, dán output → `progress-tracker` sau mỗi bước → `code-walkthrough` → `code-review`.
+- **Lối vào nhanh:** `/cf-task T<x.y>`.
 - **Không:** cài thư viện ngoài `architecture.md §5` khi chưa được duyệt; tick DoD khi test chưa xanh.
 
 ### `code-reviewer`

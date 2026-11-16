@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Trạng thái** | Proposed |
+| **Trạng thái** | Accepted |
 | **Ngày** | 2026-11-10 |
 | **Người quyết định** | Nhóm 5 |
 | **Liên quan** | `design/RENTAL/RE.DEPOSIT_SAGA/`, ADR-0006, Báo cáo v2 §4.7.3 |

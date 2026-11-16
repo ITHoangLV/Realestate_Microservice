@@ -7,7 +7,7 @@
 | | |
 |---|---|
 | **Liên quan** | `architecture.md §6`, `standards/coding-convention.md §2–3`, ADR-0014 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.0 |
 
 ## 1. Cây thư mục
 
@@ -123,9 +123,9 @@ Mỗi service có thêm: `Dockerfile`, `Dockerfile.dockerignore`, `package.json`
 - Không có package dùng chung; phần kỹ thuật là bản sao từ template trong mỗi service (ADR-0014).
 - `assistant` (cổng 3006) không nằm trong cây: mở rộng X5.
 - Giao diện Next.js nằm ở repo riêng: https://github.com/dotrungthanhCC01/real-estate. Repo này chỉ chứa backend.
-- `docs/` cũ giữ hay chuyển vào `project-knowledge/` `[cần xác nhận]` (`van-de-can-quyet-dinh.md` B14).
+- `docs/` chỉ còn `pm/` (kế hoạch sprint, giao việc) và `runbook/`; tài liệu cũ đã xóa (B14, B16).
 
-## 4. Điểm [cần xác nhận]
+## 4. Đã chốt 2026-11-16
 
-1. Giữ hay chuyển `docs/` cũ (§3).
-2. Tên tệp chi tiết của gateway, phụ thuộc thư viện proxy (`RE.GATEWAY`).
+1. `docs/` cũ: xóa, chỉ giữ `pm/` và `runbook/` (B16).
+2. Tên tệp gateway theo `design/SHARED/RE.GATEWAY/Component_Class_Design.md §1` (proxy bằng `http-proxy-middleware`).

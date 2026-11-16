@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/notification/src/notification/` |
 | **Quy ước** | `standards/coding-convention.md`, `design/SHARED/RE.MESSAGING/` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Cấu trúc
 
@@ -45,7 +45,7 @@ classDiagram
     DomainEventsHandler ..> RealtimeGateway : sau commit
 ```
 
-Handler ghi thông báo bằng `manager` của consumer (cùng transaction với `processed_events`). Đẩy WebSocket **sau commit** `[cần xác nhận]` cơ chế (ví dụ `afterCommit` hoặc job quét `created_at` mới); đẩy hỏng không ảnh hưởng thông báo đã lưu.
+Handler ghi thông báo bằng `manager` của consumer (cùng transaction với `processed_events`). Đẩy WebSocket **sau commit**: handler trả danh sách thông báo đã tạo, consumer đẩy sau khi transaction xong; đẩy hỏng chỉ log `warn` (chốt 2026-11-16).
 
 ## 3. Test bắt buộc
 
@@ -59,6 +59,6 @@ Handler ghi thông báo bằng `manager` của consumer (cùng transaction với
 | 6 | Danh sách | Chỉ của người gọi, phân trang, mới nhất trước |
 | 7 | Notification dừng khi có sự kiện, bật lại | Thông báo đủ (E3) |
 
-## 4. Điểm [cần xác nhận]
+## 4. Đã chốt
 
-1. Cơ chế đẩy WebSocket sau commit.
+Cơ chế đẩy sau commit (§2), 2026-11-16.

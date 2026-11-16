@@ -7,7 +7,7 @@
 | **Quy tắc** | BR-19; US07; NFR08 |
 | **Quyết định** | ADR-0006, ADR-0008 (PostgreSQL `jsonb`) |
 | **CSDL** | `notification_db` / `notification_user`: `notifications`, `processed_events` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. API công khai
 
@@ -15,10 +15,10 @@
 
 | # | Method, đường dẫn | Quyền | Kết quả |
 |---|---|---|---|
-| 1 | `GET /api/v1/notifications` | user | Thông báo của người gọi, phân trang, mới nhất trước; lọc `unread=true` |
+| 1 | `GET /api/v1/notifications` | user | Thông báo của người gọi (theo `user_id`; `ADMIN` thấy thêm thông báo `recipient_role = 'ADMIN'`), phân trang, mới nhất trước; lọc `unread=true` |
 | 2 | `PATCH /api/v1/notifications/:id/read` | user | `200`, đặt `read_at` (idempotent) |
 
-Route 2: không có hoặc không thuộc người gọi → `404 NOTIFICATION_NOT_FOUND` (không lộ tồn tại; BR-19) `[cần xác nhận]` `404` hay `403`.
+Route 2: không có hoặc không thuộc người gọi → `404 NOTIFICATION_NOT_FOUND` (không lộ tồn tại; BR-19; chốt 2026-11-16).
 
 Mỗi thông báo:
 
@@ -30,7 +30,7 @@ Mỗi thông báo:
 
 ## 2. Sự kiện nghe (queue `notification.events`)
 
-Người nhận và nội dung đề xuất `[cần xác nhận]`.
+Người nhận và loại chốt 2026-11-16. Nội dung từng loại ở `message-templates.ts`.
 
 | Sự kiện | Người nhận | `type` |
 |---|---|---|
@@ -38,6 +38,7 @@ Người nhận và nội dung đề xuất `[cần xác nhận]`.
 | `rental.viewing-requested` | `ownerId` | `VIEWING_REQUESTED` |
 | `rental.viewing-responded` | `tenantId` | `VIEWING_RESPONDED` |
 | `rental.viewing-confirmed` | `ownerId` | `VIEWING_CONFIRMED` |
+| `rental.viewing-cancelled` | `reason = TENANT` → `ownerId`; `reason = LISTING_DEPOSITED` → `tenantId` | `VIEWING_CANCELLED` |
 | `rental.deposit-created` | `tenantId` | `DEPOSIT_CREATED` |
 | `payment.deposited` | `tenantId` | `DEPOSIT_PAID` |
 | `rental.deposit-expired` | `tenantId` | `DEPOSIT_EXPIRED` |
@@ -52,13 +53,15 @@ Người nhận và nội dung đề xuất `[cần xác nhận]`.
 | `payment.withdrawal-completed` | `ownerId` | `WITHDRAWAL_COMPLETED` |
 | `payment.withdrawal-failed` | `ownerId` | `WITHDRAWAL_FAILED` |
 
-"Quản trị viên" là người nhận chưa xác định: notification không biết danh sách `ADMIN` `[cần xác nhận]` (thông báo vai trò, hoặc hỏi identity).
+"Quản trị viên" = một thông báo theo vai trò: `recipient_role = 'ADMIN'`, `user_id = null`; mọi admin cùng thấy (JWT `role`), đẩy WebSocket tới phòng `role:ADMIN`; một admin đánh dấu đã đọc thì đã đọc với mọi admin (chốt 2026-11-16).
+
+`identity.registered` còn ghi bản chụp `user_snapshots` cho tên hiển thị trong chat (`RE.CHAT §4`).
 
 Sự kiện của payment chưa có `tenantId` trong payload báo cáo → xem `RE.MESSAGING/API_Spec.md §6`.
 
 ## 3. Đẩy thời gian thực
 
-Socket.IO: sau khi lưu thông báo, đẩy sự kiện `notification` tới phòng `user:<userId>`. Kết nối xác thực bằng access token. Chi tiết kết nối ở `RE.CHAT/API_Spec.md §3`.
+Socket.IO: sau khi transaction của consumer commit, đẩy sự kiện `notification` tới phòng `user:<userId>` (hoặc `role:ADMIN`); đẩy hỏng thì client vẫn tải qua route 1. Kết nối xác thực bằng access token. Chi tiết kết nối ở `RE.CHAT/API_Spec.md §3`.
 
 ## 4. Catalog mã lỗi
 
@@ -80,7 +83,8 @@ Socket.IO: sau khi lưu thông báo, đẩy sự kiện `notification` tới ph�
 ```sql
 CREATE TABLE notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
+  user_id uuid,                            -- null khi gửi theo vai trò
+  recipient_role varchar(20) CHECK (recipient_role IN ('ADMIN')),
   type varchar(40) NOT NULL,
   title varchar(200) NOT NULL,
   body text NOT NULL,
@@ -88,16 +92,19 @@ CREATE TABLE notifications (
   source_event_id uuid NOT NULL,
   read_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (source_event_id, user_id)        -- lớp chống trùng thứ hai ngoài processed_events
+  UNIQUE (source_event_id, user_id),       -- lớp chống trùng thứ hai ngoài processed_events
+  CHECK (user_id IS NOT NULL OR recipient_role IS NOT NULL)
 );
+CREATE UNIQUE INDEX uq_notifications_role_event ON notifications (source_event_id, recipient_role) WHERE recipient_role IS NOT NULL;
+CREATE INDEX ix_notifications_role ON notifications (recipient_role, created_at DESC) WHERE recipient_role IS NOT NULL;
 CREATE INDEX ix_notifications_user ON notifications (user_id, created_at DESC);
 CREATE INDEX ix_notifications_unread ON notifications (user_id) WHERE read_at IS NULL;
 -- outbox_events, processed_events: migration CreateMessagingTables
 ```
 
-## 7. Điểm [cần xác nhận]
+## 7. Đã chốt 2026-11-16
 
-1. `404` hay `403` cho thông báo của người khác.
-2. Người nhận, nội dung từng loại thông báo.
-3. Gửi cho quản trị viên bằng cách nào.
-4. Email thông báo (mở rộng X3) có thuộc phạm vi không. Email OTP, quên mật khẩu do identity gửi (`RE.IDENTITY`), không qua notification.
+1. Thông báo của người khác → `404 NOTIFICATION_NOT_FOUND`.
+2. Người nhận và loại theo bảng §2.
+3. Quản trị viên nhận thông báo theo vai trò (`recipient_role = 'ADMIN'`).
+4. Email thông báo (X3) ngoài phạm vi.

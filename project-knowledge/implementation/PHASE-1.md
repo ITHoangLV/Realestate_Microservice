@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 **Mục tiêu:** client gọi được identity qua gateway; CI chạy trên mọi PR.
 
-**Hạn:** M0 — 2026-11-13 (cuối S1).
+**Hạn:** 2026-11-20 (cuối S2; dời từ M0 2026-11-13 ngày 2026-11-16).
 
 **Điều kiện xong:** tag `v0.1-skeleton`.
 
@@ -17,8 +17,8 @@
 | | |
 |---|---|
 | **Người làm** | B |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M0 — 2026-11-13 |
+| **Thời lượng** | ~5 giờ (ước 2026-11-16) |
+| **Hạn** | S2 — 2026-11-20 (dời từ M0) |
 | **Mã WBS** | E1-1 |
 | **Đọc trước** | `guides/RE_OpenAPI_Postman_Guide.md §6`, `standards/git-workflow.md` |
 | **Phụ thuộc** | Không |
@@ -39,15 +39,19 @@
 | | |
 |---|---|
 | **Người làm** | A |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M0 — 2026-11-13 |
+| **Thời lượng** | ~12 giờ, gồm ~3 giờ vá template (ước 2026-11-16) |
+| **Hạn** | S2 — 2026-11-20 (dời từ M0) |
 | **Mã WBS** | E1-2, E1-3, E1-4 |
 | **Đọc trước** | `design/SHARED/RE.GATEWAY/` (cả 3 file), ADR-0003 |
-| **Phụ thuộc** | T0.1 (thư viện proxy, timeout, rate limit) |
+| **Phụ thuộc** | T0.1; C7 đã chốt 2026-11-16 (`RE.GATEWAY/API_Spec.md §6`) |
 
 **Các bước:**
 
-1. Tạo `services/api-gateway` từ template (`RE.SERVICE_TEMPLATE/Component_Class_Design.md §3`), không bật DB.
+0. Sửa `services/_template-nest` trước khi tạo service mới (chốt 2026-11-16), rồi chép sang identity; test template vẫn xanh:
+   - C18: đưa `OUTBOX_RELAY_ENABLED` từ identity vào template.
+   - C14: `InternalHttpService` gắn `details.outcome` (`NOT_EXECUTED` khi chưa gửi được request, còn lại `UNKNOWN`), thêm test ở `test/http-client.e2e-spec.ts` (`RE.SERVICE_TEMPLATE/API_Spec.md §3`).
+   - `.env.example` gốc: `HTTP_TIMEOUT_MS=3000` (A2).
+1. Tạo `services/api-gateway` từ template (skill `service-scaffold`, `RE.SERVICE_TEMPLATE/Component_Class_Design.md §3`), không bật DB.
 2. `routes.ts` theo `RE.GATEWAY/API_Spec.md §3`; `RouteResolver`.
 3. `InternalBlockMiddleware`, `AccessGuard` (JWT RS256 bằng khóa công khai), throttler.
 4. `ProxyMiddleware`: timeout, đổi lỗi kết nối thành `503/504`, giữ body thô cho webhook.
@@ -60,7 +64,7 @@ curl.exe -i http://localhost:8080/internal/listings/x                      # 404
 curl.exe -i http://localhost:8080/api/v1/auth/me -H "Authorization: Bearer sai"  # 401 AUTH_TOKEN_INVALID
 ```
 
-**DoD:** Test 1–11 ở `RE.GATEWAY/Component_Class_Design.md §4` pass.
+**DoD:** Test 1–12 ở `RE.GATEWAY/Component_Class_Design.md §4` pass; template có `OUTBOX_RELAY_ENABLED` và `details.outcome`.
 
 ---
 
@@ -69,8 +73,8 @@ curl.exe -i http://localhost:8080/api/v1/auth/me -H "Authorization: Bearer sai" 
 | | |
 |---|---|
 | **Người làm** | A |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M0 — 2026-11-13 |
+| **Thời lượng** | ~3 giờ (ước 2026-11-16) |
+| **Hạn** | S2 — 2026-11-20 (dời từ M0) |
 | **Đọc trước** | `guides/RE_Docker_Local_Guide.md`, `services/_template-nest/README.md §6` |
 | **Phụ thuộc** | T1.2 |
 

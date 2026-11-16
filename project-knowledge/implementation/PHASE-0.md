@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 **Mục tiêu:** cả nhóm hiểu cùng một nghiệp vụ (Báo cáo v2), chốt các `[cần xác nhận]` chặn code, viết lại hợp đồng nội bộ và sự kiện theo luồng payOS.
 
@@ -17,7 +17,7 @@
 | | |
 |---|---|
 | **Người làm** | Cả nhóm, A chủ trì |
-| **Thời lượng** | `[cần xác nhận]` |
+| **Thời lượng** | ~4 giờ (đã xong) |
 | **Hạn** | M0 — 2026-11-13 |
 | **Đọc trước** | `business-spec/RE.BUSINESS_RULES.md`, `van-de-can-quyet-dinh.md` |
 | **Phụ thuộc** | Không |
@@ -37,7 +37,7 @@
 | | |
 |---|---|
 | **Người làm** | A; B, C đọc phần của mình |
-| **Thời lượng** | `[cần xác nhận]` |
+| **Thời lượng** | ~2 giờ (đã xong) |
 | **Hạn** | M0 — 2026-11-13 |
 | **Đọc trước** | `architecture.md`, `decisions/` |
 | **Phụ thuộc** | T0.1 |
@@ -57,15 +57,15 @@
 | | |
 |---|---|
 | **Người làm** | B (listing), C (rental, payment), A (identity) |
-| **Thời lượng** | `[cần xác nhận]` |
+| **Thời lượng** | ~6 giờ (đã xong) |
 | **Hạn** | M0 — 2026-11-13 |
 | **Đọc trước** | `contracts/openapi/README.md`, `API_Spec.md §2` của `RE.LISTING`, `RE.DEPOSIT_LIFECYCLE`, `RE.PAYMENT`, `RE.PAYOUT`, `RE.IDENTITY` |
 | **Phụ thuộc** | T0.1 |
 
 **Các bước:**
 
-1. `listing-internal.v1.yaml`: giữ `GET /internal/listings/{id}`, thêm `status`, `approvalStatus`; thêm `holds`, `status` (thêm endpoint là không phá).
-2. `rental-internal.v1.yaml`: `GET /internal/reservations/{id}` thuộc luồng cũ → thay bằng `GET /internal/deposits/{id}/withdrawal-eligibility` (đổi phá hợp đồng: đánh dấu bản cũ bỏ, chưa ai gọi `[cần xác nhận]`).
+1. `listing-internal.v1.yaml`: `GET /internal/listings/{id}` đổi tên trường theo thuật ngữ (`ownerId`, `depositAmountVnd`), thêm `status`, `approvalStatus`; thêm `holds`, `status`.
+2. `rental-internal.v1.yaml`: `GET /internal/reservations/{id}` thuộc luồng cũ → thay bằng `GET /internal/deposits/{id}/withdrawal-eligibility` (xóa bản cũ, chưa ai gọi).
 3. Tạo `payment-internal.v1.yaml`: `payment-orders` (tạo, hủy, tra cứu), `refund-requests`.
 4. Tạo `identity-internal.v1.yaml`: `users/{id}/bank-account`.
 5. Mỗi response có `example`; người phụ trách bên gọi duyệt PR.
@@ -85,7 +85,7 @@ pnpm contracts:check
 | | |
 |---|---|
 | **Người làm** | A (khung, topology), C (sự kiện rental, payment) |
-| **Thời lượng** | `[cần xác nhận]` |
+| **Thời lượng** | ~5 giờ (đã xong) |
 | **Hạn** | M0 — 2026-11-13 |
 | **Đọc trước** | `design/SHARED/RE.MESSAGING/API_Spec.md`, `contracts/events/README.md` |
 | **Phụ thuộc** | T0.1 (chốt routing key, regex `eventType`) |

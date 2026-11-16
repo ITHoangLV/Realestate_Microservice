@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 ## 1. Nguyên tắc
 
@@ -26,7 +26,7 @@
 | Backoff | 100 ms, 200 ms (100 × 2ⁿ) | |
 | Điều kiện thử lại | Timeout, mất kết nối, upstream `502/503/504` | |
 | Thời hạn trả link đặt cọc | ≤ 8 giây (NFR07) | Ngân sách của cả saga trong request |
-| Timeout gọi payOS | `[cần xác nhận]` | Không retry lệnh tạo link |
+| Timeout gọi payOS | `PAYOS_TIMEOUT_MS` = 2.500 ms (chốt 2026-11-16) | Phải < `PAYMENT_CALL_TIMEOUT_MS`; không retry lệnh tạo link |
 | Retry trong consumer | 200 → 400 → 800 ms, tối đa 3 lần (`RABBITMQ_MAX_RETRIES`) | Quá số lần: nack không requeue → `<queue>.dlq` |
 | Timeout mỗi kiểm tra `/health` | Theo Terminus của template | |
 | Circuit breaker | Phần mở rộng X1 | Rental → listing, rental → payment |
@@ -38,7 +38,7 @@
 | Lệnh | Retry | Lý do |
 |---|---|---|
 | `GET` bất kỳ | Có | Không đổi dữ liệu |
-| `PUT`, `DELETE` | Có (mặc định template) | Phải idempotent; nếu không, gọi với `idempotent: false` `[cần xác nhận]` template có hỗ trợ tắt |
+| `PUT`, `DELETE` | Có (template luôn retry, không tắt được) | Mọi `PUT`/`DELETE` nội bộ phải idempotent; không idempotent thì dùng `POST` |
 | rental → listing: giữ chỗ | **Không** | Lệnh ghi; kết quả không rõ thì `held_until` tự nhả |
 | rental → listing: nhả chỗ, chuyển `DEPOSITED`/`RENTED`/`AVAILABLE` | Có (`idempotent: true`) | Idempotent theo `depositId` + trạng thái đích |
 | rental → payment: tạo payment order | Có (`idempotent: true`) | Idempotent theo `depositId` (duy nhất trong `payment_orders`) |
@@ -47,7 +47,7 @@
 | payment → identity: tài khoản nhận tiền | Có | Chỉ đọc |
 | payment → rental: điều kiện rút | Có | Chỉ đọc |
 | payment → payOS: tạo link | **Không** | Có thể tạo trùng |
-| payment → payOS: tra cứu, hủy link | `[cần xác nhận]` | |
+| payment → payOS: tra cứu, hủy link | Có (chốt 2026-11-16) | Tra cứu chỉ đọc; hủy link idempotent |
 
 ## 4. Ánh xạ lỗi
 
@@ -59,7 +59,7 @@
 | Hết thời gian chờ | có nếu idempotent | `504 UPSTREAM_TIMEOUT` | Chưa biết (`unknown`) |
 | Upstream `5xx` | có nếu idempotent | `503` | Chưa biết (`unknown`) |
 
-Sau nhiều lần thử, chỉ cần một lần `unknown` thì kết quả là `unknown`. Saga ghi `outcome` vào `saga_log`; `unknown` phải đối soát (`SagaReconcileJob`). Template hiện trả `AppException` với status; cách phân biệt `not_executed`/`unknown` trong code `[cần xác nhận]` (có thể dựa vào status `503` vs `504`).
+Sau nhiều lần thử, chỉ cần một lần `unknown` thì kết quả là `unknown`. Saga ghi `outcome` vào `saga_log`; `unknown` phải đối soát (`SagaReconcileJob`). Template gắn `details.outcome` (`NOT_EXECUTED` khi chưa gửi được request, còn lại `UNKNOWN`) vào `AppException` `503`/`504` (C14, chốt 2026-11-16; A sửa ở bước 0 T1.2). Không suy ra từ status.
 
 ## 5. Circuit breaker
 

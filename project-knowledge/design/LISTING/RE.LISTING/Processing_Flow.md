@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Quản lý sản phẩm, tải ảnh, tìm kiếm, giữ chỗ và đổi trạng thái theo đơn |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, ADR-0010 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Vòng đời trạng thái BĐS
 

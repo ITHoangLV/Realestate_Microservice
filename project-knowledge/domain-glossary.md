@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 ## Viết tắt
 
@@ -56,7 +56,7 @@ Một khái niệm một cách gọi. Nhóm chốt 2026-11-12.
 | Tài khoản nhận tiền | `bank_accounts` | identity | Số tài khoản mã hóa, hiển thị bốn số cuối |
 | Sản phẩm / tin đăng | `listings` | listing | Một BĐS do chủ trọ đăng. Sản phẩm và tin đăng là cùng một bản ghi (ADR-0010) |
 | Ảnh tin | `listing_images` | listing | Key ảnh trên S3 |
-| Lịch xem | `viewings` | rental | Người thuê hẹn xem một tin |
+| Lịch xem | `viewings` | rental | Yêu cầu xem một tin của người thuê. Không lưu giờ hẹn: hai bên chốt giờ trong chat. Mỗi tin là một căn/phòng duy nhất |
 | Đơn đặt cọc | `deposits` | rental | Một lần đặt cọc, giữ bản chụp tiền cọc, tiêu đề, chủ trọ và mọi mốc thời gian |
 | Nhật ký saga | `saga_log` | rental | Từng bước saga của một đơn, dùng để đối soát |
 | Nhật ký thao tác | `audit_log` | rental, payment | Mỗi thao tác quản trị viên một dòng (bàn giao ở rental; hoàn tất, từ chối lệnh chi ở payment) |
@@ -89,15 +89,18 @@ Một khái niệm một cách gọi. Nhóm chốt 2026-11-12.
 | Thực thể | Giá trị | Nguồn |
 |---|---|---|
 | BĐS `listings.status` | `AVAILABLE`, `HELD`, `DEPOSITED`, `RENTED`, `HIDDEN` | Báo cáo Bảng 3.5 |
-| Duyệt tin `listings.approval_status` | `PENDING_REVIEW`, `APPROVED`, `REJECTED` | Đề xuất `[cần xác nhận]` |
-| Lịch xem `viewings.status` | `REQUESTED`, `ACCEPTED`, `DECLINED`, `CONFIRMED`, `CANCELLED` | Đề xuất `[cần xác nhận]` |
-| Payment order | `PENDING`, `PAID`, `CANCELLED` | Đề xuất `[cần xác nhận]` |
+| Duyệt tin `listings.approval_status` | `PENDING_REVIEW`, `APPROVED`, `REJECTED` | Chốt 2026-11-16 |
+| Lịch xem `viewings.status` | `REQUESTED`, `DECLINED`, `CONFIRMED`, `CANCELLED` | Chốt 2026-11-16 |
+| Lý do hủy lịch xem `viewings.cancel_reason` | `TENANT`, `LISTING_DEPOSITED` | Chốt 2026-11-16 |
+| Payment order | `PENDING`, `PAID`, `CANCELLED` | Chốt 2026-11-16 |
 | Yêu cầu hoàn | `PENDING_ADMIN`, `COMPLETED`, `REJECTED`, `FAILED` | Báo cáo §3.2.3 |
 | Lệnh rút | `PENDING`, `COMPLETED`, `FAILED` | Báo cáo §3.2.4 |
 | Loại giao dịch ví | `DEPOSIT_IN`, `LATE_PAYMENT_IN`, `WITHDRAW_OUT`, `REFUND_OUT` | Báo cáo §3.4 |
 | Người yêu cầu hoàn | `TENANT`, `SYSTEM` | Báo cáo §3.4 |
-| `saga_log.outcome` | `OK`, `BUSINESS_ERROR`, `NOT_EXECUTED`, `UNKNOWN` | Đề xuất `[cần xác nhận]` |
+| `saga_log.outcome` | `OK`, `BUSINESS_ERROR`, `NOT_EXECUTED`, `UNKNOWN` | Chốt 2026-11-16 (C14) |
 | Kích hoạt giải ngân | `TENANT`, `AUTO` | Báo cáo Bảng 3.13 |
+| Loại BĐS `listings.property_type` | `ROOM`, `APARTMENT`, `HOUSE` | Chốt 2026-11-16 |
+| Loại hội thoại | `TENANT_LANDLORD`, `SUPPORT` | Chốt 2026-11-16 |
 
 ## Thuật ngữ kỹ thuật
 

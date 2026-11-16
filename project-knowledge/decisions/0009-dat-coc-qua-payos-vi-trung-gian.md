@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Trạng thái** | Proposed |
+| **Trạng thái** | Accepted |
 | **Ngày** | 2026-11-10 |
 | **Người quyết định** | Nhóm 5 |
 | **Liên quan** | `design/PAYMENT/`, BR-07 đến BR-17, Báo cáo v2 Bảng 3.14 |

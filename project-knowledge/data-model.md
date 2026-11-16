@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.0 |
 | **Nguồn** | DDL trong 10 file `design/*/*/API_Spec.md`; Báo cáo v2 Bảng 3.5, Hình 3.7–3.8 |
 
 ## 1. Quy ước
@@ -90,7 +90,8 @@ erDiagram
         uuid listing_id "listing"
         uuid tenant_id "identity"
         uuid owner_id "bản chụp"
-        varchar status "REQUESTED, ACCEPTED, DECLINED, CONFIRMED, CANCELLED"
+        varchar status "REQUESTED, DECLINED, CONFIRMED, CANCELLED"
+        varchar cancel_reason "TENANT, LISTING_DEPOSITED"
     }
     deposits {
         uuid id PK
@@ -120,7 +121,7 @@ erDiagram
     }
 ```
 
-DDL hiện tại không có khóa ngoại giữa `viewings` và `deposits`.
+DDL hiện tại không có khóa ngoại giữa `viewings` và `deposits`. `viewings` không lưu giờ hẹn (chốt 2026-11-16: giờ xem thống nhất trong chat); unique một phần `(listing_id, tenant_id) WHERE status='REQUESTED'`.
 
 ## 6. payment_db
 

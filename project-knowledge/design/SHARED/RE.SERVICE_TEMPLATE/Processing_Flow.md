@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Vòng đời request, gọi service khác, idempotency, lỗi về client |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, `standards/reliability-standard.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Vòng đời một request
 
@@ -65,7 +65,7 @@ Không gọi khi đang giữ transaction (`coding-convention.md §4`).
 | `IN_PROGRESS` | `409 IDEMPOTENCY_IN_PROGRESS` |
 | Có kết quả, cùng fingerprint | Trả lại kết quả, bọc `meta` của request mới |
 | Có kết quả, khác fingerprint | `422 IDEMPOTENCY_KEY_REUSED` |
-| Handler lỗi | Xóa khóa `[cần xác nhận]` hành vi của template với lỗi `4xx` so với `5xx` |
+| Handler lỗi (cả `4xx` và `5xx`) | Xóa khóa; gửi lại cùng khóa sẽ chạy lại handler (`idempotency.interceptor.ts`, đã kiểm 2026-11-16) |
 
 ## 4. Khởi động và tắt
 
@@ -74,6 +74,6 @@ Không gọi khi đang giữ transaction (`coding-convention.md §4`).
 3. `StorageModule` tạo bucket trong `S3_BUCKETS`; S3 chưa sẵn sàng → thử lại nền.
 4. SIGTERM → `ShutdownLoggerService` ghi trình tự; đóng kết nối gọn.
 
-## 5. Điểm [cần xác nhận]
+## 5. Đã chốt
 
-1. Hành vi xóa khóa idempotency khi handler lỗi (§3) — đọc lại `idempotency.interceptor.ts` khi viết `RE.DEPOSIT_SAGA`.
+Xóa khóa idempotency với mọi lỗi của handler (§3), theo code template.

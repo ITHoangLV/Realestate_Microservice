@@ -6,7 +6,7 @@
 | **Service** | `identity` (cổng 3001) |
 | **Quy tắc** | BR-01, BR-02; quy tắc phụ Bảng 2.6 |
 | **CSDL** | `identity_db` / `identity_user`; Redis (refresh token, OTP, token đặt lại mật khẩu); SMTP (Mailpit khi dev) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. API công khai
 
@@ -39,7 +39,7 @@ Mỗi tài khoản đúng một vai trò ở `users.role`; ai vừa thuê vừa 
 | `password` | string | theo `register.dto.ts` |
 | `fullName` | string | ≤ 200 |
 | `role` | string | `TENANT` hoặc `LANDLORD` |
-| `phone` | string, không bắt buộc | Duy nhất khi có (B9); định dạng `[cần xác nhận]` |
+| `phone` | string, không bắt buộc | Duy nhất khi có (B9); số di động Việt Nam `^0\d{9}$` (chốt 2026-11-16) |
 
 Thứ tự kiểm tra:
 
@@ -71,11 +71,11 @@ Token không có, hết hạn, đã thu hồi, bị dùng lại → `401 IDENTIT
 
 | Trường | Kiểu | Ràng buộc |
 |---|---|---|
-| `bankName` | string | `[cần xác nhận]` danh sách ngân hàng |
-| `accountNumber` | string | chỉ chữ số, 6–19 ký tự `[cần xác nhận]` |
+| `bankName` | string | Tự do, 2–100 ký tự (frontend gợi ý danh sách; chốt 2026-11-16) |
+| `accountNumber` | string | Chỉ chữ số, 6–19 ký tự `^\d{6,19}$` |
 | `accountHolder` | string | |
 
-Một người một tài khoản nhận tiền `[cần xác nhận]`. Response không bao giờ có số đầy đủ.
+Một người một tài khoản nhận tiền: `PUT` ghi đè bản cũ (chốt 2026-11-16). Response không bao giờ có số đầy đủ, chỉ `accountLast4`.
 
 ### 1.5 `PATCH /admin/users/:id/role`
 
@@ -84,6 +84,7 @@ Một người một tài khoản nhận tiền `[cần xác nhận]`. Response 
 | 1 | `role` không thuộc `TENANT`, `LANDLORD`, `ADMIN` | `400 VALIDATION_FAILED` |
 | 2 | Người dùng không tồn tại | `404 IDENTITY_USER_NOT_FOUND` |
 | 3 | Hợp lệ | Đổi vai trò, thu hồi mọi họ refresh token của người đó → `200` |
+| 4 | Redis lỗi khi thu hồi (sau khi đã đổi vai trò) | `503 DEPENDENCY_UNAVAILABLE`; quản trị viên gọi lại để thu hồi (chốt 2026-11-16) |
 
 ### 1.6 Xác minh email OTP (route 10, 11) — Bảng 2.6
 
@@ -153,7 +154,7 @@ Body `{ fullName?, phone? }`. `phone` trùng người khác → `409 IDENTITY_PH
 |---|---|---|---|
 | `GET /internal/users/:id/bank-account` | payment (S3) | `200 { userId, bankName, accountHolder, accountNumber }`; chưa khai → `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND` | Tạo `contracts/openapi/identity-internal.v1.yaml` ở T0.3 |
 
-Payment cần số tài khoản đầy đủ để quản trị viên chuyển khoản; payment chỉ lưu bản chụp đã che (`RE.PAYOUT`). Có trả số đầy đủ qua API nội bộ hay quản trị viên xem ở identity `[cần xác nhận]`.
+API nội bộ trả số đầy đủ để quản trị viên chuyển khoản (hợp đồng `identity-internal.v1.yaml`, chốt 2026-11-16). Payment không lưu và không log số đầy đủ; chỉ lưu bản chụp bốn số cuối (`RE.PAYOUT`).
 
 ## 3. Sự kiện phát
 
@@ -192,7 +193,7 @@ Payment cần số tài khoản đầy đủ để quản trị viên chuyển k
 | `JWT_ISSUER` | `realestate-identity` | |
 | `JWT_ACCESS_TTL_SECONDS`, `JWT_REFRESH_TTL_SECONDS` | `900`, `604800` | |
 | `RABBITMQ_URL`, `OUTBOX_RELAY_ENABLED` | | Chỉ phát |
-| `BANK_ACCOUNT_ENCRYPTION_KEY` | `[cần xác nhận]` | Khóa mã hóa số tài khoản, đề xuất tên biến |
+| `BANK_ACCOUNT_ENCRYPTION_KEY` | bắt buộc; 32 byte base64 | Khóa AES-256-GCM mã hóa số tài khoản. Dev: sinh ngẫu nhiên, không commit |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | dev: `mailpit`, `1025`, trống, trống, `no-reply@realestate.local` | Gửi OTP, link đặt lại (B10) |
 | `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SECONDS` | `300`, `5`, `60` | Báo cáo Bảng 2.6 |
 | `PASSWORD_RESET_TTL_SECONDS` | `900` | Đề xuất |
@@ -240,7 +241,7 @@ CREATE UNIQUE INDEX "UQ_users_phone" ON users (phone) WHERE phone IS NOT NULL;
 
 Tài khoản đã có trước migration giữ `ACTIVE` (mặc định); đăng ký mới ghi `PENDING_VERIFICATION`. Seed ADMIN ghi `ACTIVE`.
 
-Đề xuất `[cần xác nhận]`:
+Chốt 2026-11-16:
 
 ```sql
 CREATE TABLE bank_accounts (
@@ -255,8 +256,8 @@ CREATE TABLE bank_accounts (
 );
 ```
 
-## 7. Điểm [cần xác nhận]
+## 7. Đã chốt 2026-11-16
 
-1. DTO chi tiết của route 6–7 (danh sách ngân hàng, độ dài số tài khoản). Đường dẫn route 1–16 và API nội bộ đã chốt 2026-11-13.
-2. Định dạng số điện thoại.
-3. Tên biến khóa mã hóa và cách quản trị viên xem số tài khoản đầy đủ.
+1. Route 6–7: `bankName` tự do 2–100 ký tự, `accountNumber` `^\d{6,19}$`, một người một tài khoản (`PUT` ghi đè). Đường dẫn route 1–16 và API nội bộ chốt 2026-11-13.
+2. `phone`: `^0\d{9}$`.
+3. `BANK_ACCOUNT_ENCRYPTION_KEY` (AES-256-GCM, 32 byte base64). Số đầy đủ chỉ đi qua API nội bộ cho payment.

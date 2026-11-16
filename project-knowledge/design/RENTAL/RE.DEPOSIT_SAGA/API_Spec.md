@@ -7,7 +7,7 @@
 | **Quy tắc** | BR-04, BR-05, BR-06, BR-07, BR-09, BR-18 |
 | **Quyết định** | ADR-0004 (saga tại rental), ADR-0005 (bản chụp), ADR-0009 (payOS) |
 | **CSDL** | `rental_db`: `deposits`, `saga_log`, `outbox_events`, `processed_events`; Redis (khóa theo tin, idempotency) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. `POST /api/v1/deposits`
 
@@ -95,11 +95,11 @@ Các sự kiện khác của payment: `RE.DEPOSIT_LIFECYCLE`.
 | `INTERNAL_LISTING_URL`, `INTERNAL_PAYMENT_URL` | | | |
 | `RABBITMQ_QUEUE` | `rental.payment-events` | | |
 | `HOLD_TTL_SECONDS` | `600` | BR-07; demo rút xuống 60 | Báo cáo Bảng 5.1 |
-| `DEPOSIT_LOCK_TTL_MS` | `10000` `[cần xác nhận]` | Khóa Redis theo tin | Đề xuất |
+| `DEPOSIT_LOCK_TTL_MS` | `10000` | Khóa Redis theo tin | Chốt 2026-11-16 |
 | `LISTING_CALL_TIMEOUT_MS` | `2000` | `timeoutMs` cho lời gọi listing | A2 (2026-11-12) |
 | `PAYMENT_CALL_TIMEOUT_MS` | `3000` `[cần đo]` | Phải để tổng ≤ 8 giây; chốt sau khi đo E1, E2 | A2 (2026-11-12) |
-| `HOLD_EXPIRY_INTERVAL_MS` | `[cần xác nhận]` | Chu kỳ `HoldExpiryJob`; E4 cần ≤ 10 giây | Đề xuất |
-| `SAGA_RECONCILE_INTERVAL_MS`, `SAGA_STUCK_AFTER_SECONDS` | `[cần xác nhận]` | `SagaReconcileJob` | Đề xuất |
+| `HOLD_EXPIRY_INTERVAL_MS` | `5000` | Chu kỳ `HoldExpiryJob`; E4 cần ≤ 10 giây | Chốt 2026-11-16 |
+| `SAGA_RECONCILE_INTERVAL_MS`, `SAGA_STUCK_AFTER_SECONDS` | `15000`, `30` | `SagaReconcileJob` | Chốt 2026-11-16 |
 
 `.env` gốc đang có `DEPOSIT_PAYMENT_TTL_SECONDS`, `RESERVATION_TTL_SECONDS`, `PAYMENT_CLAIM_TTL_SECONDS`, `ADMIN_SLA_SECONDS` của luồng cũ → bỏ, thay bằng `HOLD_TTL_SECONDS` và các biến `_SECONDS` ở `RE.DEPOSIT_LIFECYCLE §6` (A3).
 
@@ -158,7 +158,7 @@ CREATE INDEX ix_saga_log_deposit ON saga_log (deposit_id, created_at);
 
 `saga_log` ghi bước bắt đầu bằng `HOLD_LISTING` **sau** khi đã có `deposits` (khóa ngoại). Bước giữ chỗ chưa có đơn nếu lỗi thì chỉ log ứng dụng.
 
-## 7. Điểm [cần xác nhận]
+## 7. Đã chốt 2026-11-16
 
-1. `DEPOSIT_LOCK_TTL_MS`, chu kỳ job, `SAGA_STUCK_AFTER_SECONDS` (§5). `PAYMENT_CALL_TIMEOUT_MS` chốt sau khi đo (A2).
-2. Lỗi thuộc listing chuyển nguyên mã `LISTING_*` hay đổi sang mã `RENTAL_*`.
+1. Tham số job, khóa ở §5. `PAYMENT_CALL_TIMEOUT_MS` vẫn chốt sau khi đo E1, E2 (A2).
+2. Lỗi nghiệp vụ của listing (`LISTING_*`, ví dụ `LISTING_NOT_AVAILABLE`) chuyển nguyên mã cho client.

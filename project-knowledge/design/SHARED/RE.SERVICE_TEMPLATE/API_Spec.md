@@ -7,7 +7,7 @@
 | **Quy tắc** | Không có `BR-xx`; hiện thực NFR02, NFR03, NFR06 |
 | **Quyết định** | ADR-0011, ADR-0013, ADR-0014 |
 | **CSDL** | Tùy chọn: bật khi có `DATABASE_URL` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 > Mô tả hợp đồng mà template **đã có trong code**. Nguồn: `services/_template-nest/README.md`. Mọi service kế thừa nguyên các hợp đồng này.
 
@@ -61,7 +61,7 @@ delete<T>(url, options?): Promise<T>
 | Điều kiện thử lại | Timeout, mất kết nối, upstream `502/503/504`; tối đa `HTTP_MAX_RETRIES` lần, backoff 100 × 2ⁿ ms |
 | Thành công | Trả `data` của envelope |
 | Upstream `4xx` | Ném `AppException` giữ nguyên status và `error.code` |
-| Hết lượt | `503 UPSTREAM_UNAVAILABLE` hoặc `504 UPSTREAM_TIMEOUT` |
+| Hết lượt | `503 UPSTREAM_UNAVAILABLE` hoặc `504 UPSTREAM_TIMEOUT`; `details.outcome = 'NOT_EXECUTED'` chỉ khi chưa gửi được request (`ECONNREFUSED`, `ENOTFOUND`), còn lại `'UNKNOWN'` (C14, chốt 2026-11-16) |
 
 ## 4. Decorator
 
@@ -82,7 +82,7 @@ delete<T>(url, options?): Promise<T>
 | `NODE_ENV` | `development` | |
 | `PORT` | `3000` | |
 | `LOG_LEVEL`, `LOG_PRETTY` | `info`, `false` | |
-| `HTTP_TIMEOUT_MS` | `3000` | `.env` gốc ghi `5000` `[cần xác nhận]` |
+| `HTTP_TIMEOUT_MS` | `3000` | Chốt A2 (2026-11-12); `.env` gốc sửa về `3000` |
 | `HTTP_MAX_RETRIES` | `2` | |
 | `SWAGGER_ENABLED` | `true` (ảnh Docker `false`) | |
 | `IDEMPOTENCY_TTL_SECONDS` | `86400` | |
@@ -92,7 +92,7 @@ delete<T>(url, options?): Promise<T>
 | `S3_ENDPOINT`, `S3_PUBLIC_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKETS`, `S3_REGION`, `S3_FORCE_PATH_STYLE`, `S3_PRESIGN_TTL_SECONDS` | tắt / `us-east-1` / `true` / `900` | Bật `StorageModule` + health `s3` |
 | `JWT_PUBLIC_KEY`, `JWT_PUBLIC_KEY_PATH`, `JWT_SECRET`, `JWT_ISSUER` | tắt | Thứ tự ưu tiên: PEM → file → HS256 (chỉ dev) |
 
-## 6. Điểm [cần xác nhận]
+## 6. Đã chốt 2026-11-16
 
-1. `HTTP_TIMEOUT_MS` thống nhất 2.000, 3.000 hay 5.000 ms (`standards/reliability-standard.md §2`).
-2. `InternalHttpService` chưa trả riêng `outcome` (`not_executed` / `unknown`); saga suy ra từ status `503`/`504` có đủ không.
+1. `HTTP_TIMEOUT_MS = 3000` (A2).
+2. `InternalHttpService` gắn `details.outcome` (§3). A sửa template ở bước 0 của T1.2, kèm test trong `test/http-client.e2e-spec.ts`.

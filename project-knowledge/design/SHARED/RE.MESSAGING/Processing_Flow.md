@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Phát qua outbox, nhận chống trùng, thử lại, DLQ, RabbitMQ dừng |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, ADR-0006 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Phát và nhận
 

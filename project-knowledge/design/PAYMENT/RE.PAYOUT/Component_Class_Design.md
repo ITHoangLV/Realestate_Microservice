@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/payment/src/payment/` (cấu trúc chung ở `RE.PAYMENT/Component_Class_Design.md §1`) |
 | **Quy ước** | `standards/coding-convention.md §4`, `standards/security-policy.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Thành phần
 
@@ -80,7 +80,7 @@ async complete(adminId: string, id: string, file: Express.Multer.File) {
 
 | # | Tình huống | Mong đợi |
 |---|---|---|
-| 1 | `refund-amount.spec.ts`: 3.000.000 → 2.100.000; số lẻ | Đúng quy tắc làm tròn `[cần xác nhận]` |
+| 1 | `refund-amount.spec.ts`: 3.000.000 → 2.100.000; số lẻ | `floor`: 3.000.001 → 2.100.000 |
 | 2 | Tạo yêu cầu hoàn hai lần cùng đơn | Một yêu cầu |
 | 3 | Hoàn tất yêu cầu hoàn | `REFUND_OUT`, số dư giảm đúng, 1 `payment.refunded` (Báo cáo T12) |
 | 4 | Từ chối | `REJECTED`, 1 `payment.refund-rejected`, ví không đổi |
@@ -96,6 +96,6 @@ async complete(adminId: string, id: string, file: Express.Multer.File) {
 | 13 | Bất biến ví sau mọi test | `balance = Σ vào − Σ ra` (E10) |
 | 14 | Mọi thao tác quản trị | Có một dòng `audit_log` |
 
-## 5. Điểm [cần xác nhận]
+## 5. Đã chốt
 
-Xem `API_Spec.md §8`.
+Xem `API_Spec.md §8` (2026-11-16).

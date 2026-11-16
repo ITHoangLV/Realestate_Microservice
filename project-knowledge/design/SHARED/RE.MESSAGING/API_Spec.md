@@ -7,7 +7,7 @@
 | **Quy tắc** | NFR01, NFR08; BR-08 (một lần ghi nhận), BR-16 |
 | **Quyết định** | ADR-0006, ADR-0012 |
 | **CSDL** | `outbox_events`, `processed_events` trong DB của từng service |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Topology
 
@@ -16,9 +16,8 @@
 | `domain.events` | topic, durable | Mọi sự kiện |
 | `domain.events.dlx` | direct | Nhận message bị loại |
 | `notification.events` | queue, bind `identity.*`, `rental.*`, `payment.*` | Có trong `definitions.json` |
-| `rental.payment-events` | queue, bind `payment.deposited` | Có. **Cần thêm** binding §3 `[cần xác nhận]` |
+| `rental.payment-events` | queue, bind `payment.deposited`, `payment.refunded`, `payment.refund-rejected`, `payment.withdrawal-completed` | Chốt 2026-11-13. `withdrawal-requested`, `withdrawal-failed` chưa bind (chờ C10) |
 | `<queue>.dlq` | queue | Message lỗi quá 3 lần, header `x-death` |
-| `payment.rental-events`, `listing.rental-events`, `listing.indexer` | queue dự phòng | Chưa có consumer trong Báo cáo v2: bỏ hay giữ `[cần xác nhận]` |
 
 Topology nạp bằng container `rabbitmq-init` từ `infra/rabbitmq/definitions.json`. Service **không** tự tạo exchange/queue.
 
@@ -42,33 +41,34 @@ Topology nạp bằng container `rabbitmq-init` từ `infra/rabbitmq/definitions
 
 ## 3. Danh mục sự kiện
 
-Tên sự kiện và payload theo Báo cáo v2 Bảng 3.13. Cột "Khóa" ghi `Có` nếu đã có schema trong `contracts/events/`; khóa còn lại chốt 2026-11-12 (A4), viết schema ở T0.4.
+Tên sự kiện và payload theo Báo cáo v2 Bảng 3.13. Schema và example của mọi sự kiện ở `contracts/events/` (T0.4, 2026-11-13); schema là nguồn chi tiết về kiểu trường.
 
 | Sự kiện | Routing key | Khóa | Phát bởi | Payload chính | Bên nghe | Thiết kế |
 |---|---|---|---|---|---|---|
 | UserRegistered | `identity.registered` | Có | identity | `userId, email, fullName, role` | notification | `RE.IDENTITY` |
-| ViewingRequested | `rental.viewing-requested` | Mới (A4) | rental | `viewingId, listingId, tenantId, ownerId, scheduledAt` | notification | `RE.VIEWING` |
-| ViewingResponded | `rental.viewing-responded` | Mới (A4) | rental | như trên + `decision` | notification | `RE.VIEWING` |
-| ViewingConfirmed | `rental.viewing-confirmed` | Mới (A4) | rental | như trên | notification | `RE.VIEWING` |
-| DepositCreated | `rental.deposit-created` | Mới (A4) | rental | `depositId, listingId, tenantId, ownerId, amountVnd, expiresAt` | notification | `RE.DEPOSIT_SAGA` |
-| DepositPaid | `payment.deposited` | Có (payload cũ, cần cập nhật) | payment | `depositId, orderId, tenantId, ownerId, amountVnd, payosReference, paidAt` | rental, notification | `RE.PAYMENT` |
-| DepositExpired | `rental.deposit-expired` | Mới (A4) | rental | `depositId, listingId, tenantId, ownerId` | notification | `RE.DEPOSIT_SAGA` |
-| DepositCancelled | `rental.deposit-cancelled` | Mới (A4) | rental | `depositId, listingId, tenantId, ownerId` | notification | `RE.DEPOSIT_SAGA` |
-| AdminConfirmedToSeller | `rental.deposit-handed-over` | Mới (A4) | rental | `depositId, listingId, ownerId, adminId` | notification | `RE.DEPOSIT_LIFECYCLE` |
-| DepositReleased | `rental.deposit-released` | Mới (A4) | rental | `depositId, listingId, ownerId, trigger` (`TENANT`/`AUTO`) | notification | `RE.DEPOSIT_LIFECYCLE` |
-| (nhắc giải ngân) | `rental.release-reminder` | Mới, không có trong báo cáo | rental | `depositId, tenantId, autoReleaseAt` | notification | `RE.DEPOSIT_LIFECYCLE` |
-| DepositRefunded | `payment.refunded` | Có (payload cũ, cần cập nhật) | payment | `depositId, refundRequestId, tenantId, ownerId, amountVnd, requesterType` | rental, notification | `RE.PAYOUT` |
-| RefundRejected | `payment.refund-rejected` | Mới (A4) | payment | `depositId, refundRequestId, tenantId, ownerId, reason` | rental, notification | `RE.PAYOUT` |
-| LatePaymentCredited | `payment.late-payment-credited` | Mới (A4) | payment | `orderId, depositId, tenantId, amountVnd, payosReference` | notification | `RE.PAYMENT` |
-| WithdrawalRequested | `payment.withdrawal-requested` | Mới (A4) | payment | `withdrawalId, depositId, ownerId, amountVnd` (đơn `REFUNDED`: phần còn lại) | rental, notification | `RE.PAYOUT` |
-| WithdrawalCompleted | `payment.withdrawal-completed` | Mới (A4) | payment | như trên | rental, notification | `RE.PAYOUT` |
-| WithdrawalFailed | `payment.withdrawal-failed` | Mới (A4) | payment | như trên + `reason` | rental, notification | `RE.PAYOUT` |
+| ViewingRequested | `rental.viewing-requested` | Có | rental | `viewingId, listingId, tenantId, ownerId` (bỏ `scheduledAt` 2026-11-16) | notification | `RE.VIEWING` |
+| ViewingResponded | `rental.viewing-responded` | Có | rental | như trên + `decision` (chỉ `DECLINED`) | notification | `RE.VIEWING` |
+| ViewingConfirmed | `rental.viewing-confirmed` | Có | rental | như trên | notification | `RE.VIEWING` |
+| (hủy lịch xem) | `rental.viewing-cancelled` | Có (không có trong báo cáo, 2026-11-16) | rental | như trên + `reason` (`TENANT`/`LISTING_DEPOSITED`) | notification | `RE.VIEWING` |
+| DepositCreated | `rental.deposit-created` | Có | rental | `depositId, listingId, tenantId, ownerId, amountVnd, expiresAt` | notification | `RE.DEPOSIT_SAGA` |
+| DepositPaid | `payment.deposited` | Có | payment | `depositId, orderId, tenantId, ownerId, amountVnd, payosReference, paidAt` | rental, notification | `RE.PAYMENT` |
+| DepositExpired | `rental.deposit-expired` | Có | rental | `depositId, listingId, tenantId, ownerId` | notification | `RE.DEPOSIT_SAGA` |
+| DepositCancelled | `rental.deposit-cancelled` | Có | rental | `depositId, listingId, tenantId, ownerId` | notification | `RE.DEPOSIT_SAGA` |
+| AdminConfirmedToSeller | `rental.deposit-handed-over` | Có | rental | `depositId, listingId, tenantId, ownerId, adminId` | notification | `RE.DEPOSIT_LIFECYCLE` |
+| DepositReleased | `rental.deposit-released` | Có | rental | `depositId, listingId, tenantId, ownerId, trigger` (`TENANT`/`AUTO`) | notification | `RE.DEPOSIT_LIFECYCLE` |
+| (nhắc giải ngân) | `rental.release-reminder` | Có (không có trong báo cáo) | rental | `depositId, listingId, tenantId, ownerId, autoReleaseAt` | notification | `RE.DEPOSIT_LIFECYCLE` |
+| DepositRefunded | `payment.refunded` | Có | payment | `depositId, refundRequestId, tenantId, ownerId, amountVnd, requesterType` | rental, notification | `RE.PAYOUT` |
+| RefundRejected | `payment.refund-rejected` | Có | payment | `depositId, refundRequestId, tenantId, ownerId, reason` | rental, notification | `RE.PAYOUT` |
+| LatePaymentCredited | `payment.late-payment-credited` | Có | payment | `orderId, depositId, tenantId, amountVnd, payosReference` | notification | `RE.PAYMENT` |
+| WithdrawalRequested | `payment.withdrawal-requested` | Có | payment | `withdrawalId, depositId, ownerId, amountVnd` (đơn `REFUNDED`: phần còn lại) | notification | `RE.PAYOUT` |
+| WithdrawalCompleted | `payment.withdrawal-completed` | Có | payment | như trên | rental, notification | `RE.PAYOUT` |
+| WithdrawalFailed | `payment.withdrawal-failed` | Có | payment | như trên + `reason` | notification | `RE.PAYOUT` |
 
 Mọi sự kiện của rental mang đủ `tenantId`, `ownerId` để notification không phải gọi lại rental. Sự kiện của payment cũng mang `tenantId`, `ownerId` (thêm vào payload v1 so với Báo cáo, A5) để notification biết người nhận.
 
-Schema cũ còn trong repo (`rental.requested/accepted/rejected/expired/cancelled/completed`, `payment.released`) thuộc luồng reservation trước Báo cáo v2 → bỏ hay giữ `[cần xác nhận]`.
+Schema luồng reservation cũ (`rental.requested/accepted/rejected/expired/cancelled/completed`, `payment.released`) và ba queue dự phòng (`payment.rental-events`, `listing.rental-events`, `listing.indexer`) đã xóa (2026-11-13). `payment.deposited`, `payment.refunded` viết lại trong `v1` vì chưa có code phát hay nghe.
 
-**Binding cần cho `rental.payment-events`:** `payment.deposited`, `payment.refunded`, `payment.refund-rejected`, `payment.withdrawal-requested`, `payment.withdrawal-completed`, `payment.withdrawal-failed`.
+**Binding cần cho `rental.payment-events`:** `payment.deposited`, `payment.refunded`, `payment.refund-rejected`, `payment.withdrawal-completed` (rental không nghe `withdrawal-requested`, `withdrawal-failed`; C10, chốt 2026-11-16).
 
 ## 4. DDL (đã có trong migration `CreateMessagingTables`)
 
@@ -111,7 +111,6 @@ CREATE TABLE processed_events (
 | notification | `notification.events` |
 | listing | trống (không phát, không nghe) |
 
-## 6. Điểm [cần xác nhận]
+## 6. Đã chốt 2026-11-16
 
-1. Xóa hay giữ queue dự phòng và schema của luồng reservation cũ.
-2. Rental có xử lý gì với `WithdrawalRequested`, `WithdrawalFailed` không: báo cáo liệt kê rental là bên nghe nhưng không nêu xử lý.
+1. Rental không nghe `payment.withdrawal-requested`, `payment.withdrawal-failed` (C10); chỉ notification nghe.

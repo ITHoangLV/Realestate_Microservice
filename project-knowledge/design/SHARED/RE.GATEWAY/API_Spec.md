@@ -6,8 +6,8 @@
 | **Service** | `api-gateway` (cổng 8080), dựng từ `_template-nest` |
 | **Quy tắc** | NFR03, NFR06; không chứa `BR-xx` |
 | **Quyết định** | ADR-0003 |
-| **CSDL** | Không. Redis cho rate limit `[cần xác nhận]` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **CSDL** | Không. Bộ đếm rate limit trong bộ nhớ của gateway (một instance; chốt 2026-11-16) |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Việc gateway làm và không làm
 
@@ -56,7 +56,7 @@ Gateway chỉ kiểm thô. Service kiểm lại vai trò và chủ sở hữu.
 | 13 | `/api/v1/admin/withdrawals/*`, `/api/v1/admin/refund-requests/*`, `/api/v1/admin/wallet`, `/api/v1/admin/audit-logs` | payment | `admin` | `RE.PAYOUT` |
 | 14 | `/api/v1/notifications/*` | notification | `user` | `RE.NOTIFICATION` |
 | 15 | `/api/v1/conversations/*` | notification | `user` | `RE.CHAT` |
-| 16 | WebSocket `/ws` | notification | `user` | `RE.CHAT` |
+| 16 | WebSocket `/ws` | notification | `user` — gateway chỉ chuyển tiếp upgrade, notification kiểm access token trong handshake | `RE.CHAT` |
 | 17 | `/internal/*` | — | trả `404` | |
 | 18 | `GET /health` | chính gateway | `public` | |
 
@@ -85,13 +85,14 @@ Lỗi `4xx`/`5xx` của service đích chuyển nguyên về client.
 | `SERVICE_NAME` | `api-gateway` | |
 | `JWT_PUBLIC_KEY_PATH`, `JWT_ISSUER` | `./secrets/jwt-public.pem`, `realestate-identity` | |
 | `INTERNAL_IDENTITY_URL` … `INTERNAL_NOTIFICATION_URL` | `http://<service>:<cổng>` | Đích proxy |
-| `GATEWAY_PROXY_TIMEOUT_MS` | `[cần xác nhận]`, phải > 8.000 (NFR07) | Đề xuất tên biến |
-| `RATE_LIMIT_TTL_SECONDS`, `RATE_LIMIT_IP`, `RATE_LIMIT_USER` | `[cần xác nhận]` | Đề xuất tên biến |
-| `CORS_ORIGINS` | `http://localhost:3000` `[cần xác nhận]` | Giao diện Next.js |
+| `GATEWAY_PROXY_TIMEOUT_MS` | `10000` | Phải > 8.000 (NFR07, ngân sách đặt cọc) |
+| `RATE_LIMIT_TTL_SECONDS`, `RATE_LIMIT_IP`, `RATE_LIMIT_USER` | `60`, `100`, `300` | Cửa sổ 60 giây: 100 request/IP, 300 request/người dùng (`sub`). Bộ đếm trong bộ nhớ |
+| `CORS_ORIGINS` | `http://localhost:3000` | Danh sách cách nhau dấu phẩy; giao diện Next.js |
 
-## 6. Điểm [cần xác nhận]
+## 6. Đã chốt 2026-11-16 (C7)
 
-1. Thư viện proxy (ví dụ `http-proxy-middleware`) và cách giữ body thô cho webhook payOS (chữ ký tính trên body).
-2. Timeout proxy, ngưỡng rate limit, nơi lưu bộ đếm (bộ nhớ hay Redis).
-3. Cách gateway chuyển tiếp nâng cấp kết nối WebSocket.
-4. `/health/services` tổng hợp trạng thái các service có cần không.
+1. Proxy bằng `http-proxy-middleware`. Gateway tắt body parser (`NestFactory.create(..., { bodyParser: false })`) nên body đi nguyên vẹn tới service đích, kể cả webhook payOS (chữ ký tính trên body).
+2. Timeout proxy `10000` ms; rate limit `@nestjs/throttler`, bộ đếm trong bộ nhớ, ngưỡng ở §5.
+3. WebSocket: `ws: true` cho route `/ws`, gateway chỉ chuyển tiếp upgrade; xác thực access token trong handshake do notification làm (`RE.CHAT/API_Spec.md §3`).
+4. Không làm `/health/services`; mỗi service tự có `/health`.
+5. `CORS_ORIGINS` mặc định `http://localhost:3000`, nhiều địa chỉ cách nhau dấu phẩy.

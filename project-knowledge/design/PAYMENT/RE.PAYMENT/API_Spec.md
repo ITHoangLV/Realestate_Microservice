@@ -7,7 +7,7 @@
 | **Quy tắc** | BR-04, BR-07, BR-08, BR-09, BR-10 |
 | **Quyết định** | ADR-0009 |
 | **CSDL** | `payment_db` / `payment_user`: `payment_orders`, `payos_webhook_events`, `late_payments` (ví: `RE.PAYOUT`) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. API công khai
 
@@ -21,11 +21,11 @@ Quyền: `payos` (không token). Body: nguyên văn của payOS (`code, desc, su
 | 2 | Chữ ký sai (`PAYOS_CHECKSUM_KEY`) | `result = INVALID_SIGNATURE`, log `warn`, `200` (Báo cáo T09) |
 | 3 | `success = false` hoặc `code ≠ '00'` | `result = IGNORED`, `200` |
 | 4 | Không có order theo `orderCode` | `result = UNKNOWN_ORDER`, log `warn`, `200` |
-| 5 | `amount ≠ payment_orders.amount_vnd` | `result = AMOUNT_MISMATCH`, log `warn`, ví không đổi, `200` (Báo cáo T09) `[cần xác nhận]` khi tiền đến muộn sai số |
+| 5 | `amount ≠ payment_orders.amount_vnd` | `result = AMOUNT_MISMATCH`, log `warn`, ví không đổi, `200` (Báo cáo T09); chỉ áp cho order `PENDING`. Order `CANCELLED`/`PAID` → bước 8, 9 với số thực nhận |
 | 6 | `reference` đã ghi nhận (`ux_webhook_accepted_reference`) | `result = DUPLICATE`, `200`, không cộng ví (Báo cáo T10) |
 | 7 | Order `PENDING` | Ghi nhận đặt cọc (§1.1), `result = PAID`, `200` |
-| 8 | Order `CANCELLED` | Tiền đến muộn (§1.2), `result = LATE`, `200` |
-| 9 | Order `PAID` (reference khác) | Thanh toán hai lần cho một order: xử lý như tiền đến muộn `[cần xác nhận]` |
+| 8 | Order `CANCELLED` | Tiền đến muộn (§1.2) với **số tiền thực nhận** (kể cả khác tiền cọc), `result = LATE`, `200` |
+| 9 | Order `PAID` (reference khác) | Thanh toán hai lần cho một order: xử lý như tiền đến muộn (§1.2), hoàn 100% số thực nhận |
 
 Trả `200` khi đã lưu webhook để payOS không gửi lại vô hạn; trả `5xx` khi DB lỗi để payOS gửi lại.
 
@@ -58,7 +58,7 @@ Body: `{ depositId, tenantId, ownerId, listingTitle, amountVnd, expiresAt }`.
 | 3 | Đã có order `PAID` | `409 PAYMENT_ORDER_ALREADY_PAID` |
 | 4 | Đã có order `CANCELLED` | `409 PAYMENT_ORDER_CANCELLED` |
 | 5 | Chưa có | `INSERT payment_orders (PENDING, payos_order_code = nextval)` **trước**, rồi gọi payOS `createPaymentLink(expiredAt = expiresAt)` |
-| 6 | payOS lỗi/timeout | `503 PAYMENT_PROVIDER_UNAVAILABLE`; order giữ `PENDING` không link `[cần xác nhận]` |
+| 6 | payOS lỗi/timeout | `503 PAYMENT_PROVIDER_UNAVAILABLE`; order giữ `PENDING` không link; `SagaReconcileJob` và `HoldExpiryJob` của rental xử lý tiếp |
 | 7 | Thành công | Lưu `checkout_url`, `qr_code`, `payos_payment_link_id` → `201 { orderId, payosOrderCode, checkoutUrl, qrCode, expiresAt }` |
 
 ### b. Hủy order (BR-09)
@@ -96,8 +96,8 @@ Body: `{ depositId, tenantId, ownerId, listingTitle, amountVnd, expiresAt }`.
 | `PORT` | `3004` | |
 | `DATABASE_URL` | `postgres://payment_user:…@localhost:5433/payment_db` | |
 | `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` | bắt buộc | Môi trường thử nghiệm payOS |
-| `PAYOS_RETURN_URL`, `PAYOS_CANCEL_URL` | `[cần xác nhận]` | Trang của giao diện Next.js |
-| `PAYOS_TIMEOUT_MS` | `[cần xác nhận]` | Không retry tạo link |
+| `PAYOS_RETURN_URL`, `PAYOS_CANCEL_URL` | `http://localhost:3000/payment/return`, `http://localhost:3000/payment/cancel` | Trang của giao diện Next.js; `returnUrl` không phải bằng chứng thanh toán |
+| `PAYOS_TIMEOUT_MS` | `2500` | Phải < `PAYMENT_CALL_TIMEOUT_MS` của rental (3000). Không retry tạo link |
 | `RABBITMQ_URL`, `OUTBOX_*` | | Chỉ phát |
 
 ## 6. DDL (đề xuất theo Báo cáo Bảng 3.5)
@@ -114,7 +114,7 @@ CREATE TABLE payment_orders (
   payos_order_code bigint NOT NULL UNIQUE,
   payos_payment_link_id varchar(100),
   checkout_url text, qr_code text,
-  status varchar(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','PAID','CANCELLED')),  -- [cần xác nhận]
+  status varchar(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','PAID','CANCELLED')),
   payos_reference varchar(100) UNIQUE,              -- mã giao dịch payOS
   expires_at timestamptz NOT NULL,
   paid_at timestamptz, cancelled_at timestamptz,
@@ -146,10 +146,10 @@ CREATE TABLE late_payments (
 );
 ```
 
-## 7. Điểm [cần xác nhận]
+## 7. Đã chốt 2026-11-16
 
-1. Tên trạng thái payment order.
-2. Tiền đến muộn với số tiền khác tiền cọc; thanh toán hai lần cho một order.
-3. Trạng thái order khi tạo link payOS thất bại.
-4. Timeout gọi payOS, `returnUrl`, `cancelUrl`.
-5. Có cần job đối soát chủ động với payOS (Báo cáo Bảng 7.1 ghi là hướng xử lý).
+1. Trạng thái payment order: `PENDING`, `PAID`, `CANCELLED`.
+2. Tiền đến muộn sai số tiền, hoặc thanh toán lần hai vào order đã `PAID`: ghi nhận đúng số thực nhận như tiền đến muộn, tạo yêu cầu hoàn 100% số đó.
+3. Tạo link payOS lỗi: order giữ `PENDING` không link; job của rental xử lý.
+4. `PAYOS_TIMEOUT_MS = 2500`; `returnUrl`, `cancelUrl` ở §5.
+5. Không làm job đối soát chủ động với payOS; dựa vào payOS gửi lại webhook. Ghi ở mục hạn chế của báo cáo.

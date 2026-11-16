@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/payment.refund-rejected.v1.schema.json",
+  "title": "payment.refund-rejected",
+  "description": "RefundRejected: quản trị viên từ chối yêu cầu hoàn, đơn về PAID",
+  "x-producer": "payment",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    }
+  ],
+  "properties": {
+    "eventType": {
+      "const": "payment.refund-rejected"
+    },
+    "version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "payment"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["depositId", "refundRequestId", "tenantId", "ownerId", "reason"],
+      "properties": {
+        "depositId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Đơn đặt cọc (rental sở hữu)"
+        },
+        "refundRequestId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Yêu cầu hoàn (payment sở hữu)"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Người thuê (identity)"
+        },
+        "ownerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Chủ trọ (identity)"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "description": "Lý do từ chối"
+        }
+      }
+    }
+  }
+}

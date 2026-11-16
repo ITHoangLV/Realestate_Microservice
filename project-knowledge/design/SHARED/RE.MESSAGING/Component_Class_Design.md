@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `src/messaging/` (từ `_template-nest`), `contracts/events/`, `infra/rabbitmq/definitions.json` |
 | **Quy ước** | `standards/coding-convention.md §4`, `standards/reliability-standard.md §2` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Cấu trúc
 
@@ -93,6 +93,6 @@ Dữ liệu sai, thử lại vô ích → `throw new NonRetryableEventError(...)
 
 Template đã có test 1–6 ở `test/messaging.infra-spec.ts`; mỗi service thêm test 7 cho sự kiện của mình.
 
-## 6. Điểm [cần xác nhận]
+## 6. Đã chốt
 
-Xem `API_Spec.md §6`.
+Xem `API_Spec.md §6` (2026-11-16).

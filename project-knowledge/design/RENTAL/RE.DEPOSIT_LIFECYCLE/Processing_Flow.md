@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Bàn giao, nhận phòng hoặc hoàn tiền, tự giải ngân, điều kiện rút |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, Báo cáo v2 Hình 3.3–3.5, 3.10–3.11 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Bàn giao và chủ trọ xác nhận (BR-11)
 

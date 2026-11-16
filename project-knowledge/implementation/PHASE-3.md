@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 **Mục tiêu:** đặt cọc, hết hạn, tiền đến muộn, bàn giao, giải ngân, hoàn, rút chạy được với payOS thử nghiệm.
 
-**Hạn:** M2 — 2026-11-27 (cuối S3).
+**Hạn:** M2 — 2026-12-04 (cuối S4; dời 2026-11-16) cho T3.1–T3.5; T3.6: M3 — 2026-12-09.
 
 **Điều kiện xong:** tag `v0.5-deposit-flow`. Đây là điểm cắt giảm của kế hoạch.
 
@@ -19,8 +19,8 @@
 | | |
 |---|---|
 | **Người làm** | C |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M2 — 2026-11-27 |
+| **Thời lượng** | ~10 giờ (ước 2026-11-16) |
+| **Hạn** | M2 — 2026-12-04 (dời) |
 | **Mã WBS** | E5-1 |
 | **Đọc trước** | `design/PAYMENT/RE.PAYMENT/`, ADR-0009 |
 | **Phụ thuộc** | T0.3 |
@@ -46,8 +46,8 @@ pnpm --filter @realestate/payment test
 | | |
 |---|---|
 | **Người làm** | C |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M2 — 2026-11-27 |
+| **Thời lượng** | ~16 giờ (ước 2026-11-16) |
+| **Hạn** | M2 — 2026-12-04 (dời); luồng thành công chạy được trước 2026-11-27 |
 | **Mã WBS** | E4-1, E4-2, E4-4a |
 | **Đọc trước** | `design/RENTAL/RE.VIEWING/`, `design/RENTAL/RE.DEPOSIT_SAGA/` (cả 3 file), ADR-0004 |
 | **Phụ thuộc** | T3.1, T2.3 (hoặc mock theo hợp đồng) |
@@ -55,7 +55,7 @@ pnpm --filter @realestate/payment test
 **Các bước:**
 
 1. Service từ template, cổng 3003, `rental_db`, Redis, queue `rental.payment-events`; migration `deposits`, `saga_log`, `viewings`.
-2. `ViewingService` + 4 route.
+2. `ViewingService` + 5 route (đặt lịch, từ chối, xác nhận đã xem, hủy, danh sách); tự hủy yêu cầu `REQUESTED` của người khác trong handler `payment.deposited` (`RE.VIEWING`, chốt 2026-11-16).
 3. `ListingLock`, `ListingClient`, `PaymentClient`.
 4. `DepositSagaService.start` luồng thành công; `POST /deposits` với `@Idempotent()`.
 5. `PaymentEventsHandler` cho `payment.deposited`.
@@ -66,7 +66,7 @@ pnpm --filter @realestate/payment test
 docker exec -it re-postgres psql -U rental_user -d rental_db -c "select status, paid_at from deposits order by created_at desc limit 1"
 ```
 
-**DoD:** Test 1, 2, 9, 14, 15, 18 ở `RE.DEPOSIT_SAGA/Component_Class_Design.md §8` pass.
+**DoD:** Test 1, 2, 9, 14, 15, 18 ở `RE.DEPOSIT_SAGA/Component_Class_Design.md §8` và test 1–10 ở `RE.VIEWING/Component_Class_Design.md §3` pass.
 
 ---
 
@@ -75,8 +75,8 @@ docker exec -it re-postgres psql -U rental_user -d rental_db -c "select status, 
 | | |
 |---|---|
 | **Người làm** | C |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M2 — 2026-11-27 |
+| **Thời lượng** | ~10 giờ (ước 2026-11-16) |
+| **Hạn** | M2 — 2026-12-04 (dời) |
 | **Đọc trước** | `RE.DEPOSIT_SAGA/Processing_Flow.md §3`, `Component_Class_Design.md §5, §7` |
 | **Phụ thuộc** | T3.2 |
 
@@ -101,8 +101,8 @@ docker compose ... start payment
 | | |
 |---|---|
 | **Người làm** | C |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M2 — 2026-11-27 |
+| **Thời lượng** | ~10 giờ (ước 2026-11-16) |
+| **Hạn** | M2 — 2026-12-04 (dời) |
 | **Mã WBS** | E4-5, E4-4b |
 | **Đọc trước** | `RE.PAYMENT/API_Spec.md §1`, `RE.DEPOSIT_SAGA/Processing_Flow.md §4` |
 | **Phụ thuộc** | T3.2 |
@@ -123,9 +123,9 @@ docker compose ... start payment
 
 | | |
 |---|---|
-| **Người làm** | C |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M2 — 2026-11-27 |
+| **Người làm** | B (chuyển từ C 2026-11-16; C review PR) |
+| **Thời lượng** | ~10 giờ (ước 2026-11-16) |
+| **Hạn** | M2 — 2026-12-04 (dời) |
 | **Mã WBS** | E4-3, E4-6 |
 | **Đọc trước** | `design/RENTAL/RE.DEPOSIT_LIFECYCLE/` |
 | **Phụ thuộc** | T3.4 |
@@ -143,8 +143,8 @@ docker compose ... start payment
 | | |
 |---|---|
 | **Người làm** | C |
-| **Thời lượng** | `[cần xác nhận]` |
-| **Hạn** | M2 — 2026-11-27 |
+| **Thời lượng** | ~14 giờ (ước 2026-11-16) |
+| **Hạn** | M3 — 2026-12-09 (dời) |
 | **Mã WBS** | E5-3, E5-4, E5-5 |
 | **Đọc trước** | `design/PAYMENT/RE.PAYOUT/` |
 | **Phụ thuộc** | T3.5, T2.1 |

@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
 
 ## 1. Hai loại API
 
@@ -61,7 +61,7 @@ Webhook payOS là ngoại lệ: luôn trả `200` khi đã lưu webhook, kể c�
 ```
 
 - Không bọc: `/health` (`@RawResponse()`), route `204`, `StreamableFile`.
-- Phân trang: query `page`, `pageSize`. Mặc định 20, tối đa 100 `[cần xác nhận]` (template chưa cố định), luôn sắp xếp tường minh.
+- Phân trang: query `page`, `pageSize`. Mặc định 20, tối đa 50 cho mọi API (chốt 2026-11-16), luôn sắp xếp tường minh.
 
 ## 5. Body lỗi
 

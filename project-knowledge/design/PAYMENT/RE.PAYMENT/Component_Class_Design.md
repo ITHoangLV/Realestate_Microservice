@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/payment/src/payment/` |
 | **Quy ước** | `standards/coding-convention.md §4`, `standards/reliability-standard.md §3` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Cấu trúc
 
@@ -105,6 +105,6 @@ async handle(raw: unknown) {
 | 11 | Mọi sự kiện | Đúng schema `contracts/events/` |
 | 12 | Số dư ví sau mỗi test | = tổng vào − tổng ra (E10) |
 
-## 5. Điểm [cần xác nhận]
+## 5. Đã chốt
 
-1. Phiên bản SDK payOS và cách cấu hình timeout, tắt retry của SDK.
+SDK `@payos/node` (`architecture.md §5`, 2026-11-16); timeout `PAYOS_TIMEOUT_MS`. Phiên bản cụ thể và cách tắt retry của SDK C ghi vào walkthrough khi làm T3.1.

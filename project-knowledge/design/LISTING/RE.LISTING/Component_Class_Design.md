@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/listing/src/listing/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/non-functional-standards.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Cấu trúc
 
@@ -72,6 +72,6 @@ classDiagram
 | 11 | Chuyển với `depositId` khác | `409 LISTING_INVALID_STATUS` |
 | 12 | Ảnh vượt kích thước | `400 LISTING_IMAGE_INVALID`, key không lưu |
 
-## 4. Điểm [cần xác nhận]
+## 4. Đã chốt
 
-Xem `API_Spec.md §7`.
+Xem `API_Spec.md §7` (2026-11-16).

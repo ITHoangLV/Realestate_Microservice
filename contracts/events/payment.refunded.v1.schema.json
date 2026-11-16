@@ -2,36 +2,63 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://realestate.local/contracts/events/payment.refunded.v1.schema.json",
   "title": "payment.refunded",
+  "description": "DepositRefunded: quản trị viên hoàn tất yêu cầu hoàn (có chứng từ)",
   "x-producer": "payment",
-  "allOf": [{ "$ref": "envelope.v1.schema.json" }],
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    }
+  ],
   "properties": {
-    "eventType": { "const": "payment.refunded" },
-    "version": { "const": 1 },
-    "producer": { "const": "payment" },
+    "eventType": {
+      "const": "payment.refunded"
+    },
+    "version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "payment"
+    },
     "payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["reservationId", "paymentId", "amount", "payerId"],
+      "required": [
+        "depositId",
+        "refundRequestId",
+        "tenantId",
+        "ownerId",
+        "amountVnd",
+        "requesterType"
+      ],
       "properties": {
-        "reservationId": {
+        "depositId": {
           "type": "string",
           "format": "uuid",
-          "description": "Reservation (rental sở hữu)"
+          "description": "Đơn đặt cọc (rental sở hữu)"
         },
-        "paymentId": {
+        "refundRequestId": {
           "type": "string",
           "format": "uuid",
-          "description": "Giao dịch (payment sở hữu)"
+          "description": "Yêu cầu hoàn (payment sở hữu)"
         },
-        "amount": {
+        "tenantId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Người thuê (identity)"
+        },
+        "ownerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Chủ trọ (identity)"
+        },
+        "amountVnd": {
           "type": "integer",
           "minimum": 1,
-          "description": "Số tiền đã hoàn (VND, số nguyên)"
+          "description": "Số tiền đã hoàn (VND)"
         },
-        "payerId": {
-          "type": "string",
-          "format": "uuid",
-          "description": "Người nhận lại tiền (người thuê)"
+        "requesterType": {
+          "enum": ["TENANT", "SYSTEM"],
+          "description": "TENANT: người thuê tự hủy (70%); SYSTEM: tiền đến muộn (100%, đơn EXPIRED)"
         }
       }
     }

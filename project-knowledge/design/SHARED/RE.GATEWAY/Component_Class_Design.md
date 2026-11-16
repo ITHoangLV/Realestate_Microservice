@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/api-gateway/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/security-policy.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Cấu trúc
 
@@ -20,8 +20,8 @@ services/api-gateway/src/
    ├─ route-resolver.ts              # khớp method + đường dẫn → { target, access }
    ├─ access.guard.ts                # kiểm JWT theo access; public/payos bỏ qua
    ├─ internal-block.middleware.ts   # /internal/* → 404
-   ├─ throttle.config.ts             # @nestjs/throttler theo IP và sub
-   ├─ proxy.middleware.ts            # chuyển tiếp, timeout, đổi lỗi kết nối thành 503/504
+   ├─ throttle.config.ts             # @nestjs/throttler theo IP và sub, bộ đếm trong bộ nhớ
+   ├─ proxy.middleware.ts            # http-proxy-middleware: chuyển tiếp, timeout, ws, đổi lỗi kết nối thành 503/504
    └─ errors/gateway.errors.ts       # GATEWAY_ROUTE_NOT_FOUND
 ```
 
@@ -58,7 +58,7 @@ classDiagram
 | 5 | Throttler | `429` |
 | 6 | `RouteResolver` | Không khớp → `404` |
 | 7 | `AccessGuard` | `401`/`403` |
-| 8 | `ProxyMiddleware` | Body thô cho webhook `[cần xác nhận]` |
+| 8 | `ProxyMiddleware` | Body không bị parse (body parser tắt ở `main.ts`), webhook giữ nguyên chữ ký |
 
 ## 4. Test bắt buộc
 
@@ -75,7 +75,8 @@ classDiagram
 | 9 | `X-Request-ID` client gửi | Giống nhau ở log gateway và service đích |
 | 10 | Vượt rate limit | `429` |
 | 11 | Lỗi `409` của service | Chuyển nguyên `{ error, meta }` |
+| 12 | Nâng cấp WebSocket `/ws` | Chuyển tới notification, không qua `AccessGuard` |
 
-## 5. Điểm [cần xác nhận]
+## 5. Đã chốt
 
-1. Thư viện proxy và cách giữ body thô (`API_Spec.md §6`).
+Thư viện proxy, body thô, rate limit, WebSocket: `API_Spec.md §6` (2026-11-16).

@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.0 |
 | **Nguồn** | Báo cáo v2 Chương 1–3 (Bảng 2.1, 2.4, 3.1–3.3, 4.3, 5.2) |
 
 ## 1. Mục đích và phạm vi
@@ -28,7 +28,7 @@ Xem `RE.BUSINESS_RULES.md §2` (Báo cáo Bảng 2.3).
 | FR01 | Tài khoản và hồ sơ | Đăng ký qua OTP, đăng nhập, khôi phục mật khẩu; hồ sơ cá nhân, tài khoản ngân hàng nhận tiền | identity | notification | UC-ACC-01, UC-ACC-02 | `RE.IDENTITY` |
 | FR02 | Quản lý sản phẩm | Chủ trọ thêm, sửa, ẩn/hiện, xóa mềm sản phẩm; giá thuê, tiền cọc, diện tích, tiện ích, tọa độ; tải ảnh; sản phẩm của tôi; quản trị viên duyệt | listing | — | UC-LST-01, UC-LST-02 | `RE.LISTING` |
 | FR03 | Tìm kiếm | Lọc giá, diện tích, quận, tiện ích, còn trống; bán kính; phân trang | listing | — | UC-LST-03 | `RE.LISTING` |
-| FR04 | Xem nhà | Đặt lịch xem; chủ trọ phản hồi; người thuê xác nhận đã xem | rental | notification | UC-VIE-01 | `RE.VIEWING` |
+| FR04 | Xem nhà | Đặt lịch xem (không chọn giờ, chốt giờ qua chat); chủ trọ xem danh sách người đăng ký và có thể từ chối; người thuê hủy hoặc xác nhận đã xem; tin có người đặt cọc thì yêu cầu xem còn chờ của người khác tự hủy | rental | notification | UC-VIE-01 | `RE.VIEWING` |
 | FR05 | Đặt cọc và giữ chỗ | Giữ chỗ 10 phút, link/QR payOS, ghi nhận qua webhook, bàn giao, xác nhận nhận phòng, tự giải ngân sau 3 ngày | rental | listing, payment, notification | UC-DEP-01 … UC-DEP-06 | `RE.DEPOSIT_SAGA`, `RE.DEPOSIT_LIFECYCLE`, `RE.PAYMENT` |
 | FR06 | Hoàn tiền và rút tiền | Hoàn 70% trong 48 giờ; hoàn 100% tiền đến muộn; chủ trọ tạo lệnh rút; lịch sử ví | payment | rental, identity, listing | UC-REF-01, UC-WDR-01, UC-WDR-02 | `RE.PAYOUT`, `RE.DEPOSIT_LIFECYCLE` |
 | FR07 | Thông báo và nhắn tin | Thông báo từ sự kiện; danh sách, đánh dấu đã đọc; nhắn tin người thuê, chủ trọ, quản trị viên | notification | — | UC-NTF-01, UC-CHT-01 | `RE.NOTIFICATION`, `RE.CHAT` |

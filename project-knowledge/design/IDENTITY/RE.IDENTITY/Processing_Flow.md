@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Đăng ký và xác minh OTP, đăng nhập (mật khẩu, Google), quên mật khẩu, làm mới, đăng xuất, đổi vai trò, khóa tài khoản, cung cấp tài khoản nhận tiền |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, `services/identity/README.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Đăng ký
 
@@ -54,7 +54,7 @@ Redis dừng: đăng nhập, làm mới `503`; service khác vẫn kiểm access
 ## 3. Đổi vai trò
 
 1. `UPDATE users SET role WHERE id`; 0 dòng → `404`.
-2. Sau commit: thu hồi mọi họ refresh token của người đó. Redis lỗi → log `warn`, trả `200`, người dùng giữ quyền cũ tối đa tới khi access token hết hạn (15 phút) và refresh token còn dùng được `[cần xác nhận]` có chấp nhận không.
+2. Sau commit: thu hồi mọi họ refresh token của người đó. Redis lỗi → `503 DEPENDENCY_UNAVAILABLE` (vai trò đã đổi trong DB; quản trị viên gọi lại để thu hồi), giống luồng khóa tài khoản. Chốt 2026-11-16.
 
 ## 3a. Xác minh email OTP
 
@@ -119,6 +119,6 @@ Google không phản hồi khi tải JWKS: `503 DEPENDENCY_UNAVAILABLE`; khóa J
 
 `GET /internal/users/:id/bank-account` → đọc 1 dòng, giải mã, trả. Chỉ đọc nên payment được retry. Identity dừng → payment trả `503` khi tạo lệnh rút (`architecture.md §4`).
 
-## 5. Điểm [cần xác nhận]
+## 5. Đã chốt 2026-11-16
 
-1. Hành vi khi thu hồi phiên lỗi sau đổi vai trò (§3).
+1. Thu hồi phiên lỗi sau đổi vai trò → `503`, gọi lại để thu hồi (§3).

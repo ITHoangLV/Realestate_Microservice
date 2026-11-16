@@ -7,7 +7,7 @@
 | **Quy tắc** | BR-10, BR-12, BR-15, BR-16, BR-17, BR-19 |
 | **Quyết định** | ADR-0009 |
 | **CSDL** | `payment_db`: `admin_wallet`, `wallet_transactions`, `refund_requests`, `withdrawal_requests`, `transfer_receipts`, `audit_log`; S3 bucket `payment-proofs`. `Idempotency-Key` lưu Redis bằng `@Idempotent()` của template, không có bảng `idempotency_keys` (B11) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 > Thao tác theo Báo cáo v2 Bảng 3.10. Đường dẫn chốt 2026-11-12 (A6).
 
@@ -57,14 +57,14 @@ Kết quả bằng 0 → `409 PAYMENT_WITHDRAWAL_NOT_ELIGIBLE`.
 | 2 | Không phải `PENDING` (rút) / `PENDING_ADMIN` hoặc `FAILED` (hoàn) | `409 PAYMENT_PAYOUT_INVALID_STATUS` |
 | 3 | Thiếu tệp, sai loại, quá cỡ | `400 PAYMENT_RECEIPT_INVALID` |
 | 4 | `sha256` đã có trong `transfer_receipts` | `409 PAYMENT_RECEIPT_ALREADY_USED` (Báo cáo T14) |
-| 5 | Số dư ví < số tiền | `409 PAYMENT_WALLET_INSUFFICIENT` `[cần xác nhận]` (không được xảy ra nếu bất biến đúng) |
+| 5 | Số dư ví < số tiền | `409 PAYMENT_WALLET_INSUFFICIENT`, log `error` (không được xảy ra nếu bất biến đúng) |
 | 6 | Hợp lệ | Lưu tệp S3 trước; transaction: `transfer_receipts`, `UPDATE ... WHERE status=<từ>` → `COMPLETED`, `wallet_transactions` `WITHDRAW_OUT`/`REFUND_OUT`, `balance -= amount`, `audit_log`, outbox `payment.withdrawal-completed` / `payment.refunded` → `200` |
 
 Yêu cầu hoàn `FAILED` được hoàn tất lại (Báo cáo: "đơn giữ `REFUND_REQUESTED` để xử lý lại"). Lệnh rút `FAILED` thì chủ trọ tạo lệnh mới sau khi sửa ngân hàng.
 
 ### 1.3 Từ chối, thất bại (route 7, 9, 10)
 
-`reason` bắt buộc. `UPDATE ... WHERE status=<từ>` + `audit_log` + outbox (`payment.withdrawal-failed`, `payment.refund-rejected`; yêu cầu hoàn `FAILED` không phát sự kiện `[cần xác nhận]`).
+`reason` bắt buộc. `UPDATE ... WHERE status=<từ>` + `audit_log` + outbox (`payment.withdrawal-failed`, `payment.refund-rejected`; yêu cầu hoàn `FAILED` không phát sự kiện).
 
 ## 2. API nội bộ
 
@@ -72,7 +72,7 @@ Yêu cầu hoàn `FAILED` được hoàn tất lại (Báo cáo: "đơn giữ `R
 |---|---|---|
 | `POST /internal/refund-requests` | rental | Body `{ depositId }`. Tạo yêu cầu hoàn 70% `PENDING_ADMIN` (`requester_type = TENANT`); idempotent theo `depositId` (đã có → `200`). Order chưa `PAID` → `409 PAYMENT_ORDER_NOT_PAID` |
 
-Số tiền hoàn = `floor(amount_vnd × 70 / 100)` của payment order `[cần xác nhận]` cách làm tròn và tỉ lệ đặt ở biến môi trường hay hằng số.
+Số tiền hoàn = `floor(amount_vnd × 70 / 100)` VND của payment order; tỉ lệ `70` là hằng số trong `domain/refund-amount.ts` (Báo cáo cố định). `tenantId` lấy từ `payment_orders`.
 
 ## 3. Lời gọi ra ngoài
 
@@ -111,7 +111,7 @@ Số tiền hoàn = `floor(amount_vnd × 70 / 100)` của payment order `[cần 
 |---|---|---|
 | `INTERNAL_RENTAL_URL`, `INTERNAL_IDENTITY_URL` | | |
 | `S3_*`, `S3_BUCKETS` | `payment-proofs` | Chứng từ |
-| `RECEIPT_MAX_BYTES` | `[cần xác nhận]` | Đề xuất tên biến |
+| `RECEIPT_MAX_BYTES` | `5242880` (5 MB) | Chứng từ tải multipart qua payment; loại `image/jpeg`, `image/png`, `application/pdf` |
 
 ## 7. DDL (đề xuất theo Báo cáo Bảng 3.5)
 
@@ -188,9 +188,9 @@ CREATE TABLE audit_log (
 );
 ```
 
-## 8. Điểm [cần xác nhận]
+## 8. Đã chốt 2026-11-16
 
-1. Cách tính và làm tròn 70%.
-2. Tải chứng từ: multipart qua payment (để tính `sha256` phía server) hay presigned URL.
-3. Yêu cầu hoàn `FAILED` có phát sự kiện không.
-4. Payment có cần biết `tenantId` của đơn khi rental gọi tạo yêu cầu hoàn (lấy từ `payment_orders`).
+1. Tiền hoàn `floor(amount × 70 / 100)` VND, tỉ lệ là hằng số.
+2. Chứng từ tải multipart qua payment (server tính `sha256`, kiểm loại và kích thước) rồi lưu S3 `payment-proofs`.
+3. Yêu cầu hoàn `FAILED` không phát sự kiện.
+4. `tenantId` lấy từ `payment_orders`, rental không cần gửi.

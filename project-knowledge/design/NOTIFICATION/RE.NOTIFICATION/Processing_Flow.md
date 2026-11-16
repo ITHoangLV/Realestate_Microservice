@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Từ sự kiện tới thông báo, đẩy thời gian thực, khi phụ thuộc lỗi |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, `RE.MESSAGING/Processing_Flow.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Từ đặt cọc tới thông báo
 

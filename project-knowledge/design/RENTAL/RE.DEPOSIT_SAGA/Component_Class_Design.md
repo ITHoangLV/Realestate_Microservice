@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/rental/src/rental/` |
 | **Quy ước** | `standards/coding-convention.md §4`, `standards/reliability-standard.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-12 — v1.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
 
 ## 1. Cấu trúc
 
@@ -78,10 +78,12 @@ Suy từ lỗi của `InternalHttpService` (`reliability-standard.md §4`):
 
 ```ts
 type CallOutcome = 'OK' | 'BUSINESS_ERROR' | 'NOT_EXECUTED' | 'UNKNOWN';
-// AppException 4xx → BUSINESS_ERROR; 503 UPSTREAM_UNAVAILABLE → NOT_EXECUTED; 504 hoặc 5xx khác → UNKNOWN
+// AppException 4xx → BUSINESS_ERROR
+// 503/504 có details.outcome = 'NOT_EXECUTED' (chưa gửi được request) → NOT_EXECUTED
+// mọi 503/504 khác → UNKNOWN
 ```
 
-`[cần xác nhận]` `503` có luôn nghĩa "chưa thực hiện" không: upstream trả `503` sau khi đã commit thì là `UNKNOWN`. Template chưa phân biệt.
+Chốt 2026-11-16 (C14): `InternalHttpService` của template gắn `details.outcome = 'NOT_EXECUTED'` chỉ khi request chưa gửi được (`ECONNREFUSED`, `ENOTFOUND`); upstream trả 5xx hoặc timeout là `UNKNOWN`. A sửa template (bước 0 của T1.2) trước khi C làm T3.2.
 
 ## 4. `DepositSagaService.start`
 
@@ -95,8 +97,8 @@ async start(tenantId: string, listingId: string) {
     const heldUntil = addSeconds(now(), HOLD_TTL_SECONDS);
     await this.listing.hold(listingId, depositId, heldUntil); // không retry; lỗi ném thẳng
     const deposit = await this.dataSource.transaction(async (m) => {
-      const d = await m.save(Deposit, { id: depositId, tenantId, ownerId: snap.landlordId,
-        listingTitle: snap.title, amountVnd: snap.depositAmount, status: 'PENDING_PAYMENT', expiresAt: heldUntil });
+      const d = await m.save(Deposit, { id: depositId, tenantId, ownerId: snap.ownerId,
+        listingTitle: snap.title, amountVnd: snap.depositAmountVnd, status: 'PENDING_PAYMENT', expiresAt: heldUntil });
       await this.sagaLog(m, d.id, 'HOLD_LISTING', 'OK');
       await this.outbox.add(m, 'rental.deposit-created', toCreatedPayload(d));
       return d;
@@ -145,10 +147,13 @@ this.events.on('payment.deposited', async (e, m) => {
     autoReleaseAt: addSeconds(paidAt, AUTO_RELEASE_SECONDS),
     listingTargetStatus: 'DEPOSITED', listingSyncedAt: null });
   if (!r.affected) { this.logger.warn(...); return; }   // trùng, hoặc đơn đã đổi: payment đã xử lý tiền đến muộn
+  // Chốt 2026-11-16: hủy yêu cầu xem REQUESTED của người khác trên tin, cùng transaction (RE.VIEWING)
+  const d = await m.findOneByOrFail(Deposit, { id: e.payload.depositId });      // payload không có listingId
+  await this.viewings.cancelOthersOnDeposit(m, d.listingId, d.tenantId);
 });
 ```
 
-Handler không gọi HTTP. `ListingSyncService` đẩy `DEPOSITED` ở lượt job kế tiếp `[cần xác nhận]` có cần đẩy ngay sau commit (độ trễ hiển thị tối đa một chu kỳ job).
+Handler không gọi HTTP. Phần hủy lịch xem thêm 1 đọc đơn + 1 `UPDATE ... RETURNING` + outbox (`RE.VIEWING/Component_Class_Design.md §2`). `ListingSyncService` đẩy `DEPOSITED` ở lượt `SagaReconcileJob` kế tiếp (trễ hiển thị ≤ 15 giây; chốt 2026-11-16).
 
 ## 7. Job
 
@@ -158,7 +163,7 @@ Handler không gọi HTTP. `ListingSyncService` đẩy `DEPOSITED` ở lượt j
 | `SagaReconcileJob` (a) | `PENDING_PAYMENT AND payment_order_id IS NULL AND created_at < now() - SAGA_STUCK_AFTER_SECONDS` | `PaymentClient.getOrder`: có → lưu `payment_order_id`; `404` → `cancelAfterHold` | như trên |
 | `SagaReconcileJob` (b) | `listing_target_status IS NOT NULL AND listing_synced_at IS NULL` | `ListingSyncService.push` | `PUT` idempotent |
 
-Thứ tự trong `HoldExpiryJob` là BR-09: **hủy link trước, nhả chỗ sau**. Mỗi đơn lỗi không chặn đơn khác. Một bản sao rental (Báo cáo §7.2); nhiều bản sao cần `FOR UPDATE SKIP LOCKED` `[cần xác nhận]`.
+Thứ tự trong `HoldExpiryJob` là BR-09: **hủy link trước, nhả chỗ sau**. Mỗi đơn lỗi không chặn đơn khác. Một bản sao rental (Báo cáo §7.2); không làm `FOR UPDATE SKIP LOCKED` (chốt 2026-11-16, ghi hạn chế: chỉ chạy một bản sao rental).
 
 ## 8. Test bắt buộc
 
@@ -167,7 +172,7 @@ Mock `ListingClient`, `PaymentClient` cho unit; Postgres + Redis thật cho test
 | # | Tình huống | Mong đợi |
 |---|---|---|
 | 1 | Mọi bước thành công | `201`, `PENDING_PAYMENT`, `saga_log` 2 dòng OK, 1 `deposit-created` |
-| 2 | Số tiền lấy từ bản chụp, bỏ qua body | `amount_vnd` = `depositAmount` (BR-04) |
+| 2 | Số tiền lấy từ bản chụp, bỏ qua body | `amount_vnd` = `depositAmountVnd` (BR-04) |
 | 3 | Giữ chỗ `409` | `409 LISTING_NOT_AVAILABLE`, không có đơn (Báo cáo T06) |
 | 4 | Giữ chỗ `503` | `503`, không có đơn |
 | 5 | Tạo order `503` | `503`, đơn `CANCELLED`, listing đích `AVAILABLE`, đã gọi `PUT status` |
@@ -179,14 +184,14 @@ Mock `ListingClient`, `PaymentClient` cho unit; Postgres + Redis thật cho test
 | 11 | Hết hạn, hủy order `200` | `EXPIRED`, outbox, listing `AVAILABLE` sau khi hủy link (E4) |
 | 12 | Hết hạn, hủy order `409` đã thanh toán | Không `EXPIRED`; `payment.deposited` đến sau → `PAID` |
 | 13 | Hết hạn, payment lỗi | Giữ `PENDING_PAYMENT`, lượt sau xử lý |
-| 14 | `payment.deposited` hợp lệ | `PAID`, mốc 48h/72h đúng, đích `DEPOSITED` |
-| 15 | `payment.deposited` giao hai lần | Một lần đổi |
+| 14 | `payment.deposited` hợp lệ | `PAID`, mốc 48h/72h đúng, đích `DEPOSITED`; yêu cầu xem `REQUESTED` của người khác trên tin thành `CANCELLED` (`LISTING_DEPOSITED`) |
+| 15 | `payment.deposited` giao hai lần | Một lần đổi; không hủy thêm lịch xem |
 | 16 | `payment.deposited` khi đơn `EXPIRED` | Không đổi, log `warn` |
 | 17 | Listing sync lỗi | Job (b) đẩy lại tới khi xong |
 | 18 | Unique index `ux_deposits_active_listing` | Đơn hoạt động thứ hai trên cùng tin bị chặn |
 
-## 9. Điểm [cần xác nhận]
+## 9. Đã chốt 2026-11-16
 
-1. Phân loại `503` (§3).
-2. Đẩy `DEPOSITED` ngay sau sự kiện hay chờ job (§6).
-3. Chạy nhiều bản sao rental (§7).
+1. Phân loại kết quả lời gọi theo `details.outcome` của template (§3).
+2. `DEPOSITED` đẩy ở lượt job kế tiếp (§6).
+3. Một bản sao rental (§7).

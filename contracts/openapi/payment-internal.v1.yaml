@@ -1,0 +1,460 @@
+openapi: 3.1.0
+info:
+  title: payment-service, API nội bộ
+  version: 1.0.0
+  description: |
+    API chỉ dành cho service khác gọi (không qua api-gateway, không có prefix /api/v1).
+    Response theo khung chung của template: thành công `{ data, meta }`, lỗi `{ error, meta }`.
+    Người phụ trách: C (payment). Người gọi: rental (S2, `architecture.md §7.1`).
+    Thiết kế: `project-knowledge/design/PAYMENT/RE.PAYMENT/API_Spec.md §2` (payment order),
+    `project-knowledge/design/PAYMENT/RE.PAYOUT/API_Spec.md §2` (yêu cầu hoàn).
+
+    Mọi lệnh ở đây idempotent theo `depositId` (một payment order và tối đa một yêu cầu hoàn
+    của người thuê cho mỗi đơn), nên rental được retry kể cả lệnh POST (`idempotent: true`).
+    Tên trạng thái payment order `PENDING`, `PAID`, `CANCELLED` còn là đề xuất (RE.PAYMENT §7).
+servers:
+  - url: http://localhost:3004
+    description: payment chạy trên laptop
+  - url: http://payment:3004
+    description: payment chạy trong Docker
+paths:
+  /internal/payment-orders:
+    post:
+      operationId: createPaymentOrder
+      summary: Tạo payment order và link payOS cho một đơn đặt cọc
+      description: |
+        Payment ghi order `PENDING` trước, rồi gọi payOS tạo link với `expiredAt = expiresAt`
+        (BR-07). Số tiền lấy từ body do rental gửi (bản chụp của rental, BR-04), không lấy từ client.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+            example:
+              depositId: 3f9a1c2e-8b4d-4e6f-a1b2-c3d4e5f60718
+              tenantId: 7c1e2d34-5b6a-4f70-9e81-2a3b4c5d6e7f
+              ownerId: b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e
+              listingTitle: Phòng 25m2 gần ĐH Bách Khoa
+              amountVnd: 3000000
+              expiresAt: '2026-11-20T08:10:00Z'
+      responses:
+        '201':
+          description: Tạo mới thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateOrderResponse'
+              example:
+                data:
+                  orderId: c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f
+                  payosOrderCode: 1000123
+                  checkoutUrl: https://pay.payos.vn/web/abc123
+                  qrCode: 00020101021238570010A000000727012700069704220113VQRQ00012345
+                  expiresAt: '2026-11-20T08:10:00Z'
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-20T08:00:01Z'
+        '200':
+          description: Đơn này đã có order `PENDING` có link; trả lại order cũ (gọi lại)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateOrderResponse'
+              example:
+                data:
+                  orderId: c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f
+                  payosOrderCode: 1000123
+                  checkoutUrl: https://pay.payos.vn/web/abc123
+                  qrCode: 00020101021238570010A000000727012700069704220113VQRQ00012345
+                  expiresAt: '2026-11-20T08:10:00Z'
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-20T08:00:03Z'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '409':
+          description: |
+            `PAYMENT_ORDER_EXPIRED` (expiresAt đã qua), `PAYMENT_ORDER_ALREADY_PAID`,
+            `PAYMENT_ORDER_CANCELLED`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: PAYMENT_ORDER_EXPIRED
+                  message: Thời gian giữ chỗ đã hết
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-20T08:11:00Z'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
+  /internal/payment-orders/{depositId}:
+    get:
+      operationId: getPaymentOrder
+      summary: Tra cứu payment order của một đơn (đối soát saga)
+      description: Chỉ đọc. Order `PENDING` mà chưa có link thì payment hỏi payOS trước khi trả.
+      parameters:
+        - $ref: '#/components/parameters/DepositId'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Có order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOrderResponse'
+              example:
+                data:
+                  orderId: c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f
+                  depositId: 3f9a1c2e-8b4d-4e6f-a1b2-c3d4e5f60718
+                  status: PAID
+                  amountVnd: 3000000
+                  payosOrderCode: 1000123
+                  checkoutUrl: https://pay.payos.vn/web/abc123
+                  expiresAt: '2026-11-20T08:10:00Z'
+                  paidAt: '2026-11-20T08:05:00Z'
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-20T08:06:00Z'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+  /internal/payment-orders/{depositId}/cancel:
+    post:
+      operationId: cancelPaymentOrder
+      summary: Hủy link payOS rồi chuyển order sang CANCELLED (BR-09)
+      description: |
+        Gọi khi hết hạn giữ chỗ hoặc bù trừ. Đã `CANCELLED` → 200 (idempotent).
+        Webhook thắng trước (order đã `PAID`) → 409 `PAYMENT_ORDER_ALREADY_PAID`; rental không
+        chuyển đơn sang `EXPIRED` mà chờ `payment.deposited`.
+      parameters:
+        - $ref: '#/components/parameters/DepositId'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Order đã ở `CANCELLED`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelOrderResponse'
+              example:
+                data:
+                  orderId: c3d4e5f6-a7b8-4c9d-8e0f-2a3b4c5d6e7f
+                  depositId: 3f9a1c2e-8b4d-4e6f-a1b2-c3d4e5f60718
+                  status: CANCELLED
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-20T08:10:05Z'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          description: Order đã được thanh toán
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: PAYMENT_ORDER_ALREADY_PAID
+                  message: Lệnh thanh toán đã được thanh toán
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-20T08:10:05Z'
+        '503':
+          $ref: '#/components/responses/ProviderUnavailable'
+  /internal/refund-requests:
+    post:
+      operationId: createRefundRequest
+      summary: Tạo yêu cầu hoàn 70% cho đơn người thuê tự hủy (BR-12)
+      description: |
+        Payment tự tính số tiền hoàn từ payment order (cách làm tròn còn đề xuất, RE.PAYOUT §8),
+        `requester_type = TENANT`, trạng thái `PENDING_ADMIN`. Đã có yêu cầu cho đơn → 200, trả lại.
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRefundRequest'
+            example:
+              depositId: 3f9a1c2e-8b4d-4e6f-a1b2-c3d4e5f60718
+      responses:
+        '201':
+          description: Tạo mới
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundRequestResponse'
+              example:
+                data:
+                  refundRequestId: d4e5f6a7-b8c9-4d0e-9f1a-3b4c5d6e7f80
+                  depositId: 3f9a1c2e-8b4d-4e6f-a1b2-c3d4e5f60718
+                  amountVnd: 2100000
+                  requesterType: TENANT
+                  status: PENDING_ADMIN
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-21T10:00:00Z'
+        '200':
+          description: Đơn đã có yêu cầu hoàn của người thuê; trả lại yêu cầu đó
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundRequestResponse'
+              example:
+                data:
+                  refundRequestId: d4e5f6a7-b8c9-4d0e-9f1a-3b4c5d6e7f80
+                  depositId: 3f9a1c2e-8b4d-4e6f-a1b2-c3d4e5f60718
+                  amountVnd: 2100000
+                  requesterType: TENANT
+                  status: PENDING_ADMIN
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-21T10:00:04Z'
+        '400':
+          $ref: '#/components/responses/ValidationFailed'
+        '404':
+          $ref: '#/components/responses/OrderNotFound'
+        '409':
+          description: Order của đơn chưa `PAID`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: PAYMENT_ORDER_NOT_PAID
+                  message: Đơn chưa được thanh toán
+                meta:
+                  correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+                  timestamp: '2026-11-21T10:00:00Z'
+components:
+  parameters:
+    DepositId:
+      name: depositId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RequestId:
+      name: X-Request-ID
+      in: header
+      required: false
+      description: InternalHttpService của template tự chuyển tiếp từ request gốc
+      schema:
+        type: string
+        pattern: '^[\w.:-]{1,128}$'
+  responses:
+    ValidationFailed:
+      description: Tham số hoặc body sai
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: VALIDATION_FAILED
+              message: depositId phải là UUID
+            meta:
+              correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+              timestamp: '2026-11-20T08:00:00Z'
+    OrderNotFound:
+      description: Đơn chưa có payment order
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: PAYMENT_ORDER_NOT_FOUND
+              message: Không tìm thấy lệnh thanh toán
+            meta:
+              correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+              timestamp: '2026-11-20T08:00:00Z'
+    ProviderUnavailable:
+      description: payOS lỗi hoặc quá thời gian chờ; order giữ nguyên trạng thái
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: PAYMENT_PROVIDER_UNAVAILABLE
+              message: Cổng thanh toán tạm thời không phản hồi
+            meta:
+              correlationId: 5e0c7f3a-2b1d-4c9e-8f6a-1b2c3d4e5f60
+              timestamp: '2026-11-20T08:00:05Z'
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+    CreateOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [depositId, tenantId, ownerId, listingTitle, amountVnd, expiresAt]
+      properties:
+        depositId:
+          $ref: '#/components/schemas/Uuid'
+        tenantId:
+          $ref: '#/components/schemas/Uuid'
+        ownerId:
+          $ref: '#/components/schemas/Uuid'
+        listingTitle:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Dùng cho mô tả link payOS
+        amountVnd:
+          type: integer
+          minimum: 1
+        expiresAt:
+          type: string
+          format: date-time
+          description: Bằng `expires_at` của đơn; link payOS hết hạn đúng lúc này
+    CreateOrderResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [orderId, payosOrderCode, checkoutUrl, qrCode, expiresAt]
+          properties:
+            orderId:
+              $ref: '#/components/schemas/Uuid'
+            payosOrderCode:
+              type: integer
+              minimum: 1
+              description: Mã đơn số nguyên gửi payOS, duy nhất
+            checkoutUrl:
+              type: string
+              format: uri
+            qrCode:
+              type: string
+              minLength: 1
+              description: Chuỗi VietQR
+            expiresAt:
+              type: string
+              format: date-time
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+    PaymentOrder:
+      type: object
+      additionalProperties: false
+      required:
+        [orderId, depositId, status, amountVnd, payosOrderCode, checkoutUrl, expiresAt, paidAt]
+      properties:
+        orderId:
+          $ref: '#/components/schemas/Uuid'
+        depositId:
+          $ref: '#/components/schemas/Uuid'
+        status:
+          enum: [PENDING, PAID, CANCELLED]
+        amountVnd:
+          type: integer
+          minimum: 1
+        payosOrderCode:
+          type: integer
+          minimum: 1
+        checkoutUrl:
+          type: [string, 'null']
+          description: null khi tạo link payOS chưa thành công
+        expiresAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: [string, 'null']
+          format: date-time
+    PaymentOrderResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          $ref: '#/components/schemas/PaymentOrder'
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+    CancelOrderResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [orderId, depositId, status]
+          properties:
+            orderId:
+              $ref: '#/components/schemas/Uuid'
+            depositId:
+              $ref: '#/components/schemas/Uuid'
+            status:
+              const: CANCELLED
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+    CreateRefundRequest:
+      type: object
+      additionalProperties: false
+      required: [depositId]
+      properties:
+        depositId:
+          $ref: '#/components/schemas/Uuid'
+    RefundRequestResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [refundRequestId, depositId, amountVnd, requesterType, status]
+          properties:
+            refundRequestId:
+              $ref: '#/components/schemas/Uuid'
+            depositId:
+              $ref: '#/components/schemas/Uuid'
+            amountVnd:
+              type: integer
+              minimum: 1
+              description: Số tiền hoàn do payment tính (70% tiền cọc)
+            requesterType:
+              const: TENANT
+            status:
+              enum: [PENDING_ADMIN, COMPLETED, REJECTED, FAILED]
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'
+    ResponseMeta:
+      type: object
+      required: [correlationId, timestamp]
+      properties:
+        correlationId:
+          type: string
+          description: Trùng header X-Request-ID, dùng để truy vết một request qua nhiều service
+        timestamp:
+          type: string
+          format: date-time
+          description: Thời điểm server tạo response (ISO 8601 UTC)
+    ErrorResponse:
+      type: object
+      required: [error, meta]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              pattern: '^[A-Z][A-Z0-9_]*$'
+              description: Mã lỗi ổn định, người gọi dựa vào đây để xử lý
+            message:
+              type: string
+            details:
+              description: Dữ liệu bổ sung
+        meta:
+          $ref: '#/components/schemas/ResponseMeta'

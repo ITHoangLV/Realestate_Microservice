@@ -27,7 +27,7 @@ Trước khi viết dòng code nào:
 - `architecture.md` (§3 bảng service, §6 ranh giới mã nguồn), `project-structure.md` (đặt file ở đâu).
 - `standards/coding-convention.md`, `api-convention.md`, `reliability-standard.md`, `security-policy.md`.
 - `standards/non-functional-standards.md §1` — ngưỡng số truy vấn, phân trang. Bám từ lúc lập kế hoạch.
-- Tạo service mới → `services/_template-nest/README.md §1` + `design/SHARED/RE.SERVICE_TEMPLATE/`.
+- Tạo service mới → skill `service-scaffold` (dựa trên `services/_template-nest/README.md §1` + `design/SHARED/RE.SERVICE_TEMPLATE/`).
 - `.claude/playbooks.json` — playbook nào `enabled: true`; với mỗi playbook bật, đọc tài liệu của nó (TDD → `project-knowledge/playbooks/tdd/tdd-guide.md`).
 - Gọi service khác: `API_Spec.md` §API nội bộ của service đó + `contracts/openapi/<service>-internal.v1.yaml`. Phát/nhận sự kiện: `design/SHARED/RE.MESSAGING/` + `contracts/events/`. Không có → `[cần xác nhận]` trong kế hoạch.
 
@@ -41,7 +41,7 @@ Trước khi viết dòng code nào:
 ## Bước 2 — Kế hoạch chi tiết (cổng duyệt duy nhất)
 
 - Liệt kê file tạo/sửa, đúng chỗ theo `project-structure.md`. Mỗi file mới phải thuộc nhóm `VIẾT MỚI` của Reuse Report.
-- Liệt kê file `contracts/` phải sửa (nếu đổi API nội bộ hoặc sự kiện) — sửa hợp đồng **trước** code (ADR-0012).
+- Liệt kê file `contracts/` phải sửa (nếu đổi API nội bộ hoặc sự kiện) — sửa hợp đồng **trước** code theo skill `contract-change` (ADR-0012).
 - Liệt kê playbook đang bật và quy trình nó áp.
 - Liệt kê test sẽ viết, lấy từ mục "Test bắt buộc" của `Component_Class_Design.md`, ghi rõ tầng (`test` / `test:e2e` / `test:infra`).
 - Ước số truy vấn cho mỗi endpoint đụng tới; vượt ngưỡng → dừng, nêu nguyên nhân, chờ xác nhận.
@@ -66,7 +66,11 @@ Trước khi viết dòng code nào:
 - `pnpm lint`, `pnpm format:check`, `pnpm build`, `pnpm contracts:check` không lỗi (`coding-convention.md §9`).
 - Đếm số truy vấn bằng log SQL TypeORM cho endpoint đã đụng.
 - Gọi `progress-tracker` lần cuối. Chỉ khi xanh mới đổi `status: done`.
-- Gợi ý chạy `code-reviewer` trước khi mở PR.
+
+## Bước 5 — Giải thích code, review
+
+- Task có code và đã xanh: chạy skill `code-walkthrough` → viết hoặc cập nhật `guides/RE_<Thành_phần>_Code_Walkthrough.md`, thêm dòng ở `project-knowledge/CLAUDE.md §2.5` (`CLAUDE.md` gốc §8).
+- Chạy skill `code-review` 5 chiều trước commit; gợi ý `code-reviewer` trước khi mở PR.
 
 ## Ràng buộc cứng
 
