@@ -17,10 +17,26 @@ export default tseslint.config(
     },
   },
   {
-    // Script Node chạy trực tiếp (không qua NestJS), ví dụ contracts/scripts/check-events.mjs
-    files: ['contracts/scripts/**/*.mjs'],
+    // Script Node chạy trực tiếp (không qua NestJS), ví dụ contracts/scripts/check-events.mjs, scripts/generate-jwt-keys.mjs
+    files: ['contracts/scripts/**/*.mjs', 'scripts/**/*.mjs'],
     languageOptions: {
       globals: { console: 'readonly', process: 'readonly', structuredClone: 'readonly' },
     },
+  },
+  {
+    // Hook Claude Code viết CommonJS, chạy bằng `node` (project-knowledge/playbooks/*/…-guard.js)
+    files: ['project-knowledge/playbooks/**/*.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        require: 'readonly',
+        module: 'writable',
+        process: 'readonly',
+        __dirname: 'readonly',
+        Buffer: 'readonly',
+        console: 'readonly',
+      },
+    },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
 );

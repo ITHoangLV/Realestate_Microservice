@@ -14,6 +14,7 @@ import {
 } from '@nestjs/terminus';
 import type { Response } from 'express';
 import { Public } from '../common/auth/public.decorator';
+import { RawResponse } from '../common/response/raw-response.decorator';
 import { EnvVars } from '../config/env.validation';
 import { getServiceVersion } from '../config/service-info';
 import { HealthProbe, HealthRegistry } from './health.registry';
@@ -42,6 +43,7 @@ function runProbe(probe: HealthProbe): Promise<boolean> {
 
 @ApiTags('health')
 @Public() // Docker/hạ tầng gọi không kèm token
+@RawResponse() // body phẳng cho Docker HEALTHCHECK và công cụ giám sát, không bọc { data, meta }
 @Controller()
 export class HealthController {
   constructor(

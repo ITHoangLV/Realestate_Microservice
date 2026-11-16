@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/rental.viewing-cancelled.v1.schema.json",
+  "title": "rental.viewing-cancelled",
+  "description": "Hủy lịch xem (không có trong báo cáo, 2026-11-16): người thuê tự hủy, hoặc tin có đơn PAID của người khác",
+  "x-producer": "rental",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    }
+  ],
+  "properties": {
+    "eventType": {
+      "const": "rental.viewing-cancelled"
+    },
+    "version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "rental"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "viewingId",
+        "listingId",
+        "tenantId",
+        "ownerId",
+        "reason"
+      ],
+      "properties": {
+        "viewingId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Lịch xem (rental sở hữu)"
+        },
+        "listingId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Tin đăng (listing sở hữu)"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Người thuê (identity)"
+        },
+        "ownerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Chủ trọ (identity)"
+        },
+        "reason": {
+          "enum": [
+            "TENANT",
+            "LISTING_DEPOSITED"
+          ],
+          "description": "TENANT: người thuê tự hủy; LISTING_DEPOSITED: tin đã có người đặt cọc"
+        }
+      }
+    }
+  }
+}

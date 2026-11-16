@@ -22,26 +22,6 @@
   ],
   "queues": [
     {
-      "name": "listing.indexer",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-queue-type": "classic",
-        "x-dead-letter-exchange": "domain.events.dlx",
-        "x-dead-letter-routing-key": "listing.indexer"
-      }
-    },
-    {
-      "name": "listing.indexer.dlq",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-queue-type": "classic"
-      }
-    },
-    {
       "name": "notification.events",
       "vhost": "/",
       "durable": true,
@@ -80,57 +60,9 @@
       "arguments": {
         "x-queue-type": "classic"
       }
-    },
-    {
-      "name": "payment.rental-events",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-queue-type": "classic",
-        "x-dead-letter-exchange": "domain.events.dlx",
-        "x-dead-letter-routing-key": "payment.rental-events"
-      }
-    },
-    {
-      "name": "payment.rental-events.dlq",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-queue-type": "classic"
-      }
-    },
-    {
-      "name": "listing.rental-events",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-queue-type": "classic",
-        "x-dead-letter-exchange": "domain.events.dlx",
-        "x-dead-letter-routing-key": "listing.rental-events"
-      }
-    },
-    {
-      "name": "listing.rental-events.dlq",
-      "vhost": "/",
-      "durable": true,
-      "auto_delete": false,
-      "arguments": {
-        "x-queue-type": "classic"
-      }
     }
   ],
   "bindings": [
-    {
-      "source": "domain.events",
-      "vhost": "/",
-      "destination": "listing.indexer",
-      "destination_type": "queue",
-      "routing_key": "listing.*",
-      "arguments": {}
-    },
     {
       "source": "domain.events",
       "vhost": "/",
@@ -166,81 +98,25 @@
     {
       "source": "domain.events",
       "vhost": "/",
-      "destination": "payment.rental-events",
+      "destination": "rental.payment-events",
       "destination_type": "queue",
-      "routing_key": "rental.rejected",
+      "routing_key": "payment.refunded",
       "arguments": {}
     },
     {
       "source": "domain.events",
       "vhost": "/",
-      "destination": "payment.rental-events",
+      "destination": "rental.payment-events",
       "destination_type": "queue",
-      "routing_key": "rental.expired",
+      "routing_key": "payment.refund-rejected",
       "arguments": {}
     },
     {
       "source": "domain.events",
       "vhost": "/",
-      "destination": "payment.rental-events",
+      "destination": "rental.payment-events",
       "destination_type": "queue",
-      "routing_key": "rental.cancelled",
-      "arguments": {}
-    },
-    {
-      "source": "domain.events",
-      "vhost": "/",
-      "destination": "payment.rental-events",
-      "destination_type": "queue",
-      "routing_key": "rental.completed",
-      "arguments": {}
-    },
-    {
-      "source": "domain.events",
-      "vhost": "/",
-      "destination": "listing.rental-events",
-      "destination_type": "queue",
-      "routing_key": "rental.requested",
-      "arguments": {}
-    },
-    {
-      "source": "domain.events",
-      "vhost": "/",
-      "destination": "listing.rental-events",
-      "destination_type": "queue",
-      "routing_key": "rental.rejected",
-      "arguments": {}
-    },
-    {
-      "source": "domain.events",
-      "vhost": "/",
-      "destination": "listing.rental-events",
-      "destination_type": "queue",
-      "routing_key": "rental.expired",
-      "arguments": {}
-    },
-    {
-      "source": "domain.events",
-      "vhost": "/",
-      "destination": "listing.rental-events",
-      "destination_type": "queue",
-      "routing_key": "rental.cancelled",
-      "arguments": {}
-    },
-    {
-      "source": "domain.events",
-      "vhost": "/",
-      "destination": "listing.rental-events",
-      "destination_type": "queue",
-      "routing_key": "rental.completed",
-      "arguments": {}
-    },
-    {
-      "source": "domain.events.dlx",
-      "vhost": "/",
-      "destination": "listing.indexer.dlq",
-      "destination_type": "queue",
-      "routing_key": "listing.indexer",
+      "routing_key": "payment.withdrawal-completed",
       "arguments": {}
     },
     {
@@ -257,22 +133,6 @@
       "destination": "rental.payment-events.dlq",
       "destination_type": "queue",
       "routing_key": "rental.payment-events",
-      "arguments": {}
-    },
-    {
-      "source": "domain.events.dlx",
-      "vhost": "/",
-      "destination": "payment.rental-events.dlq",
-      "destination_type": "queue",
-      "routing_key": "payment.rental-events",
-      "arguments": {}
-    },
-    {
-      "source": "domain.events.dlx",
-      "vhost": "/",
-      "destination": "listing.rental-events.dlq",
-      "destination_type": "queue",
-      "routing_key": "listing.rental-events",
       "arguments": {}
     }
   ]

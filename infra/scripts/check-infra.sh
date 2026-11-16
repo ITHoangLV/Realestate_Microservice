@@ -96,13 +96,11 @@ for e in domain.events domain.events.dlx; do
   report "$ok" "rabbitmq: exchange $e tồn tại"
 done
 queues="$(docker exec re-rabbitmq rabbitmqctl list_queues name --no-table-headers 2>/dev/null | tr -d '\r')"
-# Binding mong đợi từ domain.events (phải khớp infra/rabbitmq/definitions.json, sắp xếp a-z)
-expected_bindings="listing.indexer=listing.*
-notification.events=identity.*,payment.*,rental.*
-rental.payment-events=payment.deposited
-payment.rental-events=rental.cancelled,rental.completed,rental.expired,rental.rejected
-listing.rental-events=rental.cancelled,rental.completed,rental.expired,rental.rejected,rental.requested"
-bindings="$(docker exec re-rabbitmq rabbitmqctl list_bindings source_name destination_name routing_key --no-table-headers 2>/dev/null | tr -d '')"
+# Binding mong đợi từ domain.events (phải khớp infra/rabbitmq/definitions.json, sắp xếp theo mã ký tự LC_ALL=C: '-' đứng trước chữ)
+expected_bindings="notification.events=identity.*,payment.*,rental.*
+rental.payment-events=payment.deposited,payment.refund-rejected,payment.refunded,payment.withdrawal-completed"
+bindings="$(docker exec re-rabbitmq rabbitmqctl list_bindings source_name destination_name routing_key --no-table-headers 2>/dev/null | tr -d '
+')"
 while IFS='=' read -r q want; do
   echo "$queues" | grep -qx "$q" && ok=1 || ok=0
   report "$ok" "rabbitmq: queue $q tồn tại"

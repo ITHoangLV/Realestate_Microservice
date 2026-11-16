@@ -1,8 +1,7 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
-  ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -15,6 +14,7 @@ import { CurrentUser } from '../common/auth/current-user.decorator';
 import { Public } from '../common/auth/public.decorator';
 import { Roles } from '../common/auth/roles.decorator';
 import { ErrorResponseDto } from '../common/errors/error-response.dto';
+import { ApiEnvelope } from '../common/response/api-envelope.decorator';
 import { Idempotent } from '../common/idempotency/idempotent.decorator';
 import { CreateExampleDto } from './dto/create-example.dto';
 import { ExampleDto } from './dto/example.dto';
@@ -32,7 +32,7 @@ export class ExampleController {
   @Public()
   @Post()
   @ApiOperation({ summary: 'Tạo bản ghi (lỗi 409 EXAMPLE_NAME_TAKEN nếu trùng tên)' })
-  @ApiCreatedResponse({ type: ExampleDto })
+  @ApiEnvelope(ExampleDto, { status: HttpStatus.CREATED })
   @ApiConflictResponse({ type: ErrorResponseDto, description: 'EXAMPLE_NAME_TAKEN' })
   create(@Body() dto: CreateExampleDto): ExampleDto {
     return this.examples.create(dto);
@@ -43,7 +43,7 @@ export class ExampleController {
   @Post('idempotent')
   @Idempotent()
   @ApiOperation({ summary: 'Tạo bản ghi idempotent (cần Redis + header Idempotency-Key)' })
-  @ApiCreatedResponse({ type: ExampleDto })
+  @ApiEnvelope(ExampleDto, { status: HttpStatus.CREATED })
   createIdempotent(@Body() dto: CreateExampleDto): ExampleDto {
     return this.examples.create(dto);
   }
@@ -51,7 +51,7 @@ export class ExampleController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'Danh sách bản ghi' })
-  @ApiOkResponse({ type: ExampleDto, isArray: true })
+  @ApiEnvelope(ExampleDto, { isArray: true })
   findAll(): ExampleDto[] {
     return this.examples.findAll();
   }
@@ -79,7 +79,7 @@ export class ExampleController {
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Chi tiết một bản ghi' })
-  @ApiOkResponse({ type: ExampleDto })
+  @ApiEnvelope(ExampleDto)
   @ApiNotFoundResponse({ type: ErrorResponseDto, description: 'EXAMPLE_NOT_FOUND' })
   findOne(@Param('id', new ParseUUIDPipe()) id: string): ExampleDto {
     return this.examples.findOne(id);

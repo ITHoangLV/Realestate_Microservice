@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/rental.deposit-released.v1.schema.json",
+  "title": "rental.deposit-released",
+  "description": "DepositReleased: đơn RELEASED, tiền thuộc chủ trọ (BR-13)",
+  "x-producer": "rental",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    }
+  ],
+  "properties": {
+    "eventType": {
+      "const": "rental.deposit-released"
+    },
+    "version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "rental"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["depositId", "listingId", "tenantId", "ownerId", "trigger"],
+      "properties": {
+        "depositId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Đơn đặt cọc (rental sở hữu)"
+        },
+        "listingId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Tin đăng (listing sở hữu)"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Người thuê (identity)"
+        },
+        "ownerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Chủ trọ (identity)"
+        },
+        "trigger": {
+          "enum": ["TENANT", "AUTO"],
+          "description": "Người thuê bấm Đã nhận phòng hoặc AutoReleaseJob"
+        }
+      }
+    }
+  }
+}

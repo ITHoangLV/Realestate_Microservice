@@ -29,10 +29,16 @@ export function startUpstream(): Promise<void> {
       res.writeHead(status, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(body));
     };
+    // Service đích dùng template nên trả đúng khung { data, meta } cho thành công
+    const ok = (data: unknown) =>
+      json(200, {
+        data,
+        meta: { correlationId: 'upstream-own', timestamp: new Date().toISOString() },
+      });
 
     switch (url.pathname) {
       case '/ok':
-        return json(200, { ok: true, method: req.method, requestId: req.headers['x-request-id'] });
+        return ok({ ok: true, method: req.method, requestId: req.headers['x-request-id'] });
       case '/flaky': {
         // Lỗi 503 cho tới khi đủ số lần `fail`, sau đó thành công
         const id = url.searchParams.get('id') ?? '';
@@ -40,7 +46,7 @@ export function startUpstream(): Promise<void> {
         counters.set(id, n);
         return n <= Number(url.searchParams.get('fail'))
           ? json(503, { x: 1 })
-          : json(200, { ok: true, attempts: n });
+          : ok({ ok: true, attempts: n });
       }
       case '/always503':
         return json(503, {});
@@ -50,16 +56,18 @@ export function startUpstream(): Promise<void> {
         return json(504, {});
       case '/conflict':
         return json(409, {
-          code: 'DEPOSIT_ALREADY_PAID',
-          message: 'Đơn đặt cọc đã được thanh toán',
-          details: { depositId: 'd-1' },
-          correlationId: 'upstream-own',
+          error: {
+            code: 'DEPOSIT_ALREADY_PAID',
+            message: 'Đơn đặt cọc đã được thanh toán',
+            details: { depositId: 'd-1' },
+          },
+          meta: { correlationId: 'upstream-own', timestamp: new Date().toISOString() },
         });
       case '/plain404':
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         return res.end('not here');
       case '/slow':
-        return void setTimeout(() => json(200, { ok: true }), 600);
+        return void setTimeout(() => ok({ ok: true }), 600);
       default:
         return json(404, {});
     }

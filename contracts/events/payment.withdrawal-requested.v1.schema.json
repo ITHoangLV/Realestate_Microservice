@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/payment.withdrawal-requested.v1.schema.json",
+  "title": "payment.withdrawal-requested",
+  "description": "WithdrawalRequested: chủ trọ tạo lệnh rút PENDING",
+  "x-producer": "payment",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    }
+  ],
+  "properties": {
+    "eventType": {
+      "const": "payment.withdrawal-requested"
+    },
+    "version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "payment"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["withdrawalId", "depositId", "ownerId", "amountVnd"],
+      "properties": {
+        "withdrawalId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Lệnh rút (payment sở hữu)"
+        },
+        "depositId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Đơn đặt cọc (rental sở hữu)"
+        },
+        "ownerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Chủ trọ (identity)"
+        },
+        "amountVnd": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Số tiền rút (VND); đơn REFUNDED là phần còn lại sau hoàn 70%"
+        }
+      }
+    }
+  }
+}

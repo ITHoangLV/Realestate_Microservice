@@ -79,8 +79,15 @@ for (const file of files) {
     for (const [method, op] of Object.entries(item)) {
       if (!op?.responses) continue;
       if (!op.operationId) fail(`${file}: ${method.toUpperCase()} ${path} thiếu operationId`);
-      for (const [status, res] of Object.entries(op.responses)) {
-        const media = res.content?.['application/json'];
+      // Body request cũng phải có example khớp schema (bên gọi mock theo example này).
+      const body = op.requestBody?.content?.['application/json'];
+      const checks = body ? [['request', body]] : [];
+      for (const [status, raw] of Object.entries(op.responses)) {
+        // Response dùng chung khai báo ở components/responses, trỏ tới bằng $ref.
+        const res = raw?.$ref ? resolve(doc, raw.$ref) : raw;
+        checks.push([status, res?.content?.['application/json']]);
+      }
+      for (const [status, media] of checks) {
         const label = `${file}: ${method.toUpperCase()} ${path} ${status}`;
         if (!media) continue;
         if (media.example === undefined) {

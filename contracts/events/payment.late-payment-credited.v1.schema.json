@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/payment.late-payment-credited.v1.schema.json",
+  "title": "payment.late-payment-credited",
+  "description": "LatePaymentCredited: tiền đến sau khi đơn EXPIRED (BR-10)",
+  "x-producer": "payment",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    }
+  ],
+  "properties": {
+    "eventType": {
+      "const": "payment.late-payment-credited"
+    },
+    "version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "payment"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["orderId", "depositId", "tenantId", "amountVnd", "payosReference"],
+      "properties": {
+        "orderId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Payment order (payment sở hữu)"
+        },
+        "depositId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Đơn đặt cọc (rental sở hữu)"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Người thuê (identity)"
+        },
+        "amountVnd": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Số tiền thực nhận (VND)"
+        },
+        "payosReference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Mã giao dịch payOS"
+        }
+      }
+    }
+  }
+}

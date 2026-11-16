@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/rental.viewing-responded.v1.schema.json",
+  "title": "rental.viewing-responded",
+  "description": "ViewingResponded: chủ trọ từ chối yêu cầu xem (không có bước đồng ý, chốt 2026-11-16)",
+  "x-producer": "rental",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    }
+  ],
+  "properties": {
+    "eventType": {
+      "const": "rental.viewing-responded"
+    },
+    "version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "rental"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "viewingId",
+        "listingId",
+        "tenantId",
+        "ownerId",
+        "decision"
+      ],
+      "properties": {
+        "viewingId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Lịch xem (rental sở hữu)"
+        },
+        "listingId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Tin đăng (listing sở hữu)"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Người thuê (identity)"
+        },
+        "ownerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Chủ trọ (identity)"
+        },
+        "decision": {
+          "enum": [
+            "DECLINED"
+          ],
+          "description": "Trạng thái lịch xem sau phản hồi; chỉ còn DECLINED"
+        }
+      }
+    }
+  }
+}

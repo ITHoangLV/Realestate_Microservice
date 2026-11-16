@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(pnpm lint)",
+      "Bash(pnpm format:check)",
+      "Bash(pnpm build)",
+      "Bash(pnpm contracts:check)",
+      "Bash(pnpm infra:check)",
+      "Bash(pnpm --filter @realestate/template-nest test:*)",
+      "Bash(pnpm --filter @realestate/template-nest build)",
+      "Bash(pnpm --filter @realestate/api-gateway test:*)",
+      "Bash(pnpm --filter @realestate/api-gateway build)",
+      "Bash(pnpm --filter @realestate/identity test:*)",
+      "Bash(pnpm --filter @realestate/identity build)",
+      "Bash(pnpm --filter @realestate/listing test:*)",
+      "Bash(pnpm --filter @realestate/listing build)",
+      "Bash(pnpm --filter @realestate/rental test:*)",
+      "Bash(pnpm --filter @realestate/rental build)",
+      "Bash(pnpm --filter @realestate/payment test:*)",
+      "Bash(pnpm --filter @realestate/payment build)",
+      "Bash(pnpm --filter @realestate/notification test:*)",
+      "Bash(pnpm --filter @realestate/notification build)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git config user.email)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(docker compose --env-file .env -f infra/compose/docker-compose.yml ps:*)",
+      "Bash(docker compose --env-file .env -f infra/compose/docker-compose.yml logs:*)"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git rm:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm infra:down)",
+      "Bash(docker volume rm:*)",
+      "Edit(./.env)",
+      "Edit(./services/*/.env)",
+      "Write(./.env)",
+      "Write(./services/*/.env)"
+    ],
+    "deny": [
+      "Read(./secrets/**)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Edit(./secrets/**)",
+      "Write(./secrets/**)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(rm -rf:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/project-knowledge/playbooks/tdd/tdd-guard.js\""
+          }
+        ]
+      }
+    ]
+  }
+}

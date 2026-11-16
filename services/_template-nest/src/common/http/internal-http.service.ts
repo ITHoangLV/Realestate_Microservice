@@ -34,11 +34,21 @@ const asRecord = (v: unknown): Record<string, unknown> | undefined =>
   typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : undefined;
 
 /**
+ * Service đích trả { data, meta } (xem ResponseEnvelopeInterceptor): lấy `data` cho người gọi.
+ * Body không đúng khung (ví dụ 204 hoặc service không dùng template) thì trả nguyên.
+ */
+function unwrapData<T>(body: unknown): T {
+  const rec = asRecord(body);
+  return (rec && 'data' in rec && 'meta' in rec ? rec.data : body) as T;
+}
+
+/**
  * HTTP client để gọi service khác (đường /internal/...). Bọc @nestjs/axios với:
  * - Timeout mặc định HTTP_TIMEOUT_MS (3000ms), ghi đè được theo từng lần gọi.
  * - Retry tối đa HTTP_MAX_RETRIES (2) lần, CHỈ cho GET/HEAD/OPTIONS/PUT/DELETE hoặc khi gọi
  *   với `{ idempotent: true }`; chỉ thử lại khi timeout, mất kết nối hoặc upstream trả 502/503/504.
  * - Tự gắn X-Request-ID = correlation ID hiện tại (lấy từ AsyncLocalStorage).
+ * - Thành công: trả `data` bên trong khung { data, meta } của service đích.
  * - Chuẩn hóa lỗi thành AppException (không lộ địa chỉ nội bộ ra client):
  *     timeout -> 504 UPSTREAM_TIMEOUT          mất kết nối -> 503 UPSTREAM_UNAVAILABLE
  *     upstream 4xx -> GIỮ NGUYÊN mã, code, message, details của service đích
@@ -102,7 +112,7 @@ export class InternalHttpService {
     for (let attempt = 0; ; attempt++) {
       try {
         const response = await firstValueFrom(this.http.request<T>(axiosConfig));
-        return response.data;
+        return unwrapData<T>(response.data);
       } catch (error) {
         if (!isAxiosError(error)) throw error;
         if (canRetry && attempt < maxRetries && this.isRetryable(error)) {
@@ -168,11 +178,12 @@ export class InternalHttpService {
     const status = response.status;
     if (status >= 400 && status < 500) {
       // Giữ nguyên mã 4xx và nội dung lỗi của service đích (nếu đúng format dự án)
-      const data = asRecord(response.data);
-      const code = typeof data?.code === 'string' ? data.code : codeFromStatus(status);
+      // Lỗi nằm trong khung { error: { code, message, details }, meta }
+      const error = asRecord(asRecord(response.data)?.error);
+      const code = typeof error?.code === 'string' ? error.code : codeFromStatus(status);
       const message =
-        typeof data?.message === 'string' ? data.message : 'Service phụ thuộc từ chối yêu cầu';
-      return new AppException(code, message, status, data?.details);
+        typeof error?.message === 'string' ? error.message : 'Service phụ thuộc từ chối yêu cầu';
+      return new AppException(code, message, status, error?.details);
     }
 
     if (status === 504) {

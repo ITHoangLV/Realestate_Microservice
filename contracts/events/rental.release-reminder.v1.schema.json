@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realestate.local/contracts/events/rental.release-reminder.v1.schema.json",
+  "title": "rental.release-reminder",
+  "description": "Nhắc người thuê trước khi tự giải ngân 24 giờ (không có trong Báo cáo Bảng 3.13)",
+  "x-producer": "rental",
+  "allOf": [
+    {
+      "$ref": "envelope.v1.schema.json"
+    }
+  ],
+  "properties": {
+    "eventType": {
+      "const": "rental.release-reminder"
+    },
+    "version": {
+      "const": 1
+    },
+    "producer": {
+      "const": "rental"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["depositId", "listingId", "tenantId", "ownerId", "autoReleaseAt"],
+      "properties": {
+        "depositId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Đơn đặt cọc (rental sở hữu)"
+        },
+        "listingId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Tin đăng (listing sở hữu)"
+        },
+        "tenantId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Người thuê (identity)"
+        },
+        "ownerId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Chủ trọ (identity)"
+        },
+        "autoReleaseAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Thời điểm tự giải ngân"
+        }
+      }
+    }
+  }
+}

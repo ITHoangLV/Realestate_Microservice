@@ -28,7 +28,7 @@ describe('InternalHttpService (HTTP client gọi service khác)', () => {
         .get('/api/v1/test-http/get?path=/ok')
         .set('X-Request-ID', 'abc-123');
       expect(res.status).toBe(200);
-      expect(res.body.requestId).toBe('abc-123');
+      expect(res.body.data.requestId).toBe('abc-123');
       expect(seen[0].headers['x-request-id']).toBe('abc-123');
       expect(res.headers['x-request-id']).toBe('abc-123');
     });
@@ -44,14 +44,14 @@ describe('InternalHttpService (HTTP client gọi service khác)', () => {
     it('GET gặp 503 hai lần rồi thành công: tự thử lại, tổng 3 lần gọi', async () => {
       const res = await t.http().get('/api/v1/test-http/get?path=/flaky%3Ffail%3D2%26id%3Da');
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ ok: true, attempts: 3 });
+      expect(res.body.data).toEqual({ ok: true, attempts: 3 });
       expect(hitsOf('/flaky')).toBe(3);
     });
 
     it('GET 503 liên tục: thử tối đa 2 lần lại (3 lần gọi) rồi 503 UPSTREAM_UNAVAILABLE', async () => {
       const res = await t.http().get('/api/v1/test-http/get?path=/always503');
       expect(res.status).toBe(503);
-      expect(res.body.code).toBe('UPSTREAM_UNAVAILABLE');
+      expect(res.body.error.code).toBe('UPSTREAM_UNAVAILABLE');
       expect(hitsOf('/always503')).toBe(3);
     });
 
@@ -94,10 +94,13 @@ describe('InternalHttpService (HTTP client gọi service khác)', () => {
         .set('X-Request-ID', 'c-1');
       expect(res.status).toBe(409);
       expect(res.body).toEqual({
-        code: 'DEPOSIT_ALREADY_PAID',
-        message: 'Đơn đặt cọc đã được thanh toán',
-        details: { depositId: 'd-1' },
-        correlationId: 'c-1', // correlationId của service này, không phải của đích
+        error: {
+          code: 'DEPOSIT_ALREADY_PAID',
+          message: 'Đơn đặt cọc đã được thanh toán',
+          details: { depositId: 'd-1' },
+        },
+        // correlationId của service này, không phải của đích
+        meta: { correlationId: 'c-1', timestamp: expect.any(String) },
       });
       expect(hitsOf('/conflict')).toBe(1);
     });
@@ -105,26 +108,26 @@ describe('InternalHttpService (HTTP client gọi service khác)', () => {
     it('4xx không đúng format dự án -> giữ mã, code suy từ status', async () => {
       const res = await t.http().get('/api/v1/test-http/get?path=/plain404');
       expect(res.status).toBe(404);
-      expect(res.body.code).toBe('NOT_FOUND');
+      expect(res.body.error.code).toBe('NOT_FOUND');
     });
 
     it('timeout -> 504 UPSTREAM_TIMEOUT (GET được thử lại)', async () => {
       const res = await t.http().get('/api/v1/test-http/timeout');
       expect(res.status).toBe(504);
-      expect(res.body.code).toBe('UPSTREAM_TIMEOUT');
+      expect(res.body.error.code).toBe('UPSTREAM_TIMEOUT');
       expect(hitsOf('/slow')).toBe(3);
     });
 
     it('đích trả 504 -> 504 UPSTREAM_TIMEOUT', async () => {
       const res = await t.http().get('/api/v1/test-http/get?path=/always504');
       expect(res.status).toBe(504);
-      expect(res.body.code).toBe('UPSTREAM_TIMEOUT');
+      expect(res.body.error.code).toBe('UPSTREAM_TIMEOUT');
     });
 
     it('không kết nối được -> 503 UPSTREAM_UNAVAILABLE, không lộ địa chỉ nội bộ', async () => {
       const res = await t.http().get('/api/v1/test-http/refused');
       expect(res.status).toBe(503);
-      expect(res.body.code).toBe('UPSTREAM_UNAVAILABLE');
+      expect(res.body.error.code).toBe('UPSTREAM_UNAVAILABLE');
       expect(JSON.stringify(res.body)).not.toContain('127.0.0.1');
     });
   });
