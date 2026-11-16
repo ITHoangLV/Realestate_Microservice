@@ -138,10 +138,11 @@ describe('Khung response { data, meta } và { error, meta }', () => {
   });
 
   it('lỗi -> { error, meta } và KHÔNG có data', async () => {
+    // api-gateway: đường dẫn không khớp bảng định tuyến là GATEWAY_ROUTE_NOT_FOUND (API_Spec §4), khác NOT_FOUND của template
     const res = await t.http().get('/api/v1/test-envelope/khong-co').set('X-Request-ID', 'env-404');
     expect(res.status).toBe(404);
     expect(res.body).toEqual({
-      error: { code: 'NOT_FOUND', message: expect.any(String) },
+      error: { code: 'GATEWAY_ROUTE_NOT_FOUND', message: expect.any(String) },
       meta: { correlationId: 'env-404', timestamp: expect.any(String) },
     });
     expect(res.body).not.toHaveProperty('data');

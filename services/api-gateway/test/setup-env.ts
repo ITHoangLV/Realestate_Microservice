@@ -20,6 +20,17 @@ for (const name of [
   'JWT_PUBLIC_KEY_PATH',
   'JWT_SECRET',
   'JWT_ISSUER',
+  // api-gateway: test không phụ thuộc biến của máy
+  'GATEWAY_PROXY_TIMEOUT_MS',
+  'RATE_LIMIT_TTL_SECONDS',
+  'RATE_LIMIT_IP',
+  'RATE_LIMIT_USER',
+  'CORS_ORIGINS',
+  'INTERNAL_IDENTITY_URL',
+  'INTERNAL_LISTING_URL',
+  'INTERNAL_RENTAL_URL',
+  'INTERNAL_PAYMENT_URL',
+  'INTERNAL_NOTIFICATION_URL',
 ]) {
   delete process.env[name];
 }

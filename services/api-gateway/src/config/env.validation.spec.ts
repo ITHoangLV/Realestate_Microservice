@@ -106,3 +106,69 @@ describe('validateEnv', () => {
     ).toBeDefined();
   });
 });
+
+// Biến riêng của api-gateway: RE.GATEWAY/API_Spec.md §5
+describe('validateEnv — biến riêng của api-gateway', () => {
+  const base = { SERVICE_NAME: 'api-gateway' };
+
+  it('áp mặc định đúng theo API_Spec §5', () => {
+    expect(validateEnv(base)).toMatchObject({
+      GATEWAY_PROXY_TIMEOUT_MS: 10000,
+      RATE_LIMIT_TTL_SECONDS: 60,
+      RATE_LIMIT_IP: 100,
+      RATE_LIMIT_USER: 300,
+      CORS_ORIGINS: ['http://localhost:3000'],
+      INTERNAL_IDENTITY_URL: 'http://identity:3001',
+      INTERNAL_LISTING_URL: 'http://listing:3002',
+      INTERNAL_RENTAL_URL: 'http://rental:3003',
+      INTERNAL_PAYMENT_URL: 'http://payment:3004',
+      INTERNAL_NOTIFICATION_URL: 'http://notification:3005',
+    });
+  });
+
+  it('GATEWAY_PROXY_TIMEOUT_MS phải lớn hơn 8000 (NFR07, ngân sách đặt cọc)', () => {
+    expect(() => validateEnv({ ...base, GATEWAY_PROXY_TIMEOUT_MS: '8000' })).toThrow(
+      /GATEWAY_PROXY_TIMEOUT_MS/,
+    );
+    expect(() => validateEnv({ ...base, GATEWAY_PROXY_TIMEOUT_MS: '3000' })).toThrow(
+      /GATEWAY_PROXY_TIMEOUT_MS/,
+    );
+    expect(
+      validateEnv({ ...base, GATEWAY_PROXY_TIMEOUT_MS: '8001' }).GATEWAY_PROXY_TIMEOUT_MS,
+    ).toBe(8001);
+  });
+
+  it('RATE_LIMIT_* phải là số nguyên dương', () => {
+    for (const name of ['RATE_LIMIT_TTL_SECONDS', 'RATE_LIMIT_IP', 'RATE_LIMIT_USER']) {
+      expect(() => validateEnv({ ...base, [name]: '0' })).toThrow(new RegExp(name));
+      expect(() => validateEnv({ ...base, [name]: 'nhiều' })).toThrow(new RegExp(name));
+    }
+    expect(validateEnv({ ...base, RATE_LIMIT_IP: '5', RATE_LIMIT_USER: '7' })).toMatchObject({
+      RATE_LIMIT_IP: 5,
+      RATE_LIMIT_USER: 7,
+    });
+  });
+
+  it('CORS_ORIGINS: danh sách cách nhau dấu phẩy, mỗi phần tử là origin http(s)', () => {
+    expect(
+      validateEnv({ ...base, CORS_ORIGINS: ' http://localhost:3000 , https://app.example.com ' })
+        .CORS_ORIGINS,
+    ).toEqual(['http://localhost:3000', 'https://app.example.com']);
+    expect(validateEnv({ ...base, CORS_ORIGINS: '' }).CORS_ORIGINS).toEqual([
+      'http://localhost:3000',
+    ]);
+    for (const bad of ['localhost:3000', 'ftp://x.com', 'http://x.com/duong-dan', '*']) {
+      expect(() => validateEnv({ ...base, CORS_ORIGINS: bad })).toThrow(/CORS_ORIGINS/);
+    }
+  });
+
+  it('INTERNAL_*_URL đổi được, sai scheme thì từ chối', () => {
+    expect(
+      validateEnv({ ...base, INTERNAL_IDENTITY_URL: 'http://localhost:3001' })
+        .INTERNAL_IDENTITY_URL,
+    ).toBe('http://localhost:3001');
+    expect(() => validateEnv({ ...base, INTERNAL_RENTAL_URL: 'tcp://rental:3003' })).toThrow(
+      /INTERNAL_RENTAL_URL/,
+    );
+  });
+});

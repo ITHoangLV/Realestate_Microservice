@@ -80,10 +80,10 @@ describe('Định dạng lỗi thống nhất', () => {
     expect(res.body.error.details).toBeUndefined();
   });
 
-  it('Route không tồn tại -> 404 NOT_FOUND và vẫn có correlationId', async () => {
+  it('Route không tồn tại -> 404 GATEWAY_ROUTE_NOT_FOUND và vẫn có correlationId', async () => {
     const res = await t.http().get('/khong-co-route').set('X-Request-ID', 'nf-1');
     expect(res.status).toBe(404);
-    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(res.body.error.code).toBe('GATEWAY_ROUTE_NOT_FOUND');
     expect(res.body.meta.correlationId).toBe('nf-1');
     expect(res.headers['x-request-id']).toBe('nf-1');
   });

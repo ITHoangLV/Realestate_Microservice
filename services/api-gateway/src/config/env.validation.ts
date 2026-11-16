@@ -38,9 +38,43 @@ export interface EnvVars {
   JWT_PUBLIC_KEY_PATH?: string;
   JWT_SECRET?: string;
   JWT_ISSUER?: string;
+  // api-gateway (RE.GATEWAY/API_Spec.md §5)
+  /** Timeout chuyển tiếp tới service đích (ms); phải lớn hơn ngân sách đặt cọc 8 giây (NFR07). */
+  GATEWAY_PROXY_TIMEOUT_MS: number;
+  /** Cửa sổ rate limit (giây). */
+  RATE_LIMIT_TTL_SECONDS: number;
+  /** Số request tối đa trong cửa sổ cho request không có người dùng (đếm theo IP). */
+  RATE_LIMIT_IP: number;
+  /** Số request tối đa trong cửa sổ cho người dùng đã xác thực (đếm theo `sub`). */
+  RATE_LIMIT_USER: number;
+  /** Origin được phép gọi từ trình duyệt (giao diện Next.js). */
+  CORS_ORIGINS: string[];
+  INTERNAL_IDENTITY_URL: string;
+  INTERNAL_LISTING_URL: string;
+  INTERNAL_RENTAL_URL: string;
+  INTERNAL_PAYMENT_URL: string;
+  INTERNAL_NOTIFICATION_URL: string;
 }
 
 const optionalString = Joi.string().trim().empty('');
+
+/** Địa chỉ service đích của gateway (INTERNAL_<SERVICE>_URL). */
+const serviceUrl = (fallback: string) =>
+  Joi.string()
+    .trim()
+    .empty('')
+    .uri({ scheme: ['http', 'https'] })
+    .default(fallback);
+
+/** `http(s)://host[:cổng]`, không đường dẫn: đúng dạng header `Origin` của trình duyệt. */
+function isHttpOrigin(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (url.protocol === 'http:' || url.protocol === 'https:') && url.origin === value;
+  } catch {
+    return false;
+  }
+}
 
 export const envSchema = Joi.object<EnvVars>({
   // --- Tối thiểu ---
@@ -102,6 +136,31 @@ export const envSchema = Joi.object<EnvVars>({
         : names;
     }),
   S3_PRESIGN_TTL_SECONDS: Joi.number().integer().min(60).max(604800).default(900),
+
+  // --- api-gateway (RE.GATEWAY/API_Spec.md §5) ---
+  GATEWAY_PROXY_TIMEOUT_MS: Joi.number().integer().min(8001).default(10000),
+  RATE_LIMIT_TTL_SECONDS: Joi.number().integer().min(1).default(60),
+  RATE_LIMIT_IP: Joi.number().integer().min(1).default(100),
+  RATE_LIMIT_USER: Joi.number().integer().min(1).default(300),
+  CORS_ORIGINS: Joi.string()
+    .trim()
+    .empty('')
+    .default(['http://localhost:3000'])
+    .custom((value: string, helpers) => {
+      const origins = value
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+      const bad = origins.find((o) => !isHttpOrigin(o));
+      return bad
+        ? helpers.message({ custom: `origin '${bad}' không hợp lệ (dạng http(s)://host[:cổng])` })
+        : origins;
+    }),
+  INTERNAL_IDENTITY_URL: serviceUrl('http://identity:3001'),
+  INTERNAL_LISTING_URL: serviceUrl('http://listing:3002'),
+  INTERNAL_RENTAL_URL: serviceUrl('http://rental:3003'),
+  INTERNAL_PAYMENT_URL: serviceUrl('http://payment:3004'),
+  INTERNAL_NOTIFICATION_URL: serviceUrl('http://notification:3005'),
 })
   // Outbox và inbox nằm trong DB của service, nên bật RabbitMQ thì bắt buộc có DB.
   .with('RABBITMQ_URL', 'DATABASE_URL')

@@ -16,6 +16,7 @@ import {
   isStorageEnabled,
 } from './config/feature-flags';
 import { DatabaseModule } from './database/database.module';
+import { GatewayModule } from './gateway/gateway.module';
 import { HealthModule } from './health/health.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { RedisModule } from './redis/redis.module';
@@ -29,6 +30,7 @@ import { StorageModule } from './storage/storage.module';
  *   REDIS_URL    -> RedisModule (ioredis)
  *   RABBITMQ_URL -> MessagingModule (outbox, inbox, consumer; bắt buộc kèm DATABASE_URL)
  *   S3_ENDPOINT  -> StorageModule (S3: tự tạo bucket, presigned URL)
+ * api-gateway: GatewayModule (định tuyến, kiểm quyền mức tuyến, rate limit, proxy) luôn bật, không DB.
  * Health check (/health) tự thêm `db`/`redis`/`rabbitmq`/`s3` vào `checks` khi module tương ứng được bật.
  *
  * Filter và pipe đăng ký qua APP_FILTER/APP_PIPE (không dùng app.useGlobalX trong main.ts)
@@ -42,6 +44,8 @@ import { StorageModule } from './storage/storage.module';
     AuthModule,
     InternalHttpModule,
     HealthModule,
+    // SAU HealthModule: catch-all /api/v1/{*path} phải đăng ký sau route /api/v1/health
+    GatewayModule,
     ...(isDatabaseEnabled() ? [DatabaseModule] : []),
     ...(isRedisEnabled() ? [RedisModule] : []),
     ...(isMessagingEnabled() ? [MessagingModule] : []),

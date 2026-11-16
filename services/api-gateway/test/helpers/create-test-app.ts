@@ -22,7 +22,7 @@ export interface TestApp {
 export async function createTestApp(
   controllers: Type[] = [],
   providers: Provider[] = [],
-  options: { swagger?: boolean } = {},
+  options: { swagger?: boolean; bodyParser?: boolean } = {},
 ): Promise<TestApp> {
   const logs: string[] = [];
   const stream = {
@@ -42,7 +42,11 @@ export async function createTestApp(
     .useValue(stream)
     .compile();
 
-  const app = moduleRef.createNestApplication({ logger: false });
+  // api-gateway thật chạy với bodyParser: false (main.ts) để proxy giữ body thô; test của gateway truyền false
+  const app = moduleRef.createNestApplication({
+    logger: false,
+    bodyParser: options.bodyParser ?? true,
+  });
   configureApp(app);
   if (options.swagger) setupSwagger(app); // phải gọi TRƯỚC app.init()
   await app.init();

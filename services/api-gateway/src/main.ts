@@ -10,7 +10,13 @@ import { setupSwagger } from './swagger.setup';
 async function bootstrap(): Promise<void> {
   // abortOnError=false: lỗi khởi động ném ra để ta tự in gọn và thoát, thay vì process.abort()
   // bufferLogs: giữ log khởi động của Nest cho tới khi pino sẵn sàng, để mọi dòng đều là JSON
-  const app = await NestFactory.create(AppModule, { abortOnError: false, bufferLogs: true });
+  // bodyParser=false: gateway KHÔNG đọc body, ProxyMiddleware chuyển tiếp nguyên byte (webhook payOS: chữ ký
+  // tính trên body thô). RE.GATEWAY/API_Spec.md §6 mục 1.
+  const app = await NestFactory.create(AppModule, {
+    abortOnError: false,
+    bufferLogs: true,
+    bodyParser: false,
+  });
   app.useLogger(app.get(Logger));
   configureApp(app);
 
