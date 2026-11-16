@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/api-gateway/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/security-policy.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.2 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.3 |
 
 ## 1. Cấu trúc
 
@@ -24,6 +24,7 @@ services/api-gateway/src/
    ├─ internal-block.middleware.ts   # /internal/* → 404
    ├─ throttle.config.ts             # @nestjs/throttler, bộ đếm trong bộ nhớ
    ├─ proxy.middleware.ts            # http-proxy-middleware: chuyển tiếp, timeout, ws, đổi lỗi kết nối thành 503/504
+   ├─ route-not-found.filter.ts      # NotFoundException của Nest (ngoài /api/v1) → 404 GATEWAY_ROUTE_NOT_FOUND
    └─ errors/gateway.errors.ts       # GATEWAY_ROUTE_NOT_FOUND
 ```
 
@@ -79,7 +80,7 @@ Middleware Express luôn chạy **trước** guard của Nest, nên chuỗi chia
 
 ### 3.2 `GatewayController`
 
-Catch-all `@All`, gắn `@Public()` (để `JwtAuthGuard` toàn cục của template bỏ qua; kiểm token là việc của `AccessGuard`) và `@RawResponse()` (không bọc `{ data, meta }`). Route này không gắn prefix `/api/v1`: bảng §3 của `API_Spec.md` đã có đường dẫn đầy đủ, và `/ws` không có prefix. Handler dùng `@Req()`, `@Res()` nên Nest không tự gửi response; việc gửi do `ProxyMiddleware`.
+Catch-all `@All`, gắn `@Public()` (để `JwtAuthGuard` toàn cục của template bỏ qua; kiểm token là việc của `AccessGuard`) và `@RawResponse()` (không bọc `{ data, meta }`). Route là `@All('{*path}')` dưới prefix toàn cục `/api/v1` của Nest (mọi route trong bảng §3 của `API_Spec.md` đều bắt đầu bằng `/api/v1/`; `/ws` là upgrade, `/health` là route riêng của `HealthController`; `GatewayModule` import sau `HealthModule`). Không gỡ prefix cho catch-all vì loại trừ `{*path}` khỏi prefix sẽ gỡ luôn prefix của mọi controller khác. Đường dẫn ngoài `/api/v1` không tới controller, Nest ném `NotFoundException`; `RouteNotFoundFilter` đổi thành `404 GATEWAY_ROUTE_NOT_FOUND`. Handler dùng `@Req()`, `@Res()` nên Nest không tự gửi response; việc gửi do `ProxyMiddleware`.
 
 | # | Bước | Ghi chú |
 |---|---|---|
@@ -87,7 +88,9 @@ Catch-all `@All`, gắn `@Public()` (để `JwtAuthGuard` toàn cục của temp
 | 6 | `GatewayThrottlerGuard` | Sau `AccessGuard` nên biết có người dùng hay không (xem dưới). Vượt → `429 TOO_MANY_REQUESTS` |
 | 7 | `ProxyMiddleware` (gọi từ handler) | Body không bị parse (body parser tắt ở `main.ts`, `bodyParser: false`), webhook giữ nguyên chữ ký |
 
-Lỗi từ bước 5, 6 là exception, đi qua `AllExceptionsFilter` của template nên đúng `{ error, meta }`. Lỗi ở bước 7 phát sinh bất đồng bộ trong callback của `http-proxy-middleware`, nằm ngoài pipeline Nest: `on.error` dựng `{ error, meta }` bằng `buildMeta` của template.
+Lỗi từ bước 5, 6 là exception, đi qua `AllExceptionsFilter` của template nên đúng `{ error, meta }`. Lỗi ở bước 7 phát sinh bất đồng bộ trong callback của `http-proxy-middleware`, nằm ngoài pipeline Nest: `on.error` dựng `{ error, meta }` bằng `buildMeta` của template. Gateway **luôn cung cấp `on.error` riêng**: nếu không, plugin lỗi mặc định của thư viện ghi `host` và URL vào body (lộ địa chỉ nội bộ). Quá `GATEWAY_PROXY_TIMEOUT_MS` chờ đích → `504 UPSTREAM_TIMEOUT` (gateway tự cắt bằng `proxyReq.setTimeout` và đánh dấu request, vì `proxyTimeout` của thư viện chỉ cho `socket hang up` nên không phân biệt được với đích tắt → `503 UPSTREAM_UNAVAILABLE`). Gateway không retry.
+
+**Khớp đường dẫn** (`RouteResolver`, quy tắc đầy đủ ở `API_Spec.md §3`): không phân biệt hoa thường ở phần chữ cố định (chỉ so, không đổi đường dẫn chuyển tiếp); đường dẫn lạ (đoạn rỗng, `.`, `..`, `%2e`/`%2f`/`%5c`, `\`) không bao giờ khớp → `404 GATEWAY_ROUTE_NOT_FOUND`; không giải mã đường dẫn.
 
 **Rate limit (chốt 2026-11-16):** một throttler, đặt sau `AccessGuard`.
 
@@ -98,7 +101,7 @@ Lỗi từ bước 5, 6 là exception, đi qua `AllExceptionsFilter` của templ
 
 Không đếm IP cho request đã đăng nhập: SSR của Next.js và NAT gom nhiều người về một IP, đếm IP cho mọi request thì giới hạn theo `sub` vô nghĩa. Hệ quả chấp nhận: request mang token hợp lệ không bị giới hạn theo IP; token bị đánh cắp bị chặn ở mức `sub`. IP lấy từ `req.ip` với `trust proxy = false`: không tin `X-Forwarded-For` (chốt 2026-11-16, §6).
 
-**WebSocket `/ws`:** sự kiện `upgrade` của HTTP server không đi qua pipeline Nest. `main.ts` gắn `server.on('upgrade', …)` gọi `ProxyMiddleware.upgrade`; không qua `AccessGuard` và không tính rate limit. Notification kiểm access token trong handshake.
+**WebSocket `/ws`:** sự kiện `upgrade` của HTTP server không đi qua pipeline Nest. `configureApp` (`app.setup.ts`, dùng chung `main.ts` và test) gắn `server.on('upgrade', …)` gọi `ProxyMiddleware.upgrade`; không qua `AccessGuard` và không tính rate limit. Notification kiểm access token trong handshake. Vì không có `AccessGuard`, `upgrade` **chỉ nhận `/ws`** (viết thường, `/ws` hoặc `/ws/…`): mọi đường dẫn khác (`/api/v1/admin/users`, `/internal/x`, `/wsx`…) bị trả `HTTP/1.1 404` rồi đóng socket, không tới service nào; nếu cho nâng cấp bất kỳ đường dẫn nào thì vòng qua được kiểm quyền mức tuyến. Đích tắt: đóng socket, gateway không sập.
 
 ## 4. Test bắt buộc
 

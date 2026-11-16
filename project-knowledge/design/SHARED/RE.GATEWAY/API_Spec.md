@@ -7,7 +7,7 @@
 | **Quy tắc** | NFR03, NFR06; không chứa `BR-xx` |
 | **Quyết định** | ADR-0003 |
 | **CSDL** | Không. Bộ đếm rate limit trong bộ nhớ của gateway (một instance; chốt 2026-11-16) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.2 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.3 |
 
 ## 1. Việc gateway làm và không làm
 
@@ -61,6 +61,16 @@ Gateway chỉ kiểm thô. Service kiểm lại vai trò và chủ sở hữu.
 | 18 | `GET /health` | chính gateway | `public` | |
 
 Mức chi tiết từng route (ví dụ route chỉ `tenant` trong `/api/v1/deposits/*`) do service kiểm bằng `@Roles`.
+
+**Cách khớp (v1.3):**
+
+- Duyệt bảng theo thứ tự từ trên xuống, dòng đầu khớp thắng; dòng cụ thể (có method, hoặc đường dẫn đầy đủ) đứng trước dòng chung.
+- `:tên` khớp đúng một đoạn đường dẫn. `/*` ở cuối khớp chính tiền tố đó và mọi đường dẫn dưới nó, theo ranh giới đoạn (`/api/v1/auth/*` khớp `/api/v1/auth` và `/api/v1/auth/login`, không khớp `/api/v1/authx`).
+- Dòng không ghi method khớp mọi method; `HEAD` khớp như `GET`.
+- **Không phân biệt hoa thường** ở phần chữ cố định của đường dẫn (và method), như Express của gateway và của service đích: `GET /api/v1/listings/MINE` vẫn tới handler `mine` của listing nên phải khớp dòng `mine` (`landlord`), không phải `:id` (`public`); `/API/V1/ADMIN/users/x` khớp `admin`. Gateway chỉ hạ chữ thường để so, **không đổi** đường dẫn chuyển tiếp. Đoạn `:tên` giữ nguyên giá trị.
+- **Đường dẫn lạ không bao giờ khớp** (fail-closed, `404 GATEWAY_ROUTE_NOT_FOUND`): đoạn rỗng (`//`), đoạn `.` hoặc `..`, mã hóa `%2e`, `%2f`, `%5c` (không phân biệt hoa thường), ký tự `\`. Gateway không giải mã rồi chuẩn hóa đường dẫn, để không lệch với cách service đích hiểu và không ai né được mức truy cập bằng cách viết lại đường dẫn. Query string và một dấu `/` cuối được bỏ khi khớp.
+- Hai ngoại lệ của dòng chung, đứng trước nó: `GET /api/v1/auth/me` mức `user` (dòng 1); `GET /api/v1/listings/mine` mức `landlord` (dòng 5). Nếu không có ngoại lệ thứ hai, `mine` khớp `GET /api/v1/listings/:id` (dòng 4) thành `public`.
+- Không khớp dòng nào → `404 GATEWAY_ROUTE_NOT_FOUND`. `/internal/*` bị chặn trước đó (dòng 17); `GET /health` do chính gateway trả (dòng 18), không đi qua bảng.
 
 ## 4. Mã lỗi của gateway
 

@@ -2,6 +2,55 @@
 
 > Tạo ở lần sửa đầu tiên sau baseline v1.0 (`standards/design-standards.md §9`). Mục mới lên đầu, không sửa mục cũ.
 
+## [v1.3] — 2026-11-16
+
+- **type:** MINOR
+- **author:** hoang.lv
+- **summary:** Làm rõ cách khớp bảng định tuyến (không phân biệt hoa thường, đường dẫn lạ không khớp), thêm ngoại lệ `GET /api/v1/listings/mine` mức `landlord`, catch-all dưới `/api/v1`, `upgrade` chỉ `/ws`.
+
+### Thay đổi
+
+**1.**
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 1 | `API_Spec.md` §3 (sau bảng) | Thêm |
+
+- **Cũ:** bảng không nói thứ tự khớp, ý nghĩa của `:tên` và `/*`; `GET /api/v1/listings/mine` (mức `landlord`, `RE.LISTING/API_Spec.md §1` route 6) khớp dòng 4 `GET /api/v1/listings/:id` nên gateway coi là `public`.
+- **Mới:** quy tắc khớp (dòng đầu thắng, `:tên` một đoạn, `/*` khớp tiền tố và mọi đường dẫn dưới nó theo ranh giới đoạn); ngoại lệ `GET /api/v1/listings/mine` → `landlord` đứng trước dòng 4. Đối chiếu với mọi route công khai trong `API_Spec.md` của các service: chỉ `mine` bị khớp sai.
+- **Lý do:** gateway chặn thô theo vai trò; để `mine` thành `public` thì không kiểm token và rate limit theo IP thay vì theo `sub`. Service vẫn kiểm lại (`JwtAuthGuard`, `@Roles`), nên không lộ dữ liệu, nhưng sai tầng phòng thủ đầu tiên.
+
+**2.** Catch-all dưới prefix `/api/v1`, thêm `RouteNotFoundFilter`.
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 2 | `Component_Class_Design.md` §1, §3.2 | Sửa |
+
+- **Cũ:** §3.2 viết "Route này không gắn prefix `/api/v1`".
+- **Mới:** catch-all `@All('{*path}')` nằm dưới prefix `/api/v1`; thêm `route-not-found.filter.ts` đổi `NotFoundException` của Nest (đường dẫn ngoài `/api/v1`) thành `404 GATEWAY_ROUTE_NOT_FOUND`.
+- **Lý do:** `setGlobalPrefix` chỉ loại trừ theo mẫu đường dẫn; loại `{*path}` sẽ gỡ prefix của mọi controller (kể cả `HealthController` và controller test kế thừa từ template). Hành vi nhìn từ ngoài không đổi: mọi đường dẫn không khớp bảng đều là `GATEWAY_ROUTE_NOT_FOUND`.
+
+**3.** Khớp không phân biệt hoa thường, đường dẫn lạ, upgrade `/ws`, lỗi proxy.
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 3 | `API_Spec.md` §3 "Cách khớp" | Thêm |
+| 4 | `Component_Class_Design.md` §3.2 | Thêm |
+
+- **Cũ:** "Cách khớp" không nói hoa/thường, đường dẫn mã hóa; §3.2 không nói `upgrade` nhận đường dẫn nào, và không nói lỗi proxy dùng `on.error` riêng.
+- **Mới:** (a) khớp **không phân biệt hoa thường** ở phần chữ cố định, chỉ để so, không đổi đường dẫn chuyển tiếp; (b) đường dẫn lạ (đoạn rỗng, `.`, `..`, `%2e`/`%2f`/`%5c`, `\`) không bao giờ khớp → `404 GATEWAY_ROUTE_NOT_FOUND`, không giải mã; (c) `HEAD` khớp như `GET`; (d) `upgrade` chỉ nhận `/ws`, đường dẫn khác bị `404` rồi đóng socket; (e) lỗi proxy luôn dùng `on.error` riêng (không lộ `host`/URL), 504 do gateway tự cắt thời gian chờ.
+- **Lý do:** (a) `GET /api/v1/listings/MINE` bị khớp `:id` (`public`) nhưng listing vẫn route tới handler `mine`, cùng loại lỗi `mine` ở mục 1; (b) không ai né mức truy cập bằng cách viết lại đường dẫn; (d) `upgrade` không qua `AccessGuard` nên không được phép tới route khác; (e) plugin mặc định của `http-proxy-middleware` ghi `host` và URL vào body lỗi.
+
+### File design đã sửa
+
+- `API_Spec.md` §3
+- `Component_Class_Design.md` §1, §3.2
+- Header 3 file: v1.2 → v1.3
+
+### Ảnh hưởng
+
+- api-gateway (A, T1.2): `routes.ts`, `RouteResolver`. Không đổi API công khai, mã lỗi, `contracts/`.
+
 ## [v1.2] — 2026-11-16
 
 - **type:** MINOR
