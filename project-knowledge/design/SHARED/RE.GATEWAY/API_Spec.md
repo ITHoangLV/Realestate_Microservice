@@ -7,7 +7,7 @@
 | **Quy tắc** | NFR03, NFR06; không chứa `BR-xx` |
 | **Quyết định** | ADR-0003 |
 | **CSDL** | Không. Bộ đếm rate limit trong bộ nhớ của gateway (một instance; chốt 2026-11-16) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.2 |
 
 ## 1. Việc gateway làm và không làm
 
@@ -18,7 +18,7 @@
 | Kiểm vai trò mức tuyến | Gộp dữ liệu nhiều service |
 | Sinh `X-Request-ID` nếu thiếu, chuyển tiếp | Retry (không biết lệnh có idempotent không) |
 | CORS cho giao diện Next.js | Đọc database |
-| Rate limit theo IP và người dùng | Luật nghiệp vụ |
+| Rate limit: theo `sub` cho người đã xác thực, theo IP cho request không có người dùng (§5) | Luật nghiệp vụ |
 | `404` cho mọi `/internal/*` | |
 | Mở công khai đường dẫn webhook payOS | Kiểm chữ ký webhook (payment làm) |
 
@@ -86,13 +86,13 @@ Lỗi `4xx`/`5xx` của service đích chuyển nguyên về client.
 | `JWT_PUBLIC_KEY_PATH`, `JWT_ISSUER` | `./secrets/jwt-public.pem`, `realestate-identity` | |
 | `INTERNAL_IDENTITY_URL` … `INTERNAL_NOTIFICATION_URL` | `http://<service>:<cổng>` | Đích proxy |
 | `GATEWAY_PROXY_TIMEOUT_MS` | `10000` | Phải > 8.000 (NFR07, ngân sách đặt cọc) |
-| `RATE_LIMIT_TTL_SECONDS`, `RATE_LIMIT_IP`, `RATE_LIMIT_USER` | `60`, `100`, `300` | Cửa sổ 60 giây: 100 request/IP, 300 request/người dùng (`sub`). Bộ đếm trong bộ nhớ |
+| `RATE_LIMIT_TTL_SECONDS`, `RATE_LIMIT_IP`, `RATE_LIMIT_USER` | `60`, `100`, `300` | Cửa sổ 60 giây. Request có người dùng đã xác thực đếm theo `sub`, tối đa 300; request không có người dùng (`public`, `payos`) đếm theo IP, tối đa 100. Không đếm IP của request đã đăng nhập (SSR Next.js, NAT gom nhiều người về một IP). Bộ đếm trong bộ nhớ |
 | `CORS_ORIGINS` | `http://localhost:3000` | Danh sách cách nhau dấu phẩy; giao diện Next.js |
 
 ## 6. Đã chốt 2026-11-16 (C7)
 
 1. Proxy bằng `http-proxy-middleware`. Gateway tắt body parser (`NestFactory.create(..., { bodyParser: false })`) nên body đi nguyên vẹn tới service đích, kể cả webhook payOS (chữ ký tính trên body).
-2. Timeout proxy `10000` ms; rate limit `@nestjs/throttler`, bộ đếm trong bộ nhớ, ngưỡng ở §5.
+2. Timeout proxy `10000` ms; rate limit `@nestjs/throttler`, bộ đếm trong bộ nhớ, ngưỡng ở §5. Cách đếm (v1.2): một throttler sau `AccessGuard`, có người dùng thì theo `sub`, không thì theo IP (`Component_Class_Design.md §3.2`).
 3. WebSocket: `ws: true` cho route `/ws`, gateway chỉ chuyển tiếp upgrade; xác thực access token trong handshake do notification làm (`RE.CHAT/API_Spec.md §3`).
 4. Không làm `/health/services`; mỗi service tự có `/health`.
 5. `CORS_ORIGINS` mặc định `http://localhost:3000`, nhiều địa chỉ cách nhau dấu phẩy.

@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Request thường, token sai, `/internal`, webhook, service đích lỗi |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, ADR-0003 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.2 |
 
 ## 1. Request thường
 
@@ -14,8 +14,9 @@ sequenceDiagram
     participant G as api-gateway
     participant S as Service đích
     C->>G: GET /api/v1/deposits/mine + Bearer
-    G->>G: X-Request-ID, throttle, resolve route (rental, user)
+    G->>G: X-Request-ID, resolve route (rental, user)
     G->>G: kiểm JWT RS256 bằng khóa công khai
+    G->>G: rate limit theo sub (không có user thì theo IP)
     G->>S: chuyển tiếp + Authorization + X-Request-ID
     S->>S: JwtAuthGuard kiểm lại, RolesGuard, kiểm chủ sở hữu
     S-->>G: { data, meta }
