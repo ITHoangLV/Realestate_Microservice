@@ -23,6 +23,8 @@ export interface EnvVars {
   RABBITMQ_MAX_RETRIES: number;
   OUTBOX_POLL_INTERVAL_MS: number;
   OUTBOX_BATCH_SIZE: number;
+  /** false: event vẫn được ghi vào outbox nhưng relay không tự gửi (dùng khi test). */
+  OUTBOX_RELAY_ENABLED: boolean;
   // Object storage S3 (chỉ dùng khi có S3_ENDPOINT)
   S3_ENDPOINT?: string;
   S3_PUBLIC_ENDPOINT?: string;
@@ -74,6 +76,7 @@ export const envSchema = Joi.object<EnvVars>({
   RABBITMQ_MAX_RETRIES: Joi.number().integer().min(0).max(10).default(3),
   OUTBOX_POLL_INTERVAL_MS: Joi.number().integer().min(100).default(1000),
   OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).max(500).default(50),
+  OUTBOX_RELAY_ENABLED: Joi.boolean().default(true),
 
   // --- Object storage S3 (Silo ở dev, xem docs/adr/ADR-007), chỉ có tác dụng khi có S3_ENDPOINT ---
   S3_ENDPOINT: optionalString.uri({ scheme: ['http', 'https'] }),

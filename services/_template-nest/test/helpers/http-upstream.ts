@@ -128,4 +128,9 @@ export class TestHttpController {
   refused(): Promise<unknown> {
     return this.http.get('http://127.0.0.1:1/x');
   }
+
+  @Post('refused-post')
+  refusedPost(@Body() body: Record<string, unknown>): Promise<unknown> {
+    return this.http.post('http://127.0.0.1:1/x', body);
+  }
 }
