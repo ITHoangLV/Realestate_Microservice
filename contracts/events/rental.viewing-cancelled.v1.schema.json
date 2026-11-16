@@ -22,13 +22,7 @@
     "payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "viewingId",
-        "listingId",
-        "tenantId",
-        "ownerId",
-        "reason"
-      ],
+      "required": ["viewingId", "listingId", "tenantId", "ownerId", "reason"],
       "properties": {
         "viewingId": {
           "type": "string",
@@ -51,10 +45,7 @@
           "description": "Chủ trọ (identity)"
         },
         "reason": {
-          "enum": [
-            "TENANT",
-            "LISTING_DEPOSITED"
-          ],
+          "enum": ["TENANT", "LISTING_DEPOSITED"],
           "description": "TENANT: người thuê tự hủy; LISTING_DEPOSITED: tin đã có người đặt cọc"
         }
       }

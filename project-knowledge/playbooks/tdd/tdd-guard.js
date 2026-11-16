@@ -20,10 +20,20 @@ const WORKSPACE_SRC = /(^|\/)services\/[^/]+\/src\//;
 
 // File không cần test đơn vị riêng (xem tdd-guide.md §4).
 const EXEMPT = [
-  /\.spec\.ts$/, /\.test\.ts$/, /\.d\.ts$/,
-  /\.module\.ts$/, /\.dto\.ts$/, /\.entity\.ts$/, /\.controller\.ts$/, /\.errors\.ts$/,
+  /\.spec\.ts$/,
+  /\.test\.ts$/,
+  /\.d\.ts$/,
+  /\.module\.ts$/,
+  /\.dto\.ts$/,
+  /\.entity\.ts$/,
+  /\.controller\.ts$/,
+  /\.errors\.ts$/,
   /\/(main|index|app\.setup|swagger\.setup|data-source)\.ts$/,
-  /\/migrations\//, /\/config\//, /\/scripts\//, /\/seed\//, /\/__tests__\//,
+  /\/migrations\//,
+  /\/config\//,
+  /\/scripts\//,
+  /\/seed\//,
+  /\/__tests__\//,
 ];
 
 function norm(p) {
@@ -40,7 +50,12 @@ function needsTest(filePath) {
 function testCandidates(absFile) {
   const dir = path.dirname(absFile);
   const base = path.basename(absFile, '.ts');
-  const names = [`${base}.spec.ts`, `${base}.test.ts`, `${base}.e2e-spec.ts`, `${base}.infra-spec.ts`];
+  const names = [
+    `${base}.spec.ts`,
+    `${base}.test.ts`,
+    `${base}.e2e-spec.ts`,
+    `${base}.infra-spec.ts`,
+  ];
   const dirs = [dir, path.join(dir, '__tests__')];
   // Thư mục test/ song song với src/ của service (kiểu e2e của NestJS và template).
   const s = norm(dir);
@@ -56,7 +71,11 @@ function testCandidates(absFile) {
 
 function hasTest(absFile) {
   return testCandidates(absFile).some((c) => {
-    try { return fs.existsSync(c); } catch { return false; }
+    try {
+      return fs.existsSync(c);
+    } catch {
+      return false;
+    }
   });
 }
 
@@ -79,7 +98,9 @@ function log(root, record) {
     const dir = path.join(root, '.claude', 'logs');
     fs.mkdirSync(dir, { recursive: true });
     fs.appendFileSync(path.join(dir, 'playbook-tdd.jsonl'), JSON.stringify(record) + '\n');
-  } catch { /* bỏ qua */ }
+  } catch {
+    /* bỏ qua */
+  }
 }
 
 function message(file, mode) {
@@ -109,16 +130,28 @@ process.stdin.on('end', () => {
     const { enabled, enforcement } = readConfig(root);
     if (!enabled || hasTest(abs)) process.exit(0);
 
-    log(root, { ts: new Date().toISOString(), playbook: 'tdd', enforcement, tool: input.tool_name, file: rel, compliant: false });
+    log(root, {
+      ts: new Date().toISOString(),
+      playbook: 'tdd',
+      enforcement,
+      tool: input.tool_name,
+      file: rel,
+      compliant: false,
+    });
 
     if (enforcement === 'monitor-only') process.exit(0);
     if (enforcement === 'block') {
       process.stderr.write(message(rel, 'block') + '\n');
       process.exit(2);
     }
-    process.stdout.write(JSON.stringify({
-      hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: message(rel, 'warn') },
-    }));
+    process.stdout.write(
+      JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PostToolUse',
+          additionalContext: message(rel, 'warn'),
+        },
+      }),
+    );
     process.exit(0);
   } catch {
     process.exit(0);
