@@ -39,7 +39,7 @@ docs/
 | assistant    | 3006 | nếu còn thời gian                                |
 
 `mobility` đã gộp vào listing, `maintenance` đã bỏ (xem
-[ranh giới service](docs/architecture/service-boundaries.md)).
+`project-knowledge/architecture.md`). Tài liệu dự án nằm ở `project-knowledge/` (cổng vào: `project-knowledge/CLAUDE.md`).
 
 Mỗi service có DB riêng; không service nào đọc DB của service khác.
 
@@ -124,7 +124,7 @@ Container luôn lắng nghe 5432 bên trong; `POSTGRES_DOCKER_HOST` và `POSTGRE
 - Postgres: `infra/compose/postgres/init/01-create-databases.sh` tạo `identity_db`, `listing_db`,
   `rental_db`, `payment_db`, `notification_db`, mỗi DB một user riêng (không phải superuser), `REVOKE CONNECT` từ
   PUBLIC nên user chỉ vào được DB của mình. `listing_db` bật `postgis`, `pgcrypto`, `uuid-ossp`.
-- Không dùng MongoDB: notification cũng dùng Postgres (xem `docs/adr/ADR-008-drop-mongodb.md`).
+- Không dùng MongoDB: notification cũng dùng Postgres (xem `project-knowledge/decisions/0008-bo-mongodb-notification-dung-postgresql.md`).
 - Các script chỉ chạy **lần đầu** khi volume còn trống. Muốn chạy lại (sẽ mất dữ liệu dev):
 
 ```powershell
@@ -138,13 +138,12 @@ pnpm infra:up
 - Topology nằm ở `infra/rabbitmq/definitions.json` (không chứa bí mật): exchange `domain.events`
   (topic) và `domain.events.dlx` (direct). Mỗi queue có DLQ `*.dlq`:
 
-  | Queue                   | Service đọc  | Binding (routing key)                                     |
-  | ----------------------- | ------------ | --------------------------------------------------------- |
-  | `rental.payment-events` | rental       | `payment.deposited`                                       |
-  | `payment.rental-events` | payment      | `rental.rejected/expired/cancelled/completed`             |
-  | `listing.rental-events` | listing      | `rental.requested/rejected/expired/cancelled/completed`   |
-  | `notification.events`   | notification | `identity.*`, `rental.*`, `payment.*`                     |
-  | `listing.indexer`       | listing      | `listing.*` (dành cho index Elasticsearch, chưa có event) |
+  | Queue                   | Service đọc  | Binding (routing key)                                                                              |
+  | ----------------------- | ------------ | -------------------------------------------------------------------------------------------------- |
+  | `rental.payment-events` | rental       | `payment.deposited`, `payment.refunded`, `payment.refund-rejected`, `payment.withdrawal-completed` |
+  | `notification.events`   | notification | `identity.*`, `rental.*`, `payment.*`                                                              |
+
+  Danh mục sự kiện: `project-knowledge/design/SHARED/RE.MESSAGING/API_Spec.md` §3.
 
   Schema event: `contracts/events/`. Đổi binding thì sửa cả `definitions.json` và danh sách mong
   đợi trong `infra/scripts/check-infra.*`.
@@ -161,7 +160,7 @@ pnpm infra:up
 
 ### Object storage (S3)
 
-Dev dùng Silo (tương thích S3, xem `docs/adr/ADR-007-object-storage.md`). Bucket không được tạo
+Dev dùng Silo (tương thích S3, xem `project-knowledge/decisions/0007-object-storage-silo-api-s3.md`). Bucket không được tạo
 bằng `mc`/`mcli`: mỗi service tự đảm bảo bucket của mình tồn tại khi khởi động bằng AWS SDK
 (`CreateBucket` chạy lại không lỗi). Template đã có sẵn `StorageModule` làm việc này (biến
 `S3_ENDPOINT`, `S3_BUCKETS`, xem README của template).

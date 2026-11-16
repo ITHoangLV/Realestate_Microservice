@@ -141,7 +141,7 @@ services:
         && echo 'rabbitmq-init: da nap topology tu definitions.json'
     networks: [realestate-net]
 
-  # Silo (fork cong dong cua MinIO, tuong thich S3) - xem docs/adr/ADR-007.
+  # Silo (fork cong dong cua MinIO, tuong thich S3) - xem project-knowledge/decisions/0007-object-storage-silo-api-s3.md.
   # Ghim tag RELEASE da kiem tra bang `docker manifest inspect` + `docker pull`.
   # Entrypoint cua image tu them ten binary `silo`, nen command chi gom doi so.
   # Image co san curl nen healthcheck dung endpoint /minio/health/live.

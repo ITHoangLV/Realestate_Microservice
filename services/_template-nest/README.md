@@ -201,11 +201,11 @@ RabbitMQ sau khi commit, nên không bao giờ có cảnh "DB đã lưu mà even
 ```ts
 constructor(private readonly dataSource: DataSource, private readonly outbox: OutboxService) {}
 
-async request(dto: CreateReservationDto) {
+async create(dto: CreateDepositDto) {
   return this.dataSource.transaction(async (manager) => {
-    const r = await manager.save(Reservation, { ...dto, status: 'PENDING_DEPOSIT' });
-    await this.outbox.add(manager, 'rental.requested', { reservationId: r.id, /* ... */ });
-    return r;
+    const d = await manager.save(Deposit, { ...dto, status: 'PENDING_PAYMENT' });
+    await this.outbox.add(manager, 'rental.deposit-created', { depositId: d.id, /* ... */ });
+    return d;
   });
 }
 ```
@@ -219,20 +219,22 @@ thì đẩy vào `<queue>.dlq`. Event có trên queue mà không có handler th�
 export class PaymentEventsHandler implements OnModuleInit {
   constructor(
     private readonly events: EventHandlerRegistry,
-    private readonly outbox: OutboxService,
-  ) {}
+    private readonly logger: PinoLogger,
+  ) {
+    this.logger.setContext(PaymentEventsHandler.name);
+  }
 
   onModuleInit() {
-    this.events.on<{ reservationId: string }>('payment.deposited', async (event, manager) => {
+    this.events.on<{ depositId: string }>('payment.deposited', async (event, manager) => {
       // Mọi thay đổi dùng `manager` (cùng transaction với inbox). Kiểm tra trạng thái hiện tại trước.
       const moved = await manager.update(
-        Reservation,
-        { id: event.payload.reservationId, status: 'PENDING_DEPOSIT' },
-        { status: 'AWAITING_LANDLORD' },
+        Deposit,
+        { id: event.payload.depositId, status: 'PENDING_PAYMENT' },
+        { status: 'PAID' },
       );
       if (moved.affected === 0) {
-        // Tiền đến muộn (reservation đã EXPIRED): phát lại rental.expired để payment hoàn tiền
-        await this.outbox.add(manager, 'rental.expired', {/* ... */});
+        // Đơn không còn PENDING_PAYMENT (sự kiện đến muộn hoặc lặp): không đổi gì, chỉ ghi log
+        this.logger.warn({ depositId: event.payload.depositId }, 'payment.deposited bỏ qua');
       }
     });
   }
@@ -248,7 +250,7 @@ export class PaymentEventsHandler implements OnModuleInit {
 ### Object storage (S3)
 
 Bật bằng `S3_ENDPOINT` + `S3_ACCESS_KEY` + `S3_SECRET_KEY`. Bucket trong `S3_BUCKETS` được tạo lúc khởi động
-(chạy lại không lỗi, S3 chưa sẵn sàng thì thử lại nền), theo `docs/adr/ADR-007-object-storage.md`.
+(chạy lại không lỗi, S3 chưa sẵn sàng thì thử lại nền), theo `project-knowledge/decisions/0007-object-storage-silo-api-s3.md`.
 
 Upload ảnh từ trình duyệt nên đi thẳng lên S3, không qua service:
 

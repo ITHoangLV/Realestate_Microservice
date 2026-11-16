@@ -113,13 +113,10 @@ foreach ($e in 'domain.events', 'domain.events.dlx') {
   Write-Result ($ex -contains $e) "rabbitmq: exchange $e ton tai"
 }
 $qs = (Invoke-Docker @('exec', 're-rabbitmq', 'rabbitmqctl', 'list_queues', 'name', '--no-table-headers')).Out -split "`n" | ForEach-Object { $_.Trim() }
-# Binding mong doi tu domain.events (phai khop infra/rabbitmq/definitions.json, sap xep a-z)
+# Binding mong doi tu domain.events (phai khop infra/rabbitmq/definitions.json, sap xep theo ma ky tu: '-' dung truoc chu)
 $expectedBindings = [ordered]@{
-  'listing.indexer'       = 'listing.*'
   'notification.events'   = 'identity.*,payment.*,rental.*'
-  'rental.payment-events' = 'payment.deposited'
-  'payment.rental-events' = 'rental.cancelled,rental.completed,rental.expired,rental.rejected'
-  'listing.rental-events' = 'rental.cancelled,rental.completed,rental.expired,rental.rejected,rental.requested'
+  'rental.payment-events' = 'payment.deposited,payment.refund-rejected,payment.refunded,payment.withdrawal-completed'
 }
 foreach ($q in $expectedBindings.Keys) {
   Write-Result ($qs -contains $q) "rabbitmq: queue $q ton tai"
@@ -128,7 +125,9 @@ foreach ($q in $expectedBindings.Keys) {
 $bindRows = (Invoke-Docker @('exec', 're-rabbitmq', 'rabbitmqctl', 'list_bindings', 'source_name', 'destination_name', 'routing_key', '--no-table-headers')).Out -split "`n" |
   ForEach-Object { , ($_.Trim() -split "`t") } | Where-Object { $_.Count -eq 3 -and $_[0] -eq 'domain.events' }
 foreach ($q in $expectedBindings.Keys) {
-  $actual = (($bindRows | Where-Object { $_[1] -eq $q } | ForEach-Object { $_[2] }) | Sort-Object) -join ','
+  [string[]]$keys = @($bindRows | Where-Object { $_[1] -eq $q } | ForEach-Object { $_[2] })
+  [Array]::Sort($keys, [StringComparer]::Ordinal)
+  $actual = $keys -join ','
   Write-Result ($actual -eq $expectedBindings[$q]) "rabbitmq: binding cua $q dung" "thuc te: $actual"
 }
 

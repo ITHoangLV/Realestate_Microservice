@@ -208,20 +208,19 @@ describe('Messaging với RabbitMQ + Postgres thật', () => {
     expect(await channel.get(dlq, { noAck: true })).toBe(false);
   });
 
-  it('expectEventMatchesContract: event do OutboxService dựng khớp contract rental.requested', async () => {
+  it('expectEventMatchesContract: event do OutboxService dựng khớp contract rental.deposit-created', async () => {
     const payload = {
-      reservationId: randomUUID(),
+      depositId: randomUUID(),
       listingId: randomUUID(),
       tenantId: randomUUID(),
-      landlordId: randomUUID(),
-      listingTitle: 'Phòng test',
-      depositAmount: 3000000,
-      paymentDeadline: new Date().toISOString(),
+      ownerId: randomUUID(),
+      amountVnd: 3000000,
+      expiresAt: new Date().toISOString(),
     };
-    // Rollback để không thực sự gửi rental.requested lên exchange
+    // Rollback để không thực sự gửi rental.deposit-created lên exchange
     const event = await dataSource
       .transaction(async (manager) => {
-        const e = await outbox.add(manager, 'rental.requested', payload);
+        const e = await outbox.add(manager, 'rental.deposit-created', payload);
         throw Object.assign(new Error('rollback'), { event: e });
       })
       .catch((err: { event: DomainEvent }) => err.event);
@@ -230,8 +229,8 @@ describe('Messaging với RabbitMQ + Postgres thật', () => {
       expectEventMatchesContract({
         ...event,
         producer: 'rental',
-        payload: { ...payload, depositAmount: '3000000' },
+        payload: { ...payload, amountVnd: '3000000' },
       }),
-    ).toThrow(/depositAmount/);
+    ).toThrow(/amountVnd/);
   });
 });

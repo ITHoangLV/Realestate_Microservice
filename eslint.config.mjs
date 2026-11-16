@@ -23,4 +23,20 @@ export default tseslint.config(
       globals: { console: 'readonly', process: 'readonly', structuredClone: 'readonly' },
     },
   },
+  {
+    // Hook Claude Code viết CommonJS, chạy bằng `node` (project-knowledge/playbooks/*/…-guard.js)
+    files: ['project-knowledge/playbooks/**/*.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: {
+        require: 'readonly',
+        module: 'writable',
+        process: 'readonly',
+        __dirname: 'readonly',
+        Buffer: 'readonly',
+        console: 'readonly',
+      },
+    },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
 );

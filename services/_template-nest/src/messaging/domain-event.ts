@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 export interface DomainEvent<TPayload extends object = Record<string, unknown>> {
   /** UUID, consumer dùng để chống xử lý trùng. */
   eventId: string;
-  /** Bằng routing key: `<miền>.<sự kiện>`, ví dụ `rental.requested`. */
+  /** Bằng routing key: `<miền>.<sự kiện>`, ví dụ `rental.deposit-created`. */
   eventType: string;
   /** Phiên bản schema của payload. */
   version: number;
@@ -20,7 +20,8 @@ export interface DomainEvent<TPayload extends object = Record<string, unknown>> 
   payload: TPayload;
 }
 
-export const EVENT_TYPE_PATTERN = /^[a-z]+\.[a-z]+$/;
+/** `<miền>.<sự kiện>`: miền chỉ chữ thường; sự kiện cho phép gạch ngang (A4, khớp envelope.v1.schema.json). */
+export const EVENT_TYPE_PATTERN = /^[a-z]+\.[a-z-]+$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CORRELATION_ID = /^[\w.:-]{1,128}$/;
 
@@ -38,7 +39,9 @@ export function buildDomainEvent<TPayload extends object>(
   input: BuildEventInput<TPayload>,
 ): DomainEvent<TPayload> {
   if (!EVENT_TYPE_PATTERN.test(input.eventType)) {
-    throw new Error(`eventType "${input.eventType}" phải có dạng <miền>.<sự kiện> (chữ thường)`);
+    throw new Error(
+      `eventType "${input.eventType}" phải có dạng <miền>.<sự kiện> (chữ thường, sự kiện được có gạch ngang)`,
+    );
   }
   const eventId = randomUUID();
   return {

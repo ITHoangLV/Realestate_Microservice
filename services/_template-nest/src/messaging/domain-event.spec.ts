@@ -5,27 +5,31 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 describe('buildDomainEvent', () => {
   it('dựng đủ envelope với giá trị mặc định', () => {
     const e = buildDomainEvent({
-      eventType: 'rental.requested',
-      payload: { reservationId: 'x' },
+      eventType: 'rental.deposit-created',
+      payload: { depositId: 'x' },
       producer: 'rental',
       correlationId: 'req-123',
     });
     expect(e.eventId).toMatch(UUID);
     expect(e).toMatchObject({
-      eventType: 'rental.requested',
+      eventType: 'rental.deposit-created',
       version: 1,
       correlationId: 'req-123',
       producer: 'rental',
-      payload: { reservationId: 'x' },
+      payload: { depositId: 'x' },
     });
     expect(new Date(e.occurredAt).toISOString()).toBe(e.occurredAt);
   });
 
   it('không có correlationId (job chạy nền) hoặc correlationId bẩn thì dùng eventId', () => {
-    const a = buildDomainEvent({ eventType: 'rental.expired', payload: {}, producer: 'rental' });
+    const a = buildDomainEvent({
+      eventType: 'rental.deposit-expired',
+      payload: {},
+      producer: 'rental',
+    });
     expect(a.correlationId).toBe(a.eventId);
     const b = buildDomainEvent({
-      eventType: 'rental.expired',
+      eventType: 'rental.deposit-expired',
       payload: {},
       producer: 'rental',
       correlationId: 'có dấu cách',
@@ -33,8 +37,22 @@ describe('buildDomainEvent', () => {
     expect(b.correlationId).toBe(b.eventId);
   });
 
+  it('chấp nhận gạch ngang ở phần sự kiện (A4: payment.withdrawal-completed)', () => {
+    for (const ok of ['payment.withdrawal-completed', 'rental.deposit-handed-over']) {
+      expect(buildDomainEvent({ eventType: ok, payload: {}, producer: 'rental' }).eventType).toBe(
+        ok,
+      );
+    }
+  });
+
   it('từ chối eventType sai định dạng', () => {
-    for (const bad of ['rental', 'Rental.Requested', 'rental.requested.v1', 'rental_requested']) {
+    for (const bad of [
+      'rental',
+      'Rental.Requested',
+      'rental.requested.v1',
+      'rental_requested',
+      'rental-x.deposit-created',
+    ]) {
       expect(() => buildDomainEvent({ eventType: bad, payload: {}, producer: 'rental' })).toThrow(
         /eventType/,
       );

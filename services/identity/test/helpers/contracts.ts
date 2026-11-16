@@ -8,7 +8,7 @@ import type { DomainEvent } from '../../src/messaging/domain-event';
  * Kiểm tra event (envelope + payload) khớp schema trong contracts/events/ ở gốc repo.
  * Dùng trong test của service, KHÔNG dùng lúc chạy thật (image Docker không có thư mục contracts):
  *
- *   const event = await outbox.add(manager, 'rental.requested', payload);
+ *   const event = await outbox.add(manager, 'rental.deposit-created', payload);
  *   expectEventMatchesContract(event);
  */
 const CONTRACTS_DIR = resolve(__dirname, '..', '..', '..', '..', 'contracts', 'events');
