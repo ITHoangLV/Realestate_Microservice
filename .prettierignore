@@ -10,3 +10,6 @@ project-knowledge/**/*.md
 docs/**/*.md
 .claude/**/*.md
 CLAUDE.md
+
+# File sinh ra b?i openapi:export (dã ignore trong git)
+**/openapi.json
