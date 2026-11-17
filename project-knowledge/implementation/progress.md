@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-17 |
 
 **Bảo vệ:** 2026-12-18 (M5) · **Mốc mới** (dời 2026-11-16): M0 11-20, M1 11-27, M2 12-04, M3 12-09, M4 12-11 (`README.md` — Lịch và mốc) · **Hạn nộp báo cáo:** 2026-12-11 (M4, chốt 2026-11-16) · **Đề tài:** Thiết kế hệ thống cho thuê nhà, căn hộ, chung cư Real-estate theo kiến trúc microservices · **Nhóm:** 5 · **Số thành viên:** 3
 
@@ -33,7 +33,7 @@
 ## Phase 1 — Nền tảng, gateway
 
 - [ ] T1.1 CI: lint, format, contracts, build, test — B
-- [ ] T1.2 api-gateway — A
+- [x] T1.2 api-gateway — A (2026-11-17, PR #7)
 - [ ] T1.3 Compose profile `apps`, identity sau gateway — A
 
 ## Phase 2 — identity, listing
@@ -89,3 +89,4 @@
 | 2026-11-16 | A | T0.2: Accept 12 ADR; thiết kế v1.0 thành baseline (sửa `design/` từ nay kèm `CHANGELOG.md`). Chốt C7, C17, C18, B16, chi tiết T2.1 (`van-de-can-quyet-dinh.md` mục D). T1.2 hết chặn | Tick T0.2; B, C vẫn đọc ADR phần mình |
 | 2026-11-16 | A | Chốt đợt 2: C1, C2, C3–C6, C8, C10, C11, C13, C14, C15, C16 và mọi `[cần xác nhận]` còn lại của thiết kế (trừ `PAYMENT_CALL_TIMEOUT_MS` chờ đo). 11 thiết kế lên v1.1 kèm `CHANGELOG.md`. Báo cáo nộp M4 | B, C xem lại phần mình khi nhận task |
 | 2026-11-16 | A | Ước thời lượng: ~240 giờ còn lại, vượt năng lực 12,75 giờ/người/tuần. Dời M0–M3, chia lại T3.5 → B, T4.1 → C, T5.4 → B; kế hoạch tính 16 giờ hiệu dụng/người/tuần | B, C xác nhận mức giờ; không được thì cắt theo `README.md §6` |
+| 2026-11-17 | A | T1.2 merge vào `develop` (PR #7, `d4dcb14`): gateway unit 226 + e2e 134 PASS, đủ test 1–12; template và identity vá C14, C18, `JwtTokenVerifier`; `test:infra` template + identity user tự chạy. Việc chuyển sang T1.3 ghi ở `.claude/state/luuviethoang2005/current-task.md` mục "Chuyển sang T1.3" | Tick T1.2; làm T1.3 (hạn 11-20) |
