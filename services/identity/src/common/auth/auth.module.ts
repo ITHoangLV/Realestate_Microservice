@@ -5,16 +5,20 @@ import { JwtModule } from '@nestjs/jwt';
 import { EnvVars } from '../../config/env.validation';
 import { JWT_VERIFY_CONFIG, resolveJwtVerifyConfig } from './jwt.config';
 import { JwtAuthGuard } from './jwt.guard';
+import { JwtTokenVerifier } from './jwt-token.verifier';
 import { RolesGuard } from './roles.guard';
 
 /**
  * Đăng ký guard toàn cục theo thứ tự: JwtAuthGuard (xác thực) rồi RolesGuard (phân quyền).
  * Dùng APP_GUARD (không phải app.useGlobalGuards) để test e2e từ AppModule chạy đúng như thật.
+ * JwtTokenVerifier được export để guard riêng của service (ví dụ AccessGuard của gateway) dùng chung.
  */
 @Global()
 @Module({
   imports: [JwtModule.register({})],
+  exports: [JwtTokenVerifier],
   providers: [
+    JwtTokenVerifier,
     {
       provide: JWT_VERIFY_CONFIG,
       inject: [ConfigService],

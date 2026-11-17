@@ -22,13 +22,7 @@
     "payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "viewingId",
-        "listingId",
-        "tenantId",
-        "ownerId",
-        "decision"
-      ],
+      "required": ["viewingId", "listingId", "tenantId", "ownerId", "decision"],
       "properties": {
         "viewingId": {
           "type": "string",
@@ -51,9 +45,7 @@
           "description": "Chủ trọ (identity)"
         },
         "decision": {
-          "enum": [
-            "DECLINED"
-          ],
+          "enum": ["DECLINED"],
           "description": "Trạng thái lịch xem sau phản hồi; chỉ còn DECLINED"
         }
       }

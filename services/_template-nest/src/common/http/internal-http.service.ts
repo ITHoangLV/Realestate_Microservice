@@ -27,8 +27,18 @@ type Method = 'GET' | 'HEAD' | 'OPTIONS' | 'PUT' | 'DELETE' | 'POST' | 'PATCH';
 
 const IDEMPOTENT_METHODS = new Set<Method>(['GET', 'HEAD', 'OPTIONS', 'PUT', 'DELETE']);
 const TIMEOUT_CODES = new Set(['ECONNABORTED', 'ETIMEDOUT', 'ESOCKETTIMEDOUT']);
+/** Lỗi xảy ra trước khi request tới được đích: lệnh chắc chắn CHƯA được thực hiện. */
+const NOT_SENT_CODES = new Set(['ECONNREFUSED', 'ENOTFOUND']);
+
+/**
+ * Kết quả lệnh gọi khi lỗi hạ tầng (C14, RE.SERVICE_TEMPLATE/API_Spec.md §3), để saga biết có cần đối soát:
+ * NOT_EXECUTED = chắc chắn chưa chạy ở đích; UNKNOWN = có thể đã chạy.
+ */
+export type CallOutcome = 'NOT_EXECUTED' | 'UNKNOWN';
 /** Upstream trả các mã này là lỗi tạm thời, đáng thử lại (nếu lệnh idempotent). */
 const RETRYABLE_STATUS = new Set([502, 503, 504]);
+
+const outcomeDetails = (outcome: CallOutcome): { outcome: CallOutcome } => ({ outcome });
 
 const asRecord = (v: unknown): Record<string, unknown> | undefined =>
   typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : undefined;
@@ -53,6 +63,9 @@ function unwrapData<T>(body: unknown): T {
  *     timeout -> 504 UPSTREAM_TIMEOUT          mất kết nối -> 503 UPSTREAM_UNAVAILABLE
  *     upstream 4xx -> GIỮ NGUYÊN mã, code, message, details của service đích
  *     upstream 504 -> 504; upstream 5xx khác -> 503 UPSTREAM_UNAVAILABLE
+ * - Lỗi hạ tầng (503/504) kèm `details.outcome` (C14): NOT_EXECUTED chỉ khi MỌI lần thử đều lỗi
+ *   trước khi gửi (ECONNREFUSED, ENOTFOUND); có lần nào timeout, mất kết nối giữa chừng hoặc đích
+ *   trả 5xx thì UNKNOWN.
  *
  *   const room = await this.http.get<RoomDto>(`${listingUrl}/internal/rooms/${id}`);
  */
@@ -109,12 +122,17 @@ export class InternalHttpService {
       },
     };
 
+    // C14: lần thử nào KHÔNG chắc chắn là chưa tới đích (timeout, mất kết nối giữa chừng, đích trả
+    // lỗi) thì lệnh có thể đã chạy, dù lần thử sau có refused. Chỉ NOT_EXECUTED khi MỌI lần thử
+    // đều lỗi trước khi gửi.
+    let maybeExecuted = false;
     for (let attempt = 0; ; attempt++) {
       try {
         const response = await firstValueFrom(this.http.request<T>(axiosConfig));
         return unwrapData<T>(response.data);
       } catch (error) {
         if (!isAxiosError(error)) throw error;
+        if (!this.isNotSent(error)) maybeExecuted = true;
         if (canRetry && attempt < maxRetries && this.isRetryable(error)) {
           this.logger.warn(
             {
@@ -129,9 +147,14 @@ export class InternalHttpService {
           await new Promise((resolve) => setTimeout(resolve, 100 * 2 ** attempt));
           continue;
         }
-        throw this.toAppException(error, method, url);
+        throw this.toAppException(error, method, url, maybeExecuted);
       }
     }
+  }
+
+  /** Lỗi xảy ra trước khi request tới được đích (ECONNREFUSED, ENOTFOUND, không có response). */
+  private isNotSent(error: AxiosError): boolean {
+    return !error.response && error.code !== undefined && NOT_SENT_CODES.has(error.code);
   }
 
   private isRetryable(error: AxiosError): boolean {
@@ -153,7 +176,12 @@ export class InternalHttpService {
     return error.response ? `HTTP ${error.response.status}` : (error.code ?? error.message);
   }
 
-  private toAppException(error: AxiosError, method: Method, url: string): AppException {
+  private toAppException(
+    error: AxiosError,
+    method: Method,
+    url: string,
+    maybeExecuted: boolean,
+  ): AppException {
     this.logger.warn(
       { method, target: this.describe(url), reason: this.reason(error) },
       'Gọi service khác thất bại',
@@ -166,12 +194,14 @@ export class InternalHttpService {
           ErrorCode.UPSTREAM_TIMEOUT,
           'Service phụ thuộc phản hồi quá chậm, vui lòng thử lại sau',
           504,
+          outcomeDetails('UNKNOWN'),
         );
       }
       return new AppException(
         ErrorCode.UPSTREAM_UNAVAILABLE,
         'Không kết nối được service phụ thuộc, vui lòng thử lại sau',
         503,
+        outcomeDetails(!maybeExecuted && this.isNotSent(error) ? 'NOT_EXECUTED' : 'UNKNOWN'),
       );
     }
 
@@ -186,17 +216,20 @@ export class InternalHttpService {
       return new AppException(code, message, status, error?.details);
     }
 
+    // Đích đã nhận request rồi mới lỗi: không thể khẳng định lệnh chưa chạy
     if (status === 504) {
       return new AppException(
         ErrorCode.UPSTREAM_TIMEOUT,
         'Service phụ thuộc phản hồi quá chậm, vui lòng thử lại sau',
         504,
+        outcomeDetails('UNKNOWN'),
       );
     }
     return new AppException(
       ErrorCode.UPSTREAM_UNAVAILABLE,
       'Service phụ thuộc đang gặp sự cố, vui lòng thử lại sau',
       503,
+      outcomeDetails('UNKNOWN'),
     );
   }
 }

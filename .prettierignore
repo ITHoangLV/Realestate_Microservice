@@ -3,3 +3,13 @@ dist
 coverage
 pnpm-lock.yaml
 infra/**/data
+
+# Tài liệu markdown (project-knowledge, docs, .claude, CLAUDE.md) không format hàng loạt bằng Prettier.
+# .claude/state/ là nháp riêng từng dev. Code trong các thư mục này (ví dụ tdd-guard.js) vẫn được kiểm.
+project-knowledge/**/*.md
+docs/**/*.md
+.claude/**/*.md
+CLAUDE.md
+
+# File sinh ra b?i openapi:export (d� ignore trong git)
+**/openapi.json
