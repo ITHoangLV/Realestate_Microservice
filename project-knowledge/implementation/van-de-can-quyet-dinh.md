@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 ## A. Chặn code — đã chốt ở T0.1 (2026-11-12)
 
@@ -153,3 +153,5 @@ Mỗi mục có chi tiết ở mục "Điểm [cần xác nhận]" cuối tài l
 | 2026-11-16 | Phụ thuộc hai chiều rental ⇄ payment (S4) | Chấp nhận, không tạo ADR: S4 chỉ đọc, không cùng request với S2 (`architecture.md §9`) |
 | 2026-11-16 | Thời lượng task, tải, mốc | Ước từng task ở `PHASE-x.md`; tổng ~240 giờ. Dời M0 → 11-20, M1 → 11-27, M2 → 12-04, M3 → 12-09; giữ M4 12-11, M5 12-18. Kế hoạch tính 16 giờ hiệu dụng/người/tuần (chờ B, C xác nhận) |
 | 2026-11-16 | Chia lại việc | T3.5 C → B (C review); T4.1 A → C (A duyệt `definitions.json`); T5.4 A → B. Dự phòng: 2026-11-27 saga luồng thành công chưa chạy → B nhận thêm T3.6, C giữ T3.1–T3.4. Thay phương án cũ "A nhận payout" |
+| 2026-11-18 | Bỏ đổi vai trò (A chốt) | Không đổi vai trò của tài khoản đã có, kể cả quản trị viên. Mỗi email một tài khoản, một vai trò cố định từ lúc tạo; muốn vai trò khác thì đăng ký bằng email khác. Bỏ route 9 `PATCH /admin/users/:id/role`, test 10. Lệch Báo cáo v2 FR08: báo cáo cuối kỳ (T7.1) ghi lại. `RE.IDENTITY` v2.0 |
+| 2026-11-18 | Phân công (A chốt) | Mọi task giao cho A; A tự quyết giao lại task nào cho ai. Cột "Người làm" trong `PHASE-x.md` ghi `A`, giữ người làm cũ trong ngoặc. Thay phân công theo vai A/B/C (`README.md §2`) và các lần chia lại việc 2026-11-16 |

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 **Mục tiêu:** số liệu thật cho Bảng 5.3 và 5.4 của báo cáo.
 
@@ -16,7 +16,7 @@
 
 | | |
 |---|---|
-| **Người làm** | B |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: B) |
 | **Thời lượng** | ~5 giờ (ước 2026-11-16) |
 | **Hạn** | M2 — 2026-12-04 (làm sớm, không phụ thuộc saga) |
 | **Đọc trước** | `guides/RE_Failure_Experiment_Guide.md §1–3` |
@@ -32,7 +32,7 @@
 
 | | |
 |---|---|
-| **Người làm** | B |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: B) |
 | **Thời lượng** | ~8 giờ (ước 2026-11-16) |
 | **Hạn** | M4 — 2026-12-10 (cần số cho Bảng 5.3 trước hạn nộp) |
 | **Mã WBS** | E7-3, E7-4 |
@@ -47,7 +47,7 @@
 
 | | |
 |---|---|
-| **Người làm** | C (E4–E8, E10), B (E9) |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: C (E4–E8, E10), B (E9)) |
 | **Thời lượng** | ~6 giờ C, ~2 giờ B (ước 2026-11-16) |
 | **Hạn** | M5 — 2026-12-16 (dùng cho slide và vấn đáp, không bắt buộc trong báo cáo) |
 | **Đọc trước** | `guides/RE_Failure_Experiment_Guide.md §7–8` |
