@@ -11,5 +11,5 @@ docs/**/*.md
 .claude/**/*.md
 CLAUDE.md
 
-# File sinh ra b?i openapi:export (d� ignore trong git)
+# File sinh ra bởi openapi:export (đã ignore trong git)
 **/openapi.json
