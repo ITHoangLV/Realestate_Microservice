@@ -32,7 +32,7 @@
 
 ## Phase 1 — Nền tảng, gateway
 
-- [ ] T1.1 CI: lint, format, contracts, build, test — A (giao lại 2026-11-18)
+- [x] T1.1 CI: lint, format, contracts, build, test — A (2026-11-18, PR T1.1; bảo vệ nhánh `develop`, `main`)
 - [x] T1.2 api-gateway — A (2026-11-17, PR #7)
 - [x] T1.3 Compose profile `apps`, identity sau gateway — A (2026-11-18, `d3a2062`)
 
@@ -91,3 +91,4 @@
 | 2026-11-16 | A | Ước thời lượng: ~240 giờ còn lại, vượt năng lực 12,75 giờ/người/tuần. Dời M0–M3, chia lại T3.5 → B, T4.1 → C, T5.4 → B; kế hoạch tính 16 giờ hiệu dụng/người/tuần | B, C xác nhận mức giờ; không được thì cắt theo `README.md §6` |
 | 2026-11-17 | A | T1.2 merge vào `develop` (PR #7, `d4dcb14`): gateway unit 226 + e2e 134 PASS, đủ test 1–12; template và identity vá C14, C18, `JwtTokenVerifier`; `test:infra` template + identity user tự chạy. Việc chuyển sang T1.3 ghi ở `.claude/state/luuviethoang2005/current-task.md` mục "Chuyển sang T1.3" | Tick T1.2; làm T1.3 (hạn 11-20) |
 | 2026-11-18 | A | T1.3 merge vào `develop` (`d3a2062`): identity, api-gateway chạy trong profile `apps`; đăng ký, đăng nhập, `/me` qua 8080; cùng `X-Request-ID` ở hai log; `/internal/*` 404 | Tick T1.3; làm T1.1 (A), rồi tag `v0.1-skeleton` |
+| 2026-11-18 | A | T1.1 merge vào `develop`: CI `check` → `test` (template-nest, identity, api-gateway) → `ci` xanh; PR thử schema hỏng (#13) đỏ đúng ở `contracts:check` rồi đóng. Repo chuyển public để bảo vệ nhánh có hiệu lực (GitHub Free); `develop`, `main` bắt buộc PR + `ci` xanh, không bypass. Phase 1 xong | Tick T1.1; tag `v0.1-skeleton`; sang T2.1 |
