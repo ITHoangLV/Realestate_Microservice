@@ -26,7 +26,7 @@
 **Các bước:**
 
 1. `.github/workflows/ci.yml`: cache pnpm, `pnpm lint`, `pnpm format:check`, `pnpm contracts:check`, `pnpm build`, `test` và `test:e2e` theo ma trận service.
-2. Bật bảo vệ nhánh `main`, `develop`: cần một review và CI xanh.
+2. Bật bảo vệ nhánh `main`, `develop`: bắt buộc PR và check `ci` xanh; không bắt buộc người duyệt (chốt 2026-11-18).
 
 **Kiểm chứng:** mở PR cố ý làm hỏng một schema trong `contracts/events/` → CI đỏ.
 
