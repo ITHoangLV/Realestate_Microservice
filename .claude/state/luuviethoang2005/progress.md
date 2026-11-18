@@ -1,26 +1,22 @@
 ---
-task: T1.2 api-gateway
-updated: 2026-11-17 00:20
-percent: 95
+task: T1.3 Compose profile `apps`, identity sau gateway
+updated: 2026-11-17
+percent: 5
 ---
 
 ## Đang làm
-- Bước hiện tại: xong Bước 7 (walkthrough, code-review, 3 commit); chờ user duyệt kết quả code-review, chạy `test:infra`, rồi mở PR vào `develop`
-- Tóm tắt: toàn bộ Bước 5 xong theo TDD; test 1–12, lint, format:check, build, contracts:check, lệnh kiểm chứng curl đều PASS. Còn Bước 7 (walkthrough `RE_Gateway_Code_Walkthrough.md`, `code-review` 5 chiều) và commit phần code gateway.
+- Bước hiện tại: Bước 1 xong phần đọc; chuẩn bị `reuse-scan` và kế hoạch chi tiết (cổng duyệt duy nhất)
+- Tóm tắt: nhận T1.3 trên `feature/T1.3-compose`. T1.2 đã merge (PR #7). Chưa viết code.
 
 ## Đã xong (phiên này)
-- 2b thiết kế RE.GATEWAY v1.2 → v1.3 + RE.SERVICE_TEMPLATE v1.2 (commit `19fdd27`; v1.3 chưa commit)
-- Bước 0 vá template + đồng bộ identity (commit `3e2e62b`)
-- `.prettierignore` + format schema viewing + `tdd-guard.js` (commit `c11267e`)
-- Bước 1–4 scaffold `services/api-gateway` (commit `cae44a9`)
-- 5.1 env gateway · 5.2 `trust proxy=false` · 5.3 `routes.ts` · 5.4 `RouteResolver` · 5.5 `InternalBlockMiddleware` + CORS · 5.6 `AccessGuard` · 5.7 `GatewayThrottlerGuard` · 5.8 `ProxyMiddleware` · 5.9 `GatewayController` + `GatewayModule` + `RouteNotFoundFilter` + `main.ts` (bodyParser:false) + upgrade `/ws` — chưa commit
-- Test: gateway unit 226 PASS (17 suite), e2e 134 PASS (15 suite); test 1–12 đủ (gateway.e2e, gateway-upstream-failure.e2e, gateway-rate-limit.e2e)
+- T1.2 chuyển sang đã merge; việc còn dở (test:infra, README gateway) ghi ở `current-task.md` và `tech-debt.md` #2
+- Đọc `PHASE-1.md#T1.3`, `docker-compose.yml`, `.env.example` gốc, Dockerfile gateway/identity, `RE_Docker_Local_Guide.md`, `_template-nest/README.md §4, §6`
 
 ## Còn lại
-- User duyệt kết quả test 1–12
-- Bước 7: `code-walkthrough` → `guides/RE_Gateway_Code_Walkthrough.md` + dòng ở `project-knowledge/CLAUDE.md §2.5`; `code-review` 5 chiều
-- Commit code gateway (đề xuất ở báo cáo); `.env.example` gốc + compose cho biến gateway (T1.3)
-- Trước khi mở PR: test:infra (user tự chạy), duyệt schema viewing, PR vào `develop`
+- `reuse-scan` + kế hoạch chi tiết, trình user duyệt
+- `.env.example` gốc + compose profile `apps`
+- Build, chạy lệnh kiểm chứng, so `X-Request-ID`
+- Cập nhật `RE_Docker_Local_Guide.md`, `code-review`, PR vào `develop`
 
 ## Blockers
-_không có_
+_không có_ (lưu ý: `progress.md` chung chưa tick T1.2, xem `current-task.md`)

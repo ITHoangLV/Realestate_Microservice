@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 (T1.3: profile `apps`) |
 
 ## 1. Yêu cầu
 
@@ -33,10 +33,32 @@ pnpm contracts:check
 |---|---|---|
 | `dev` | Postgres, Redis, RabbitMQ, S3 | `pnpm infra:up` |
 | `demo` | `dev` + Elasticsearch, Kibana (`http://127.0.0.1:5601`) | `pnpm infra:demo` |
-| `apps` | Các service ứng dụng | Thêm `--profile apps` (T1.3) `[cần xác nhận]` có script `pnpm` riêng không |
+| `apps` | `identity`, `api-gateway` (thêm dần listing, rental, payment, notification) | Lệnh compose đầy đủ bên dưới; không có script `pnpm` riêng (chốt 2026-11-17) |
+
+### 3.1 Chạy profile `apps`
+
+Điều kiện trước khi `up` (làm một lần, hoặc khi đổi khóa/migration):
+
+1. `secrets/jwt-private.pem`, `secrets/jwt-public.pem` có sẵn (`pnpm keys:generate`). Compose mount qua `secrets:` tại `/run/secrets/jwt_private_key` (chỉ identity) và `/run/secrets/jwt_public_key` (identity, gateway). Thiếu file thì `up` báo lỗi.
+2. Hạ tầng đang chạy (`pnpm infra:up`) và migration đã chạy từ laptop: `pnpm --filter @realestate/identity migration:run` (service để `migrationsRun=false`).
 
 ```powershell
 docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev --profile apps up -d --build
+docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev --profile apps ps   # re-identity, re-api-gateway: healthy
+```
+
+- Chỉ `api-gateway` publish `127.0.0.1:8080`; identity không publish cổng, chỉ gọi được qua gateway.
+- Trong container, compose tự đặt `INTERNAL_*_URL` theo tên service (`http://identity:3001`…) và host hạ tầng (`postgres:5432`…); các biến `*_HOST`, `INTERNAL_*_URL`, `JWT_*_PATH` trong `.env` gốc chỉ dành cho tiến trình chạy trên laptop.
+- Gateway khởi động sau khi identity `healthy` (healthcheck của ảnh chạy mỗi 30 giây, nên lần đầu có thể chờ tới ~30 giây).
+- Gateway để `trust proxy=false`: mọi request ẩn danh từ laptop vào container mang IP của bridge, dùng chung một bộ đếm `RATE_LIMIT_IP` (100/60 giây). Đã chấp nhận (`RE.GATEWAY/Component_Class_Design.md §6`).
+
+Kiểm chứng nhanh (đi qua gateway, cùng `X-Request-ID` ở hai log):
+
+```powershell
+curl.exe -i http://localhost:8080/health
+curl.exe -i -X POST http://localhost:8080/api/v1/auth/register -H "Content-Type: application/json" -H "X-Request-ID: t13-trace-001" -d '{\"email\":\"t1@x.com\",\"password\":\"Matkhau@123\",\"fullName\":\"T1\",\"role\":\"TENANT\"}'
+docker compose --env-file .env -f infra/compose/docker-compose.yml --profile apps logs api-gateway identity | Select-String t13-trace-001
+curl.exe -i http://localhost:8080/internal/users/x    # 404 GATEWAY_ROUTE_NOT_FOUND
 ```
 
 ## 4. Cổng
@@ -71,9 +93,9 @@ Hạ tầng chỉ publish ra `127.0.0.1`.
 ## 7. Reset
 
 ```powershell
-pnpm infra:down                                       # giữ volume
+pnpm infra:down                                       # giữ volume; dừng cả profile demo và apps
 docker volume rm realestate_postgres_data             # chạy lại script init DB (mất dữ liệu)
-docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo down -v   # xóa mọi volume
+docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo --profile apps down -v   # xóa mọi volume
 ```
 
 Áp lại topology RabbitMQ: `docker start -a re-rabbitmq-init`. Đổi tham số queue đã có → xóa queue hoặc volume `realestate_rabbitmq_data`.
@@ -88,6 +110,9 @@ Build từ gốc repo: `docker build -f services/<service>/Dockerfile -t realest
 |---|---|
 | Service thoát ngay | Log in danh sách biến thiếu (`env.validation.ts`) |
 | `503 AUTH_NOT_CONFIGURED` | Thiếu `JWT_PUBLIC_KEY_PATH` |
+| `up` profile `apps` báo thiếu file secret | Chưa chạy `pnpm keys:generate` |
+| Gateway trả `503 UPSTREAM_UNAVAILABLE` | Service đích chưa chạy hoặc chưa `healthy` (`docker compose ... ps`) |
+| Đăng ký lỗi 500 ngay sau `up` | Chưa chạy `migration:run` của identity |
 | `DEPENDENCY_UNAVAILABLE` | `pnpm infra:check`; trên laptop dùng cổng 5433 |
 | Consumer không nhận | Queue có binding chưa (`definitions.json`), `RABBITMQ_URL` có `%2F` |
 | Presigned URL không mở được | `S3_PUBLIC_ENDPOINT` |

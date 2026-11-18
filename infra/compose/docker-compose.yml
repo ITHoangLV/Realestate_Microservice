@@ -3,10 +3,13 @@
 # Chay tu thu muc goc repo (de doc .env goc):
 #   docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev up -d
 #   docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo up -d
+#   docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev --profile apps up -d --build
 #
 # Profile:
 #   dev  : postgres, redis, rabbitmq (+ rabbitmq-init chay mot lan), s3 (Silo)
 #   demo : dev + elasticsearch + kibana (de do RAM; ELK day du o GD10)
+#   apps : cac service ung dung (identity, api-gateway). Luon chay KEM dev hoac demo.
+#          Truoc khi up: pnpm keys:generate (secrets/jwt-*.pem) va migration cua tung service.
 #
 # Chon image: ghim phien ban cu the, khong dung "latest" de ket qua tai lap duoc.
 # Cong chi bind 127.0.0.1 de khong lo ra mang LAN.
@@ -215,6 +218,88 @@ services:
       start_period: 60s
     networks: [realestate-net]
 
+  # ---------------------------------------------------------------------------
+  # Profile apps: service ung dung, build tu Dockerfile cua tung service (context = goc repo).
+  # - Chi api-gateway publish cong ra host (127.0.0.1:8080). Service con lai KHONG publish:
+  #   client chi vao qua gateway, /internal/* khong goi duoc tu ngoai.
+  # - Trong Docker dung ten service lam host (postgres:5432, identity:3001...), KHONG dung
+  #   cac bien *_HOST, INTERNAL_*_URL cua .env goc (cac bien do danh cho tien trinh tren laptop).
+  # - Khoa JWT dua vao bang `secrets:` (mount tai /run/secrets/<ten>, chi doc).
+  #   identity nhan ca khoa rieng (ky token) lan khoa cong khai (kiem /me);
+  #   api-gateway chi nhan khoa cong khai.
+  # - Migration KHONG tu chay (migrationsRun=false): chay tu host truoc khi up, vi du
+  #   pnpm --filter @realestate/identity migration:run
+  # ---------------------------------------------------------------------------
+
+  # identity-service: dang ky, dang nhap, phat hanh JWT RS256. Publish event qua outbox -> RabbitMQ.
+  identity:
+    <<: *restart
+    build:
+      context: ../..
+      dockerfile: services/identity/Dockerfile
+    container_name: re-identity
+    profiles: [apps]
+    environment:
+      SERVICE_NAME: identity
+      PORT: '3001'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      HTTP_TIMEOUT_MS: ${HTTP_TIMEOUT_MS:-3000}
+      DATABASE_URL: postgres://${IDENTITY_DB_USER:?thieu IDENTITY_DB_USER}:${IDENTITY_DB_PASSWORD:?thieu IDENTITY_DB_PASSWORD}@postgres:5432/${IDENTITY_DB_NAME:?thieu IDENTITY_DB_NAME}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?thieu REDIS_PASSWORD}@redis:6379
+      # vhost "/" phai viet %2F
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:?thieu RABBITMQ_USER}:${RABBITMQ_PASSWORD:?thieu RABBITMQ_PASSWORD}@rabbitmq:5672/%2F
+      RABBITMQ_EXCHANGE: ${RABBITMQ_EXCHANGE:-domain.events}
+      JWT_PRIVATE_KEY_PATH: /run/secrets/jwt_private_key
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
+      JWT_ISSUER: ${JWT_ISSUER:?thieu JWT_ISSUER}
+      JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-900}
+      JWT_REFRESH_TTL_SECONDS: ${JWT_REFRESH_TTL_SECONDS:-604800}
+    secrets: [jwt_private_key, jwt_public_key]
+    # Khong co `ports:`: chi goi duoc trong mang realestate-net (qua api-gateway)
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      rabbitmq-init:
+        condition: service_completed_successfully
+    networks: [realestate-net]
+
+  # api-gateway: diem vao duy nhat cho client. Khong dung DB, Redis, RabbitMQ, S3.
+  api-gateway:
+    <<: *restart
+    build:
+      context: ../..
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: re-api-gateway
+    profiles: [apps]
+    environment:
+      SERVICE_NAME: api-gateway
+      PORT: '8080'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
+      JWT_ISSUER: ${JWT_ISSUER:?thieu JWT_ISSUER}
+      # Dia chi service dich trong mang Docker (ten service). Service chua co -> gateway tra 503.
+      INTERNAL_IDENTITY_URL: http://identity:3001
+      INTERNAL_LISTING_URL: http://listing:3002
+      INTERNAL_RENTAL_URL: http://rental:3003
+      INTERNAL_PAYMENT_URL: http://payment:3004
+      INTERNAL_NOTIFICATION_URL: http://notification:3005
+      GATEWAY_PROXY_TIMEOUT_MS: ${GATEWAY_PROXY_TIMEOUT_MS:-10000}
+      RATE_LIMIT_TTL_SECONDS: ${RATE_LIMIT_TTL_SECONDS:-60}
+      RATE_LIMIT_IP: ${RATE_LIMIT_IP:-100}
+      RATE_LIMIT_USER: ${RATE_LIMIT_USER:-300}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    secrets: [jwt_public_key]
+    ports:
+      - '127.0.0.1:${GATEWAY_PORT:-8080}:8080'
+    depends_on:
+      identity:
+        condition: service_healthy
+    networks: [realestate-net]
+
 networks:
   realestate-net:
     name: realestate-net
@@ -225,3 +310,11 @@ volumes:
   rabbitmq_data:
   s3_data:
   es_data:
+
+# Khoa JWT RS256 sinh bang `pnpm keys:generate` (khong commit, xem .gitignore).
+# Thieu file thi `up` profile apps bao loi thay vi tao thu muc rong nhu bind mount.
+secrets:
+  jwt_private_key:
+    file: ../../secrets/jwt-private.pem
+  jwt_public_key:
+    file: ../../secrets/jwt-public.pem
