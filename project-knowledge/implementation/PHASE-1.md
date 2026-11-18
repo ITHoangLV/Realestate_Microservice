@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 **Mục tiêu:** client gọi được identity qua gateway; CI chạy trên mọi PR.
 
@@ -16,7 +16,7 @@
 
 | | |
 |---|---|
-| **Người làm** | B |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: B) |
 | **Thời lượng** | ~5 giờ (ước 2026-11-16) |
 | **Hạn** | S2 — 2026-11-20 (dời từ M0) |
 | **Mã WBS** | E1-1 |

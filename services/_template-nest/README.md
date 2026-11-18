@@ -114,6 +114,7 @@ service vẫn chỉ trả dữ liệu thuần. Lỗi do `AllExceptionsFilter` d�
 - Swagger: dùng `@ApiEnvelope(Dto)` hoặc `@ApiEnvelope(Dto, { isArray: true, status: HttpStatus.CREATED })` thay cho
   `@ApiOkResponse({ type })`; lỗi dùng `ErrorResponseDto` như cũ.
 - `InternalHttpService` gọi service khác tự lấy `data` khi thành công và đọc `error` khi lỗi, nên code gọi vẫn nhận DTO thuần.
+  Lỗi hạ tầng `503/504` kèm `details.outcome`: `NOT_EXECUTED` khi chưa gửi được request (`ECONNREFUSED`, `ENOTFOUND`), còn lại `UNKNOWN` (có thể đã chạy ở đích), để saga biết có cần đối soát.
 - Idempotency: kết quả lưu là dữ liệu thuần; replay vẫn được bọc với `meta` của request mới.
 
 ### Lỗi: cách ném và mã lỗi
@@ -156,7 +157,7 @@ test/                       # test e2e + helper (createTestApp, upstream giả, 
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `errors/`      | `AppException` (ném lỗi chuẩn), `error-codes.ts` (mã dùng chung), `AllExceptionsFilter` (đưa MỌI lỗi về một format, giấu stack ở 5xx, đổi lỗi kết nối DB/Redis thành 503/504), `createValidationPipe` (lỗi DTO kèm `details` theo từng trường). |
 | `logging/`     | `logger.module.ts` (pino, JSON, ẩn `authorization`/`cookie`/`password`...), `correlation-id.middleware.ts` (X-Request-ID, `getCorrelationId()` dùng ở mọi nơi), `access-log.middleware.ts` (một dòng log mỗi request).                          |
-| `auth/`        | `JwtAuthGuard` (mặc định mọi route cần JWT), `RolesGuard`, `@Public()`, `@Roles('ADMIN',...)`, `@CurrentUser()`, `jwt.config.ts` (chọn khóa).                                                                                                   |
+| `auth/`        | `JwtAuthGuard` (mặc định mọi route cần JWT), `JwtTokenVerifier` (kiểm chữ ký, hạn, `iss`, claims; guard riêng của service gọi lại được), `RolesGuard`, `@Public()`, `@Roles('ADMIN',...)`, `@CurrentUser()`, `jwt.config.ts` (chọn khóa).       |
 | `idempotency/` | `@Idempotent()` + interceptor: chống xử lý trùng cho thao tác ghi quan trọng (đặc biệt tiền). Cần Redis.                                                                                                                                        |
 | `http/`        | `InternalHttpService`: gọi service khác với timeout, retry an toàn, truyền `X-Request-ID`, đổi lỗi thành `AppException`.                                                                                                                        |
 | `lifecycle/`   | `ShutdownLoggerService`: ghi log trình tự tắt gọn khi nhận SIGTERM.                                                                                                                                                                             |
@@ -279,7 +280,7 @@ Validate khi khởi động (`src/config/env.validation.ts`): thiếu biến b�
 | `NODE_ENV`                | `development`   | `development` \| `test` \| `production`                                                                            |
 | `PORT`                    | `3000`          | Cổng HTTP.                                                                                                         |
 | `LOG_LEVEL`, `LOG_PRETTY` | `info`, `false` | Mức log; `LOG_PRETTY=true` bật pino-pretty (chỉ dev).                                                              |
-| `HTTP_TIMEOUT_MS`         | `3000`          | Timeout gọi service khác. **Lưu ý:** `.env` gốc repo ghi `5000`; template dùng 3000 theo quy ước service.          |
+| `HTTP_TIMEOUT_MS`         | `3000`          | Timeout gọi service khác. `.env.example` gốc repo cũng `3000` (A2).                                                |
 | `HTTP_MAX_RETRIES`        | `2`             | Số lần thử lại tối đa (chỉ GET/lệnh idempotent).                                                                   |
 | `SWAGGER_ENABLED`         | `true`          | Bật `/api/docs`. Ảnh Docker mặc định `false`.                                                                      |
 | `IDEMPOTENCY_TTL_SECONDS` | `86400`         | Thời gian lưu kết quả `Idempotency-Key`.                                                                           |
@@ -292,6 +293,7 @@ Validate khi khởi động (`src/config/env.validation.ts`): thiếu biến b�
 | `RABBITMQ_MAX_RETRIES`    | `3`             | Số lần thử lại khi handler lỗi, sau đó message vào `<queue>.dlq`.                                                  |
 | `OUTBOX_POLL_INTERVAL_MS` | `1000`          | Chu kỳ quét outbox để publish.                                                                                     |
 | `OUTBOX_BATCH_SIZE`       | `50`            | Số event tối đa mỗi lần quét.                                                                                      |
+| `OUTBOX_RELAY_ENABLED`    | `true`          | `false`: event vẫn ghi vào outbox nhưng relay không tự gửi (dùng khi test).                                        |
 | `S3_ENDPOINT`             | tắt             | Bật StorageModule + health `s3`. Bắt buộc kèm `S3_ACCESS_KEY`, `S3_SECRET_KEY`. Laptop: `http://localhost:9000`.   |
 | `S3_PUBLIC_ENDPOINT`      | = `S3_ENDPOINT` | Host ghi vào presigned URL. Service chạy trong Docker (`http://s3:9000`) thì đặt `http://localhost:9000`.          |
 | `S3_BUCKETS`              | trống           | Bucket tự tạo lúc khởi động, cách nhau dấu phẩy, ví dụ `listing-images`.                                           |

@@ -22,12 +22,7 @@
     "payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "viewingId",
-        "listingId",
-        "tenantId",
-        "ownerId"
-      ],
+      "required": ["viewingId", "listingId", "tenantId", "ownerId"],
       "properties": {
         "viewingId": {
           "type": "string",

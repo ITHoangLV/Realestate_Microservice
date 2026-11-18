@@ -64,8 +64,19 @@ describe('validateEnv', () => {
       RABBITMQ_MAX_RETRIES: 3,
       OUTBOX_POLL_INTERVAL_MS: 1000,
       OUTBOX_BATCH_SIZE: 50,
+      OUTBOX_RELAY_ENABLED: true,
     });
     expect(env.RABBITMQ_QUEUE).toBeUndefined();
+  });
+
+  it('OUTBOX_RELAY_ENABLED mặc định true, đặt false để chỉ ghi outbox (C18)', () => {
+    expect(validateEnv({ SERVICE_NAME: 'x' }).OUTBOX_RELAY_ENABLED).toBe(true);
+    expect(validateEnv({ SERVICE_NAME: 'x', OUTBOX_RELAY_ENABLED: 'false' })).toMatchObject({
+      OUTBOX_RELAY_ENABLED: false,
+    });
+    expect(() => validateEnv({ SERVICE_NAME: 'x', OUTBOX_RELAY_ENABLED: 'có' })).toThrow(
+      /OUTBOX_RELAY_ENABLED/,
+    );
   });
 
   it('S3_ENDPOINT bắt buộc kèm khóa; S3_BUCKETS tách thành mảng và kiểm tra tên', () => {

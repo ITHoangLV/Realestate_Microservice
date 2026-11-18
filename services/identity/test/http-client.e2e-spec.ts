@@ -131,4 +131,45 @@ describe('InternalHttpService (HTTP client gọi service khác)', () => {
       expect(JSON.stringify(res.body)).not.toContain('127.0.0.1');
     });
   });
+
+  // C14 (RE.SERVICE_TEMPLATE/API_Spec.md §3): người gọi (saga) cần biết lệnh đã gửi tới đích hay chưa
+  describe('details.outcome (C14)', () => {
+    it('ECONNREFUSED: chưa gửi được request -> NOT_EXECUTED', async () => {
+      const res = await t.http().post('/api/v1/test-http/refused-post').send({ a: 1 });
+      expect(res.status).toBe(503);
+      expect(res.body.error.code).toBe('UPSTREAM_UNAVAILABLE');
+      expect(res.body.error.details).toEqual({ outcome: 'NOT_EXECUTED' });
+    });
+
+    it('timeout: request có thể đã tới đích -> 504 UNKNOWN', async () => {
+      const res = await t.http().get('/api/v1/test-http/timeout');
+      expect(res.status).toBe(504);
+      expect(res.body.error.details).toEqual({ outcome: 'UNKNOWN' });
+    });
+
+    it('đích trả 503 -> UNKNOWN (đích đã nhận request)', async () => {
+      const res = await t.http().get('/api/v1/test-http/get?path=/always503');
+      expect(res.status).toBe(503);
+      expect(res.body.error.details).toEqual({ outcome: 'UNKNOWN' });
+    });
+
+    it('đích trả 504 -> 504 UNKNOWN', async () => {
+      const res = await t.http().get('/api/v1/test-http/get?path=/always504');
+      expect(res.status).toBe(504);
+      expect(res.body.error.details).toEqual({ outcome: 'UNKNOWN' });
+    });
+
+    it('đích trả 500 -> 503 UNKNOWN', async () => {
+      const res = await t.http().get('/api/v1/test-http/get?path=/always500');
+      expect(res.status).toBe(503);
+      expect(res.body.error.details).toEqual({ outcome: 'UNKNOWN' });
+    });
+
+    it('4xx của đích giữ nguyên details của đích, không chèn outcome', async () => {
+      const conflict = await t.http().get('/api/v1/test-http/get?path=/conflict');
+      expect(conflict.body.error.details).toEqual({ depositId: 'd-1' });
+      const plain = await t.http().get('/api/v1/test-http/get?path=/plain404');
+      expect(plain.body.error).not.toHaveProperty('details');
+    });
+  });
 });

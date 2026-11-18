@@ -7,7 +7,7 @@
 | **Quy tắc** | Không có `BR-xx`; hiện thực NFR02, NFR03, NFR06 |
 | **Quyết định** | ADR-0011, ADR-0013, ADR-0014 |
 | **CSDL** | Tùy chọn: bật khi có `DATABASE_URL` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.2 |
 
 > Mô tả hợp đồng mà template **đã có trong code**. Nguồn: `services/_template-nest/README.md`. Mọi service kế thừa nguyên các hợp đồng này.
 
@@ -61,7 +61,7 @@ delete<T>(url, options?): Promise<T>
 | Điều kiện thử lại | Timeout, mất kết nối, upstream `502/503/504`; tối đa `HTTP_MAX_RETRIES` lần, backoff 100 × 2ⁿ ms |
 | Thành công | Trả `data` của envelope |
 | Upstream `4xx` | Ném `AppException` giữ nguyên status và `error.code` |
-| Hết lượt | `503 UPSTREAM_UNAVAILABLE` hoặc `504 UPSTREAM_TIMEOUT`; `details.outcome = 'NOT_EXECUTED'` chỉ khi chưa gửi được request (`ECONNREFUSED`, `ENOTFOUND`), còn lại `'UNKNOWN'` (C14, chốt 2026-11-16) |
+| Hết lượt | `503 UPSTREAM_UNAVAILABLE` hoặc `504 UPSTREAM_TIMEOUT`; `details.outcome = 'NOT_EXECUTED'` chỉ khi **mọi lần thử** đều lỗi trước khi gửi được request (`ECONNREFUSED`, `ENOTFOUND`); có bất kỳ lần nào timeout, mất kết nối giữa chừng hoặc đích trả `5xx` thì `'UNKNOWN'`, dù lần cuối là `ECONNREFUSED` (C14, chốt 2026-11-16; làm rõ v1.2) |
 
 ## 4. Decorator
 

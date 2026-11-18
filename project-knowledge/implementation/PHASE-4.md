@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 **Mục tiêu:** mọi sự kiện đi qua outbox → RabbitMQ → consumer chống trùng; thông báo và nhắn tin chạy.
 
@@ -16,7 +16,7 @@
 
 | | |
 |---|---|
-| **Người làm** | C (chuyển từ A 2026-11-16; A duyệt `definitions.json`) |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: C (chuyển từ A 2026-11-16; A duyệt `definitions.json`)) |
 | **Thời lượng** | ~3 giờ (ước 2026-11-16) |
 | **Hạn** | M2 — 2026-12-04 |
 | **Đọc trước** | `design/SHARED/RE.MESSAGING/` |

@@ -1,0 +1,24 @@
+---
+dev: luuviethoang2005
+updated: 2026-11-16
+---
+
+## Nhật ký quyết định trong phiên
+
+> Quyết định kỹ thuật **nhẹ** khi code: chọn cách A thay B, đặt tên, đánh đổi nhỏ.
+> Khác ADR ở `project-knowledge/decisions/` (quyết định kiến trúc, cấp dự án). Quyết định ảnh hưởng cả nhóm → nâng thành ADR.
+
+| Ngày | Quyết định | Lý do | Phương án đã loại |
+|---|---|---|---|
+| 2026-11-16 | `http-proxy-middleware@3.0.11` (`--save-exact`) | Bản 3.x là CommonJS, khớp NestJS 11 CommonJS và Jest. 3.0.11 (ra 2026-11-15) sửa xử lý lỗi socket khi nâng cấp WebSocket (`guardUpgradeSocket`, `socket.destroy()` sau lỗi proxy), liên quan trực tiếp tới `/ws` và test 12. Đã kiểm: `guardUpgradeSocket` có trong `dist/`, `type: commonjs`, `require()` chạy được | 4.2.2: ESM-only (`"type": "module"`, không có điều kiện `require`), cùng loại rủi ro với NestJS 12 và `amqp-connection-manager` 5.0.1 trong `gotchas.md`. 3.0.10: chưa có bản sửa socket upgrade |
+| 2026-11-16 | `@nestjs/throttler@6.7.1` (`--save-exact`) | Phát hành 2026-09-24, đã qua nhiều tuần; hỗ trợ Nest 11 | 6.8.0: mới ra 2026-11-16, chưa có thời gian kiểm chứng |
+| 2026-11-16 | `.prettierignore` thêm `.claude/**/*.md`, `CLAUDE.md` | `.claude/state/` là nháp riêng từng dev; tài liệu hướng dẫn không format hàng loạt. Code trong các thư mục đó vẫn được kiểm | Format hàng loạt: sinh diff lớn không thuộc task |
+| 2026-11-16 | Giữ 4 schema `rental.viewing-*` đã format | Parse JSON giống hệt (kể cả thứ tự khóa), chỉ khác xuống dòng; không đổi hợp đồng | Revert và ignore `contracts/events/*.schema.json` |
+| 2026-11-16 | `trust proxy = false` cho gateway | Không tin `X-Forwarded-For`, không thêm biến môi trường; chấp nhận request qua đường hầm/bridge Docker dùng chung bộ đếm IP (`RE.GATEWAY/Component_Class_Design.md §6`) | Tin `X-Forwarded-For` (client giả được IP) |
+| 2026-11-16 | `INTERNAL_*_URL` có mặc định `http://<service>:<cổng>` trong `env.validation.ts` (không bắt buộc) | Khớp `RE.GATEWAY/API_Spec.md §5` ("Mặc định dev") và giữ nguyên các test env kế thừa từ template (gọi `validateEnv({ SERVICE_NAME })`); trong Docker dùng được ngay, trên laptop đặt localhost qua `.env` | Biến bắt buộc: làm vỡ test template, và buộc đặt cả 5 biến để chạy thử |
+| 2026-11-16 | Catch-all `GatewayController` nằm dưới prefix `/api/v1`, thêm `RouteNotFoundFilter` cho đường dẫn ngoài prefix | `setGlobalPrefix.exclude` chỉ loại theo mẫu đường dẫn: loại `{*path}` gỡ prefix của mọi controller (kể cả health và controller test kế thừa). Mọi route trong bảng đều có `/api/v1/`; `/ws` là upgrade. Đã ghi `RE.GATEWAY` v1.3 | Loại `{*path}` khỏi prefix; bỏ prefix toàn cục |
+| 2026-11-16 | `RouteResolver` fail-closed với đường dẫn lạ (`..`, `.`, đoạn rỗng, `%2e`, `%2f`, `%5c`, `\`): không bao giờ khớp → 404 | Chặn né mức truy cập bằng cách viết lại đường dẫn (ví dụ `/api/v1/listings/%2e%2e/admin/...`). Không thêm mã lỗi mới | Decode rồi chuẩn hóa đường dẫn (rủi ro lệch với cách service đích hiểu đường dẫn) |
+| 2026-11-16 | HEAD khớp như GET trong `RouteResolver` | Express coi HEAD là GET; nếu không, `HEAD /api/v1/listings` rơi xuống dòng landlord, sai mức | HEAD không khớp dòng nào (404) |
+| 2026-11-16 | `ProxyMiddleware` tự cắt thời gian chờ đích bằng `proxyReq.setTimeout` + `WeakSet`, và dùng `on.error` riêng | `proxyTimeout` của thư viện làm `socket hang up` (ECONNRESET) không phân biệt được với đích tắt → sai 503/504; plugin lỗi mặc định ghi `host` + URL vào body (lộ địa chỉ nội bộ) | `proxyTimeout` + phân loại theo `err.code`; plugin lỗi mặc định |
+| 2026-11-16 | `ProxyMiddleware.upgrade` chỉ nhận `/ws` (còn lại đóng socket) | Upgrade không qua `AccessGuard`; nếu cho nâng cấp bất kỳ đường dẫn nào thì vòng qua được kiểm quyền mức tuyến. Test: upgrade tới `/api/v1/admin/users`, `/internal/x` bị từ chối | Cho mọi đường dẫn có route; bật `ws: true` tự đăng ký |
+| 2026-11-16 | CORS: `credentials` tắt; allowed headers `Authorization, Content-Type, Idempotency-Key, X-Request-ID`; expose `X-Request-ID`; `maxAge` 600 | Token gửi bằng header (không cookie); trình duyệt cần gửi `Idempotency-Key` cho thao tác tiền và đọc `X-Request-ID` để báo lỗi. Design chỉ ghi `CORS_ORIGINS`, phần còn lại là chi tiết cài đặt | Bật credentials; mở mọi header |

@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Chức năng** | Đăng ký và xác minh OTP, đăng nhập (mật khẩu, Google), quên mật khẩu, làm mới, đăng xuất, đổi vai trò, khóa tài khoản, cung cấp tài khoản nhận tiền |
+| **Chức năng** | Đăng ký và xác minh OTP, đăng nhập (mật khẩu, Google), quên mật khẩu, làm mới, đăng xuất, khóa tài khoản, cung cấp tài khoản nhận tiền |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, `services/identity/README.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v2.0 |
 
 ## 1. Đăng ký
 
@@ -51,10 +51,9 @@ sequenceDiagram
 
 Redis dừng: đăng nhập, làm mới `503`; service khác vẫn kiểm access token còn hạn bằng khóa công khai.
 
-## 3. Đổi vai trò
+## 3. ~~Đổi vai trò~~ — bỏ 2026-11-18
 
-1. `UPDATE users SET role WHERE id`; 0 dòng → `404`.
-2. Sau commit: thu hồi mọi họ refresh token của người đó. Redis lỗi → `503 DEPENDENCY_UNAVAILABLE` (vai trò đã đổi trong DB; quản trị viên gọi lại để thu hồi), giống luồng khóa tài khoản. Chốt 2026-11-16.
+Vai trò cố định từ lúc tạo tài khoản. Muốn vai trò khác thì đăng ký tài khoản mới bằng email khác (`API_Spec.md §1`).
 
 ## 3a. Xác minh email OTP
 
@@ -121,4 +120,4 @@ Google không phản hồi khi tải JWKS: `503 DEPENDENCY_UNAVAILABLE`; khóa J
 
 ## 5. Đã chốt 2026-11-16
 
-1. Thu hồi phiên lỗi sau đổi vai trò → `503`, gọi lại để thu hồi (§3).
+1. ~~Thu hồi phiên lỗi sau đổi vai trò → `503`, gọi lại để thu hồi (§3).~~ Hết hiệu lực 2026-11-18 (bỏ đổi vai trò); khóa tài khoản vẫn theo `API_Spec.md §1.9`.

@@ -19,7 +19,7 @@
     "infra:up": "docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev up -d",
     "infra:demo": "docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo up -d",
     "infra:check": "powershell -NoProfile -ExecutionPolicy Bypass -File infra/scripts/check-infra.ps1",
-    "infra:down": "docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo down",
+    "infra:down": "docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo --profile apps down",
     "infra:logs": "docker compose --env-file .env -f infra/compose/docker-compose.yml --profile demo logs -f --tail=100"
   },
   "devDependencies": {

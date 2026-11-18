@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 **Mục tiêu:** đặt cọc, hết hạn, tiền đến muộn, bàn giao, giải ngân, hoàn, rút chạy được với payOS thử nghiệm.
 
@@ -18,7 +18,7 @@
 
 | | |
 |---|---|
-| **Người làm** | C |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: C) |
 | **Thời lượng** | ~10 giờ (ước 2026-11-16) |
 | **Hạn** | M2 — 2026-12-04 (dời) |
 | **Mã WBS** | E5-1 |
@@ -45,7 +45,7 @@ pnpm --filter @realestate/payment test
 
 | | |
 |---|---|
-| **Người làm** | C |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: C) |
 | **Thời lượng** | ~16 giờ (ước 2026-11-16) |
 | **Hạn** | M2 — 2026-12-04 (dời); luồng thành công chạy được trước 2026-11-27 |
 | **Mã WBS** | E4-1, E4-2, E4-4a |
@@ -74,7 +74,7 @@ docker exec -it re-postgres psql -U rental_user -d rental_db -c "select status, 
 
 | | |
 |---|---|
-| **Người làm** | C |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: C) |
 | **Thời lượng** | ~10 giờ (ước 2026-11-16) |
 | **Hạn** | M2 — 2026-12-04 (dời) |
 | **Đọc trước** | `RE.DEPOSIT_SAGA/Processing_Flow.md §3`, `Component_Class_Design.md §5, §7` |
@@ -100,7 +100,7 @@ docker compose ... start payment
 
 | | |
 |---|---|
-| **Người làm** | C |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: C) |
 | **Thời lượng** | ~10 giờ (ước 2026-11-16) |
 | **Hạn** | M2 — 2026-12-04 (dời) |
 | **Mã WBS** | E4-5, E4-4b |
@@ -123,7 +123,7 @@ docker compose ... start payment
 
 | | |
 |---|---|
-| **Người làm** | B (chuyển từ C 2026-11-16; C review PR) |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: B (chuyển từ C 2026-11-16; C review PR)) |
 | **Thời lượng** | ~10 giờ (ước 2026-11-16) |
 | **Hạn** | M2 — 2026-12-04 (dời) |
 | **Mã WBS** | E4-3, E4-6 |
@@ -142,7 +142,7 @@ docker compose ... start payment
 
 | | |
 |---|---|
-| **Người làm** | C |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: C) |
 | **Thời lượng** | ~14 giờ (ước 2026-11-16) |
 | **Hạn** | M3 — 2026-12-09 (dời) |
 | **Mã WBS** | E5-3, E5-4, E5-5 |

@@ -24,6 +24,7 @@ interface PendingRow {
 export class OutboxRelay implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly intervalMs: number;
   private readonly batchSize: number;
+  private readonly enabled: boolean;
   private timer?: NodeJS.Timeout;
   private running?: Promise<unknown>;
   private stopped = false;
@@ -37,10 +38,12 @@ export class OutboxRelay implements OnApplicationBootstrap, OnModuleDestroy {
     this.logger.setContext(OutboxRelay.name);
     this.intervalMs = config.get('OUTBOX_POLL_INTERVAL_MS', { infer: true });
     this.batchSize = config.get('OUTBOX_BATCH_SIZE', { infer: true });
+    this.enabled = config.get('OUTBOX_RELAY_ENABLED', { infer: true });
   }
 
   onApplicationBootstrap(): void {
-    this.schedule();
+    // OUTBOX_RELAY_ENABLED=false: event vẫn được GHI vào outbox nhưng không tự gửi (dùng cho test)
+    if (this.enabled) this.schedule();
   }
 
   /** Dừng quét và chờ lô đang gửi xong. Chạy ở onModuleDestroy, trước khi đóng DB và RabbitMQ. */

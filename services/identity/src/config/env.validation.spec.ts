@@ -68,6 +68,16 @@ describe('validateEnv', () => {
     expect(env.RABBITMQ_QUEUE).toBeUndefined();
   });
 
+  it('OUTBOX_RELAY_ENABLED mặc định true, đặt false để chỉ ghi outbox (C18)', () => {
+    expect(validateEnv({ SERVICE_NAME: 'x' }).OUTBOX_RELAY_ENABLED).toBe(true);
+    expect(validateEnv({ SERVICE_NAME: 'x', OUTBOX_RELAY_ENABLED: 'false' })).toMatchObject({
+      OUTBOX_RELAY_ENABLED: false,
+    });
+    expect(() => validateEnv({ SERVICE_NAME: 'x', OUTBOX_RELAY_ENABLED: 'có' })).toThrow(
+      /OUTBOX_RELAY_ENABLED/,
+    );
+  });
+
   it('S3_ENDPOINT bắt buộc kèm khóa; S3_BUCKETS tách thành mảng và kiểm tra tên', () => {
     expect(() => validateEnv({ SERVICE_NAME: 'x', S3_ENDPOINT: 'http://localhost:9000' })).toThrow(
       /S3_ACCESS_KEY: THIẾU \(bắt buộc khi có S3_ENDPOINT\)/,

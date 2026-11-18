@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 **Mục tiêu:** báo cáo cuối kỳ, slide, demo tập dượt, video dự phòng.
 
@@ -16,7 +16,7 @@
 
 | | |
 |---|---|
-| **Người làm** | A tổng hợp; A (gateway, identity, notification), B (listing, vòng đời đơn, kiểm thử), C (rental saga, payment) |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: A tổng hợp; A (gateway, identity, notification), B (listing, vòng đời đơn, kiểm thử), C (rental saga, payment)) |
 | **Thời lượng** | ~16 giờ: A 6, B 4, C 6 (ước 2026-11-16) |
 | **Hạn** | **M4 — 2026-12-11** (nộp báo cáo, chốt 2026-11-16) |
 | **Mã WBS** | E8-4a, E8-4b, E8-4c, E7-6 |
@@ -46,7 +46,7 @@
 
 | | |
 |---|---|
-| **Người làm** | Cả nhóm |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: Cả nhóm) |
 | **Thời lượng** | ~3 giờ mỗi người (ước 2026-11-16) |
 | **Hạn** | M5 — 2026-12-18 |
 | **Mã WBS** | E8-2, E8-3, E8-5a–c |

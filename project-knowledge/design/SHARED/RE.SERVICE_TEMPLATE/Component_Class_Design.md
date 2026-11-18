@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/_template-nest/src/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/reliability-standard.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.2 |
 
 ## 1. Cấu trúc
 
@@ -18,7 +18,7 @@ src/
 ├─ common/
 │  ├─ errors/                 # AppException, error-codes.ts, AllExceptionsFilter, createValidationPipe
 │  ├─ logging/                # logger.module (pino), correlation-id.middleware, access-log.middleware
-│  ├─ auth/                   # JwtAuthGuard, RolesGuard, @Public, @Roles, @CurrentUser, jwt.config
+│  ├─ auth/                   # JwtAuthGuard, JwtTokenVerifier, RolesGuard, @Public, @Roles, @CurrentUser, jwt.config
 │  ├─ idempotency/            # @Idempotent, IdempotencyInterceptor, request-fingerprint
 │  ├─ http/                   # InternalHttpService, InternalHttpModule
 │  ├─ response/               # ResponseEnvelopeInterceptor, @RawResponse, @ApiEnvelope, Paginated
@@ -58,6 +58,9 @@ classDiagram
       +intercept(ctx, next)
     }
     class JwtAuthGuard
+    class JwtTokenVerifier {
+      +verify(token) AuthUser
+    }
     class RolesGuard
     class HealthRegistry {
       +register(name, check)
@@ -70,6 +73,8 @@ classDiagram
     }
     AllExceptionsFilter ..> AppException
     InternalHttpService ..> AppException
+    JwtAuthGuard --> JwtTokenVerifier
+    JwtTokenVerifier ..> AppException
     IdempotencyInterceptor --> RedisService
 ```
 
@@ -91,6 +96,7 @@ Làm theo `services/_template-nest/README.md §1` (PowerShell, robocopy). Việc
 
 - Sửa phần dùng chung → sửa ở `_template-nest` trước, rồi chép sang các service (không có package dùng chung, ADR-0014). PR do A duyệt.
 - Không thêm entity, mã lỗi nghiệp vụ, client tới service cụ thể vào template.
+- `JwtTokenVerifier` (v1.2): kiểm chữ ký, hạn, `iss` và claims (`sub`, `roles`, `exp`) của access token, ném `AppException` `AUTH_TOKEN_INVALID`/`AUTH_TOKEN_EXPIRED`. `JwtAuthGuard` gọi lại, hành vi giữ nguyên. Gateway dùng chung để không có bản kiểm token thứ hai (`RE.GATEWAY`).
 
 ## 5. Test bắt buộc
 
@@ -104,6 +110,6 @@ Làm theo `services/_template-nest/README.md §1` (PowerShell, robocopy). Việc
 | `test/http-client.e2e-spec.ts`, `http-client-defaults.e2e-spec.ts` | Retry, timeout, giữ nguyên `4xx`, truyền `X-Request-ID` |
 | `test/logging.e2e-spec.ts` | Log JSON có `correlationId` |
 | `test/health.e2e-spec.ts` | `200`/`503` theo phụ thuộc |
-| `test/auth.e2e-spec.ts` | Guard JWT, vai trò |
+| `test/auth.e2e-spec.ts` | Guard JWT, vai trò (chạy qua `JwtTokenVerifier`, kết quả không đổi) |
 | `test/messaging.infra-spec.ts` | Outbox, inbox, DLQ với RabbitMQ thật |
 | `test/storage.infra-spec.ts` | Tạo bucket, presign |
