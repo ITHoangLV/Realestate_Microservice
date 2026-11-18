@@ -112,7 +112,7 @@ Dừng giữa chừng: `/cf-handoff` lưu phiên, `/cf-resume` mở lại.
 - [ ] Không secret, không gọi `axios` trần, không truy cập DB service khác.
 - [ ] Biến môi trường mới có trong `.env.example` và `infra/compose/docker-compose.yml`.
 - [ ] Hợp đồng `contracts/` khớp code; người phụ trách bên gọi đã duyệt nếu đổi.
-- [ ] Một người khác đã duyệt PR, CI xanh.
+- [ ] CI xanh (check `ci`). Người khác duyệt khi A nhờ, không bắt buộc (chốt 2026-11-18).
 
 ## 5. Quản lý phụ thuộc giữa người với người
 

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 ## 1. OpenAPI công khai: sinh từ code
 
@@ -121,51 +121,17 @@ Chạy lại nhiều lần trên cùng database vẫn xanh: dùng `run_suffix`, 
 
 ## 6. CI
 
-`.github/workflows/ci.yml` (T1.1, T5.3):
+`.github/workflows/ci.yml` (T1.1, 2026-11-18). Chạy trên mọi PR vào `develop`/`main`, mọi push lên hai nhánh đó, và bấm tay (`workflow_dispatch`). Commit mới trên cùng nhánh hủy lần chạy cũ.
 
-```yaml
-name: CI
-on:
-  pull_request:
-  push:
-    branches: [develop, main]
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm format:check
-      - run: pnpm contracts:check
-      - run: pnpm build
-  test:
-    needs: check
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [template-nest, identity]   # thêm service khi có
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @realestate/${{ matrix.service }} test
-      - run: pnpm --filter @realestate/${{ matrix.service }} test:e2e
-  e2e:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: cp .env.example .env && node scripts/generate-jwt-keys.mjs
-      - run: docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev --profile apps up -d --build --wait
-      - run: npx newman run infra/postman/RealEstate.postman_collection.json -e infra/postman/local.postman_environment.json
-      - if: failure()
-        run: docker compose --env-file .env -f infra/compose/docker-compose.yml logs --tail=100
-```
+| Job | Làm gì |
+|---|---|
+| `check` | `pnpm install --frozen-lockfile` → `lint` → `format:check` → `contracts:check` → `build` |
+| `test (<service>)` | Ma trận `template-nest`, `identity`, `api-gateway` (`fail-fast: false`): `test` rồi `test:e2e` |
+| `ci` | Luôn chạy; đỏ nếu `check` hoặc một `test` không `success`. **Check bắt buộc duy nhất** ở bảo vệ nhánh |
 
-`test:infra` cần hạ tầng: thêm `services:` Postgres/Redis/RabbitMQ vào job hoặc chạy trong job `e2e` `[cần xác nhận]`.
+- Node lấy từ `.nvmrc`, pnpm từ `packageManager` của `package.json` gốc; cache store pnpm.
+- Thêm service mới (listing, rental, payment, notification): thêm tên vào `matrix.service`. Không phải sửa bảo vệ nhánh vì chỉ `ci` là bắt buộc.
+- Bảo vệ nhánh `develop`, `main` (Settings → Branches): bắt buộc PR (0 người duyệt), check `ci` xanh và nhánh cập nhật với base, chặn force push, chặn xóa (chốt 2026-11-18).
+- Chưa có trong CI, làm ở T5.3: `test:infra` (cần Postgres+PostGIS, Redis, RabbitMQ thật) và job e2e chạy compose profile `apps` + Newman.
+
+Đọc lỗi CI: mở tab Actions của PR → job đỏ → bước đỏ. Chạy lại đúng lệnh đó trên máy (ví dụ `pnpm --filter @realestate/identity test:e2e`).
