@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 ## 1. Lộ trình
 
@@ -63,7 +63,9 @@ Phase 2 (B) và Phase 3 (C) chạy song song: C bắt đầu bằng phần khôn
 
 ## 2. Phân công
 
-Theo Báo cáo v2 Phụ lục A.
+> **Chốt 2026-11-18 (A):** mọi task giao cho **A**. A tự quyết task nào giao lại cho ai và khi nào; người được giao chỉ sửa trong phạm vi task đó. Cột A/B/C ở §1, bảng tải §1 và bảng "Sở hữu" dưới đây là phân công cũ (đến 2026-11-17), chỉ để tham khảo. Cột "Người làm" trong `PHASE-x.md` ghi `A`, kèm người làm cũ trong ngoặc.
+
+Theo Báo cáo v2 Phụ lục A (phân công cũ, xem ghi chú trên).
 
 | Vai | Thành viên | Sở hữu | Vấn đáp về |
 |---|---|---|---|

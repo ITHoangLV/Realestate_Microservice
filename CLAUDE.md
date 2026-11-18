@@ -155,7 +155,7 @@ Nguồn chính của task là `project-knowledge/implementation/` (task, hạn t
 - **NEVER** để thiết kế, kế hoạch, Reuse Report chỉ nằm trong chat — phải ghi vào file.
 - **NEVER** điền số ước lượng vào báo cáo thí nghiệm.
 - **NEVER** `@import` tài liệu theo tình huống vào `project-knowledge/CLAUDE.md` — chỉ `@` file cần ở mọi phiên.
-- B và C: **NEVER** sửa ngoài phần sở hữu ở `implementation/README.md §2`.
+- Mọi task giao cho A (chốt 2026-11-18); người được A giao lại: **NEVER** sửa ngoài phạm vi task được giao (`implementation/README.md §2`).
 
 ### BEFORE / AFTER
 

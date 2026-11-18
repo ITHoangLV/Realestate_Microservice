@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 | **Phạm vi** | Toàn hệ thống |
 | **Nguồn** | Báo cáo giữa kỳ `Bao_cao_Real-estate_hoan_chinh_v2.docx` (Nhóm 5, 11-2026) — **nguồn chuẩn**. Khi tài liệu khác lệch (`nghiep-vu-dat-coc-payos.md`, `docs/architecture/service-boundaries.md`, `contracts/`, kế hoạch sprint xlsx) → ghi vào `implementation/van-de-can-quyet-dinh.md`, không tự sửa |
 | **Phiên bản** | v1.0 — 2026-11-10 |
@@ -42,7 +42,7 @@ Báo cáo v2 đặt 7 mã UC; các mã còn lại do nhóm đặt để truy v�
 |---|---|---|---|---|---|
 | UC-ACC-01 | Đăng ký và xác minh email OTP, đăng nhập (mật khẩu, Google), quên mật khẩu, làm mới phiên, đăng xuất | Khách, mọi vai trò | identity | FR01 | Đề xuất |
 | UC-ACC-02 | Khai tài khoản ngân hàng nhận tiền | Người thuê, chủ trọ | identity | FR01 | Đề xuất |
-| UC-ACC-03 | Đổi vai trò, khóa và mở khóa tài khoản | Quản trị viên | identity | FR08 | Đề xuất |
+| UC-ACC-03 | Khóa và mở khóa tài khoản (bỏ đổi vai trò 2026-11-18) | Quản trị viên | identity | FR08 | Đề xuất |
 | UC-LST-01 | Thêm, sửa, ẩn/hiện, xóa mềm sản phẩm; xem sản phẩm của tôi; tải ảnh | Chủ trọ | listing | FR02, US08 | Đề xuất |
 | UC-LST-02 | Duyệt sản phẩm | Quản trị viên | listing | FR02, FR08 | Đề xuất |
 | UC-LST-03 | Tìm kiếm, lọc, bán kính, xem chi tiết | Khách, người thuê | listing | FR03, US01 | Đề xuất |
@@ -91,7 +91,7 @@ Quy tắc phụ của identity (Bảng 2.6):
 | Quy tắc | Trạng thái trong code `services/identity` |
 |---|---|
 | OTP 6 số, hiệu lực 5 phút, sai 5 lần thì hủy, gửi lại sau 60 giây | Chưa có; làm theo `RE.IDENTITY §1.6` (B10) |
-| Khóa tài khoản hoặc đổi vai trò thì thu hồi refresh token | Chưa có; làm theo `RE.IDENTITY §1.5, §1.9` |
+| Khóa tài khoản thì thu hồi refresh token | Chưa có; làm theo `RE.IDENTITY §1.9` (đổi vai trò bỏ 2026-11-18) |
 | Đăng nhập mạng xã hội bắt buộc có email | Chưa có (đã có bảng `user_identities`); Google theo `RE.IDENTITY §1.8` |
 | Quên mật khẩu không tiết lộ email có tồn tại | Chưa có; theo `RE.IDENTITY §1.7` |
 | Tài khoản ngân hàng nhận tiền mã hóa khi lưu, chỉ hiển thị bốn số cuối | Chưa có |
@@ -163,6 +163,7 @@ stateDiagram-v2
 - Email thông báo nghiệp vụ (mở rộng X3). Email OTP và quên mật khẩu **trong phạm vi** (identity gửi qua SMTP, Mailpit khi dev).
 - Hồ sơ người thuê: cắt 2026-11-12, ghi hạn chế ở báo cáo cuối kỳ.
 - Một tài khoản nhiều vai trò: mỗi tài khoản một vai trò (B9).
+- Đổi vai trò của tài khoản đã có, kể cả quản trị viên đổi (bỏ 2026-11-18, lệch Báo cáo v2 FR08): vai trò cố định từ lúc tạo; muốn vai trò khác thì đăng ký bằng email khác.
 
 ## 8. Đã chốt 2026-11-16
 

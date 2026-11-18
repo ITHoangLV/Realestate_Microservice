@@ -6,7 +6,7 @@
 | **Service** | `identity` (cổng 3001) |
 | **Quy tắc** | BR-01, BR-02; quy tắc phụ Bảng 2.6 |
 | **CSDL** | `identity_db` / `identity_user`; Redis (refresh token, OTP, token đặt lại mật khẩu); SMTP (Mailpit khi dev) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v2.0 |
 
 ## 1. API công khai
 
@@ -20,7 +20,7 @@
 | 6 | `GET /api/v1/users/me/bank-account` | user | `200` `{ bankName, accountHolder, accountLast4 }` hoặc `404` | Chốt 2026-11-13 |
 | 7 | `PUT /api/v1/users/me/bank-account` | user | `200`; số tài khoản mã hóa khi lưu | Chốt 2026-11-13 |
 | 8 | `GET /api/v1/admin/users` | admin | `200` danh sách phân trang | Chốt 2026-11-13 |
-| 9 | `PATCH /api/v1/admin/users/:id/role` | admin | `200`; thu hồi refresh token của người đó | Chốt 2026-11-13 |
+| 9 | ~~`PATCH /api/v1/admin/users/:id/role`~~ | — | **Bỏ** (2026-11-18): vai trò cố định từ lúc tạo tài khoản | Bỏ 2026-11-18 |
 | 10 | `POST /api/v1/auth/verify-otp` | public | `200` cặp token; tài khoản `ACTIVE` | Chốt 2026-11-13 (B10) |
 | 11 | `POST /api/v1/auth/resend-otp` | public | `202` luôn (không lộ email) | Chốt 2026-11-13 (B10) |
 | 12 | `POST /api/v1/auth/forgot-password` | public | `202` luôn (Bảng 2.6: không lộ email có tồn tại) | Chốt 2026-11-13 (B10) |
@@ -29,7 +29,7 @@
 | 15 | `PATCH /api/v1/users/me` | user | `200`; sửa `fullName`, `phone` | Chốt 2026-11-13 (B9) |
 | 16 | `POST /api/v1/admin/users/:id/lock`, `POST /api/v1/admin/users/:id/unlock` | admin | `200` | Chốt 2026-11-13 (C2) |
 
-Mỗi tài khoản đúng một vai trò ở `users.role`; ai vừa thuê vừa cho thuê thì đăng ký thêm tài khoản bằng email khác (B9, 2026-11-12).
+Mỗi tài khoản đúng một vai trò ở `users.role`, **cố định từ lúc tạo** (đăng ký, Google, `seed:admin`); không có API nào đổi vai trò, kể cả quản trị viên. Muốn vai trò khác thì đăng ký tài khoản mới bằng email khác (B9 2026-11-12; bỏ đổi vai trò 2026-11-18).
 
 ### 1.1 `POST /auth/register`
 
@@ -77,14 +77,9 @@ Token không có, hết hạn, đã thu hồi, bị dùng lại → `401 IDENTIT
 
 Một người một tài khoản nhận tiền: `PUT` ghi đè bản cũ (chốt 2026-11-16). Response không bao giờ có số đầy đủ, chỉ `accountLast4`.
 
-### 1.5 `PATCH /admin/users/:id/role`
+### 1.5 ~~`PATCH /admin/users/:id/role`~~ — bỏ 2026-11-18
 
-| # | Điều kiện | Kết quả |
-|---|---|---|
-| 1 | `role` không thuộc `TENANT`, `LANDLORD`, `ADMIN` | `400 VALIDATION_FAILED` |
-| 2 | Người dùng không tồn tại | `404 IDENTITY_USER_NOT_FOUND` |
-| 3 | Hợp lệ | Đổi vai trò, thu hồi mọi họ refresh token của người đó → `200` |
-| 4 | Redis lỗi khi thu hồi (sau khi đã đổi vai trò) | `503 DEPENDENCY_UNAVAILABLE`; quản trị viên gọi lại để thu hồi (chốt 2026-11-16) |
+Không đổi vai trò của tài khoản đã có. Gọi đường dẫn này qua gateway khớp dòng `/api/v1/admin/users/*` nhưng identity không có route → `404` như mọi đường dẫn không tồn tại. Lý do và ảnh hưởng: `CHANGELOG.md` v2.0.
 
 ### 1.6 Xác minh email OTP (route 10, 11) — Bảng 2.6
 

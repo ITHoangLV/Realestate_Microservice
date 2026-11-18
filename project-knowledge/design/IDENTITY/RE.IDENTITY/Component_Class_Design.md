@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/identity/src/identity/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/security-policy.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v2.0 |
 
 ## 1. Cấu trúc
 
@@ -24,7 +24,7 @@ src/identity/
 │  ├─ password.service.ts                # argon2id
 │  ├─ token.service.ts                   # ký JWT RS256
 │  ├─ + bank-account.service.ts          # mã hóa/giải mã, che số
-│  ├─ + user-admin.service.ts            # đổi vai trò, khóa/mở khóa + thu hồi phiên
+│  ├─ + user-admin.service.ts            # danh sách, khóa/mở khóa + thu hồi phiên
 │  ├─ + email-verification.service.ts    # sinh, kiểm OTP (Redis)
 │  ├─ + password-reset.service.ts        # token đặt lại (Redis)
 │  ├─ + google-auth.service.ts           # kiểm ID token, tìm/tạo/liên kết user
@@ -90,7 +90,7 @@ classDiagram
     GoogleAuthService --> AuthService
 ```
 
-`revokeAllForUser(userId)` (chốt 2026-11-16): mỗi lần cấp họ token mới, `SADD identity:user-families:<userId> <familyId>` và gia hạn TTL 7 ngày; thu hồi = đọc set, đặt `identity:revoked:<familyId>` cho từng phần tử rồi xóa set. Gọi khi đổi vai trò, khóa tài khoản, đặt lại mật khẩu (Bảng 2.6).
+`revokeAllForUser(userId)` (chốt 2026-11-16): mỗi lần cấp họ token mới, `SADD identity:user-families:<userId> <familyId>` và gia hạn TTL 7 ngày; thu hồi = đọc set, đặt `identity:revoked:<familyId>` cho từng phần tử rồi xóa set. Gọi khi khóa tài khoản, đặt lại mật khẩu (Bảng 2.6). Bỏ đổi vai trò 2026-11-18.
 
 ## 3. Redis
 
@@ -122,7 +122,7 @@ OTP băm bằng SHA-256 kèm `userId` trước khi lưu; so sánh hằng thời 
 | 7 | Đăng ký ghi outbox cùng transaction | Rollback thì không có sự kiện | Có |
 | 8 | `identity.registered` đúng schema | `expectEventMatchesContract` | Kiểm lại |
 | 9 | Khai tài khoản ngân hàng | Lưu mã hóa, response chỉ bốn số cuối | Mới |
-| 10 | Đổi vai trò | Refresh token cũ của người đó `401`; Redis lỗi khi thu hồi → `503` | Mới |
+| 10 | ~~Đổi vai trò~~ | Bỏ 2026-11-18 (không còn route đổi vai trò) | Bỏ |
 | 11 | `/internal/users/:id/bank-account` chưa khai | `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND` | Mới |
 | 12 | Seed chạy hai lần | Không đổi gì | Có (`seed-admin.infra-spec.ts`) |
 | 13 | Đăng ký mới | `status = PENDING_VERIFICATION`, Mailpit nhận một email OTP | Mới |

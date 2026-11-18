@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 **Mục tiêu:** identity đủ phần payment cần; listing đủ API công khai và nội bộ cho saga.
 
@@ -12,7 +12,7 @@
 
 ---
 
-## T2.1 identity: tài khoản nhận tiền, đổi vai trò, API nội bộ
+## T2.1 identity: tài khoản nhận tiền, API nội bộ
 
 | | |
 |---|---|
@@ -26,8 +26,8 @@
 **Các bước:**
 
 1. Migration `bank_accounts`; `BankAccountService` (AES-GCM, bốn số cuối).
-2. Route 6–9 ở `API_Spec.md §1`; `users.internal.controller.ts`.
-3. `revokeAllForUser` trong store; gọi khi đổi vai trò.
+2. Route 6–8 ở `API_Spec.md §1` (route 9 đổi vai trò bỏ 2026-11-18); `users.internal.controller.ts`.
+3. `revokeAllForUser` trong store (T2.5 dùng khi khóa tài khoản, đặt lại mật khẩu).
 4. Test `expectEventMatchesContract` cho `identity.registered`.
 
 **Kiểm chứng:**
@@ -37,7 +37,7 @@ pnpm --filter @realestate/identity test
 pnpm --filter @realestate/identity test:infra
 ```
 
-**DoD:** Test 1–12 ở `RE.IDENTITY/Component_Class_Design.md §5` pass.
+**DoD:** Test 1–9, 11, 12 ở `RE.IDENTITY/Component_Class_Design.md §5` pass (test 10 bỏ 2026-11-18).
 
 ---
 
@@ -45,7 +45,7 @@ pnpm --filter @realestate/identity test:infra
 
 | | |
 |---|---|
-| **Người làm** | B |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: B) |
 | **Thời lượng** | ~14 giờ (ước 2026-11-16) |
 | **Hạn** | M1 — 2026-11-27 (dời) |
 | **Mã WBS** | E3-1, E3-2, E3-3 |
@@ -74,7 +74,7 @@ pnpm --filter @realestate/listing test:infra
 
 | | |
 |---|---|
-| **Người làm** | B |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: B) |
 | **Thời lượng** | ~10 giờ (ước 2026-11-16) |
 | **Hạn** | M1 — 2026-11-27 (dời) |
 | **Mã WBS** | E3-4, E3-5 |
@@ -101,7 +101,7 @@ EXPLAIN SELECT ... WHERE ST_DWithin(location, ST_MakePoint(105.84, 21.00)::geogr
 
 | | |
 |---|---|
-| **Người làm** | B |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: B) |
 | **Thời lượng** | ~3 giờ (ước 2026-11-16) |
 | **Hạn** | M1 — 2026-11-27 (dời) |
 | **Mã WBS** | E3-7 |

@@ -32,7 +32,7 @@ Xem `RE.BUSINESS_RULES.md §2` (Báo cáo Bảng 2.3).
 | FR05 | Đặt cọc và giữ chỗ | Giữ chỗ 10 phút, link/QR payOS, ghi nhận qua webhook, bàn giao, xác nhận nhận phòng, tự giải ngân sau 3 ngày | rental | listing, payment, notification | UC-DEP-01 … UC-DEP-06 | `RE.DEPOSIT_SAGA`, `RE.DEPOSIT_LIFECYCLE`, `RE.PAYMENT` |
 | FR06 | Hoàn tiền và rút tiền | Hoàn 70% trong 48 giờ; hoàn 100% tiền đến muộn; chủ trọ tạo lệnh rút; lịch sử ví | payment | rental, identity, listing | UC-REF-01, UC-WDR-01, UC-WDR-02 | `RE.PAYOUT`, `RE.DEPOSIT_LIFECYCLE` |
 | FR07 | Thông báo và nhắn tin | Thông báo từ sự kiện; danh sách, đánh dấu đã đọc; nhắn tin người thuê, chủ trọ, quản trị viên | notification | — | UC-NTF-01, UC-CHT-01 | `RE.NOTIFICATION`, `RE.CHAT` |
-| FR08 | Quản trị | Duyệt tin, bàn giao đơn, xử lý hoàn và rút có chứng từ, xem ví trung gian, đổi vai trò, nhật ký thao tác | listing, rental, payment, identity | gateway kiểm `ADMIN` | UC-LST-02, UC-DEP-03, UC-WDR-02, UC-ACC-03, UC-ADM-01 | Theo service |
+| FR08 | Quản trị | Duyệt tin, bàn giao đơn, xử lý hoàn và rút có chứng từ, xem ví trung gian, khóa tài khoản (bỏ đổi vai trò 2026-11-18, lệch Báo cáo v2), nhật ký thao tác | listing, rental, payment, identity | gateway kiểm `ADMIN` | UC-LST-02, UC-DEP-03, UC-WDR-02, UC-ACC-03, UC-ADM-01 | Theo service |
 
 FR01 làm đủ (B10, 2026-11-12): OTP qua email, quên mật khẩu, đăng nhập Google, sửa hồ sơ cá nhân (`fullName`, `phone`), khóa tài khoản (FR08). Thiết kế: `RE.IDENTITY`.
 

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 **Mục tiêu:** OpenAPI đủ cho mọi service, collection Postman chạy được bằng Newman trên máy sạch.
 
@@ -16,7 +16,7 @@
 
 | | |
 |---|---|
-| **Người làm** | Mỗi người phần mình; A tổng hợp |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: Mỗi người phần mình; A tổng hợp) |
 | **Thời lượng** | ~3 giờ mỗi người + 1 giờ A tổng hợp (ước 2026-11-16) |
 | **Hạn** | M4 — 2026-12-11 |
 | **Đọc trước** | `guides/RE_OpenAPI_Postman_Guide.md §1–3` |
@@ -32,7 +32,7 @@
 
 | | |
 |---|---|
-| **Người làm** | B; mỗi người thư mục của mình |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: B; mỗi người thư mục của mình) |
 | **Thời lượng** | ~6 giờ (ước 2026-11-16) |
 | **Hạn** | M4 — 2026-12-11 |
 | **Mã WBS** | E7-2 |
@@ -47,7 +47,7 @@
 
 | | |
 |---|---|
-| **Người làm** | B |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: B) |
 | **Thời lượng** | ~4 giờ (ước 2026-11-16) |
 | **Hạn** | M5 — 2026-12-16 (dời, sau khi nộp báo cáo) |
 | **Phụ thuộc** | T5.2, T1.1 |
@@ -60,7 +60,7 @@
 
 | | |
 |---|---|
-| **Người làm** | B, chạy trên máy C (chuyển từ A 2026-11-16) |
+| **Người làm** | A — tự giao lại khi cần (trước 2026-11-18: B, chạy trên máy C (chuyển từ A 2026-11-16)) |
 | **Thời lượng** | ~3 giờ (ước 2026-11-16) |
 | **Hạn** | M5 — 2026-12-16 (dời) |
 | **Đọc trước** | `guides/RE_Docker_Local_Guide.md` |
