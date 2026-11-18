@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-12 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
 
 ## 1. Nhánh
 
@@ -59,7 +59,7 @@ Không / hoặc: đã cập nhật CHANGELOG của design/...
 Không đổi / hoặc: đã sửa contracts/... và người phụ trách bên gọi đã duyệt
 ```
 
-**Điều kiện merge:** CI xanh, ít nhất một người khác duyệt, đủ DoD của task.
+**Điều kiện merge:** CI xanh (check `ci`, `.github/workflows/ci.yml`), đủ DoD của task. Không bắt buộc người duyệt: A viết hầu hết PR và GitHub không cho tự duyệt PR của mình (chốt 2026-11-18). Bảng dưới là người nên nhờ review khi cần.
 
 | PR chạm | Người duyệt |
 |---|---|

@@ -1,0 +1,71 @@
+# CI (T1.1): chạy trên mọi PR vào develop/main và mọi push lên hai nhánh đó.
+# Check bắt buộc ở bảo vệ nhánh: job `ci` (gom kết quả), để thêm service vào ma trận
+# không phải sửa cài đặt GitHub. test:infra và e2e qua compose + Newman: T5.3.
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      # Phiên bản pnpm lấy từ trường packageManager của package.json gốc
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm contracts:check
+      - run: pnpm build
+
+  test:
+    name: test (${{ matrix.service }})
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Thêm service mới vào đây khi tạo từ template (listing, rental, payment, notification)
+        service: [template-nest, identity, api-gateway]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @realestate/${{ matrix.service }} test
+      - run: pnpm --filter @realestate/${{ matrix.service }} test:e2e
+
+  ci:
+    name: ci
+    if: always()
+    needs: [check, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Mọi job phải success
+        run: |
+          echo "check=${{ needs.check.result }} test=${{ needs.test.result }}"
+          test "${{ needs.check.result }}" = "success"
+          test "${{ needs.test.result }}" = "success"

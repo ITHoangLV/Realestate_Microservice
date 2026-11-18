@@ -1,6 +1,8 @@
 # Thay các placeholder bằng username GitHub thật trước khi bật branch protection.
-*                       @username-lead-backend
-/infra/                 @username-devops
-/contracts/             @username-lead-backend
-/services/payment/      @username-payment-owner
-/docs/                  @username-lead-backend
+
+-                       @username-lead-backend
+
+/infra/ @username-devops
+/contracts/ @username-lead-backend
+/services/payment/ @username-payment-owner
+/docs/ @username-lead-backend
