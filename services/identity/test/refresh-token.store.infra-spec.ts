@@ -97,6 +97,121 @@ describe('RedisRefreshTokenStore với Redis thật', () => {
     expect(await store.revokeFamilyOf(newToken())).toBe(false);
   });
 
+  describe('revokeAllForUser', () => {
+    const setKey = (userId: string) => `${prefix}user-families:${userId}`;
+
+    it('create ghi họ vào set của user, set có TTL', async () => {
+      const userId = randomUUID();
+      const familyA = randomUUID();
+      const familyB = randomUUID();
+      await store.create(newToken(), userId, familyA);
+      await store.create(newToken(), userId, familyB);
+
+      expect((await redis.smembers(setKey(userId))).sort()).toEqual([familyA, familyB].sort());
+      const ttl = await redis.ttl(setKey(userId));
+      expect(ttl).toBeGreaterThan(0);
+      expect(ttl).toBeLessThanOrEqual(TTL);
+    });
+
+    it('thu hồi mọi họ của user, trả số họ; họ của user khác còn dùng được', async () => {
+      const userId = randomUUID();
+      const otherUserId = randomUUID();
+      const a1 = newToken();
+      const b1 = newToken();
+      const other1 = newToken();
+      const familyA = randomUUID();
+      const familyB = randomUUID();
+      const otherFamily = randomUUID();
+      await store.create(a1, userId, familyA);
+      await store.create(b1, userId, familyB);
+      await store.create(other1, otherUserId, otherFamily);
+
+      expect(await store.revokeAllForUser(userId)).toBe(2);
+
+      expect(await redis.exists(`${prefix}revoked:${familyA}`)).toBe(1);
+      expect(await redis.exists(`${prefix}revoked:${familyB}`)).toBe(1);
+      expect(await redis.exists(`${prefix}revoked:${otherFamily}`)).toBe(0);
+      expect(await redis.exists(setKey(userId))).toBe(0);
+      // phiên bị thu hồi: rotate -> invalid (không phải reuse); phiên user khác vẫn ok
+      expect(await store.rotate(a1, newToken())).toEqual({ status: 'invalid' });
+      expect(await store.rotate(b1, newToken())).toEqual({ status: 'invalid' });
+      expect(await store.rotate(other1, newToken())).toEqual({
+        status: 'ok',
+        userId: otherUserId,
+        familyId: otherFamily,
+      });
+    });
+
+    it('họ đã xoay vòng nhiều lần vẫn bị thu hồi (token mới nhất cũng chết)', async () => {
+      const userId = randomUUID();
+      const familyId = randomUUID();
+      const r1 = newToken();
+      const r2 = newToken();
+      await store.create(r1, userId, familyId);
+      await store.rotate(r1, r2);
+
+      expect(await store.revokeAllForUser(userId)).toBe(1);
+      expect(await store.rotate(r2, newToken())).toEqual({ status: 'invalid' });
+    });
+
+    it('user chưa có họ nào -> 0 và không tạo key', async () => {
+      const userId = randomUUID();
+      expect(await store.revokeAllForUser(userId)).toBe(0);
+      expect(await redis.exists(setKey(userId))).toBe(0);
+    });
+
+    it('gọi hai lần: lần hai trả 0', async () => {
+      const userId = randomUUID();
+      await store.create(newToken(), userId, randomUUID());
+      expect(await store.revokeAllForUser(userId)).toBe(1);
+      expect(await store.revokeAllForUser(userId)).toBe(0);
+    });
+
+    it('rotate gia hạn TTL của set (họ sống lâu hơn set thì vẫn thu hồi được)', async () => {
+      const userId = randomUUID();
+      const r1 = newToken();
+      await store.create(r1, userId, randomUUID());
+      await redis.expire(setKey(userId), 5); // giả lập set sắp hết hạn
+      await store.rotate(r1, newToken());
+
+      expect(await redis.ttl(setKey(userId))).toBeGreaterThan(5);
+    });
+
+    it('phiên cũ (tạo trước khi có set): chưa refresh thì 0; refresh rồi thì tự vào set và thu hồi được', async () => {
+      const userId = randomUUID();
+      const r1 = newToken();
+      const r2 = newToken();
+      const familyId = randomUUID();
+      // giả lập phiên cũ: chỉ có token, không có set
+      await redis.hset(`${prefix}rt:${hashToken(r1)}`, { userId, familyId, used: '0' });
+      await redis.expire(`${prefix}rt:${hashToken(r1)}`, TTL);
+
+      // chưa refresh: không có trong set nên không thu hồi được (hạn chế đã ghi ở thiết kế)
+      expect(await store.revokeAllForUser(userId)).toBe(0);
+      expect(await redis.exists(`${prefix}revoked:${familyId}`)).toBe(0);
+
+      // refresh lần kế tiếp: họ tự vào set, TTL set được đặt
+      expect(await store.rotate(r1, r2)).toMatchObject({ status: 'ok', familyId });
+      expect(await redis.smembers(setKey(userId))).toEqual([familyId]);
+      expect(await redis.ttl(setKey(userId))).toBeGreaterThan(0);
+
+      // từ đó thu hồi được, token mới của họ chết
+      expect(await store.revokeAllForUser(userId)).toBe(1);
+      expect(await store.rotate(r2, newToken())).toEqual({ status: 'invalid' });
+    });
+
+    it('rotate token đã dùng (reuse) không thêm họ vào set', async () => {
+      const userId = randomUUID();
+      const r1 = newToken();
+      const familyId = randomUUID();
+      await redis.hset(`${prefix}rt:${hashToken(r1)}`, { userId, familyId, used: '1' });
+      await redis.expire(`${prefix}rt:${hashToken(r1)}`, TTL);
+
+      expect(await store.rotate(r1, newToken())).toMatchObject({ status: 'reuse' });
+      expect(await redis.exists(setKey(userId))).toBe(0);
+    });
+  });
+
   it('hai refresh ĐỒNG THỜI cùng một token: đúng một cái thành công', async () => {
     const userId = randomUUID();
     const familyId = randomUUID();

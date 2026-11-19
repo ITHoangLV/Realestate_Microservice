@@ -36,6 +36,13 @@ class FakeStore implements RefreshTokenStore {
     this.revoked.add(t.familyId);
     return true;
   }
+
+  async revokeAllForUser(userId: string): Promise<number> {
+    const families = new Set<string>();
+    for (const t of this.tokens.values()) if (t.userId === userId) families.add(t.familyId);
+    families.forEach((f) => this.revoked.add(f));
+    return families.size;
+  }
 }
 
 const USER = {
