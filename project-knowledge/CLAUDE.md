@@ -185,6 +185,7 @@
 | `guides/_template_Code_Walkthrough.md` | Viết file giải thích code `RE_<Thành_phần>_Code_Walkthrough.md` sau mỗi task có code (`CLAUDE.md` gốc §8). Mỗi file walkthrough thêm một dòng ở bảng này |
 | `guides/RE_Contracts_Code_Walkthrough.md` | Hiểu `contracts/` (4 API nội bộ, 17 sự kiện), topology RabbitMQ, lệnh `contracts:check`; vấn đáp contract-first |
 | `guides/RE_Gateway_Code_Walkthrough.md` | Hiểu `services/api-gateway` (bảng định tuyến, kiểm JWT mức tuyến, rate limit, proxy giữ body thô, `/ws`); thêm route hoặc đổi mức truy cập; vấn đáp gateway |
+| `guides/RE_Identity_Code_Walkthrough.md` | Hiểu `services/identity` (đăng nhập, refresh token xoay vòng và `revokeAllForUser`, tài khoản nhận tiền mã hóa AES-GCM, API nội bộ cho payment, danh sách người dùng); thêm tính năng ở T2.5; vấn đáp identity |
 
 ### 2.6 Kế hoạch triển khai
 

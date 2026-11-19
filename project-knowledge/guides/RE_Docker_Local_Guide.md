@@ -20,6 +20,7 @@
 pnpm install
 Copy-Item .env.example .env       # không commit .env
 pnpm keys:generate                # secrets/jwt-private.pem, jwt-public.pem
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # dán kết quả vào BANK_ACCOUNT_ENCRYPTION_KEY trong .env (một lần; identity cần khi chạy profile apps)
 pnpm infra:up                     # profile dev: Postgres+PostGIS, Redis, RabbitMQ, Silo
 pnpm infra:check                  # OK/FAIL từng thành phần
 pnpm contracts:check
@@ -40,7 +41,8 @@ pnpm contracts:check
 Điều kiện trước khi `up` (làm một lần, hoặc khi đổi khóa/migration):
 
 1. `secrets/jwt-private.pem`, `secrets/jwt-public.pem` có sẵn (`pnpm keys:generate`). Compose mount qua `secrets:` tại `/run/secrets/jwt_private_key` (chỉ identity) và `/run/secrets/jwt_public_key` (identity, gateway). Thiếu file thì `up` báo lỗi.
-2. Hạ tầng đang chạy (`pnpm infra:up`) và migration đã chạy từ laptop: `pnpm --filter @realestate/identity migration:run` (service để `migrationsRun=false`).
+2. `BANK_ACCOUNT_ENCRYPTION_KEY` trong `.env` đã có giá trị (khóa AES-256-GCM, base64 của đúng 32 byte; sinh ở mục 2 "Lần đầu"). Để trống hoặc sai thì `re-identity` in lỗi rồi dừng. Giữ nguyên khóa: mất hoặc đổi thì số tài khoản nhận tiền đã lưu không giải mã được. Chạy identity ngoài Docker (`pnpm dev`) thì đặt cùng giá trị trong `services/identity/.env`.
+3. Hạ tầng đang chạy (`pnpm infra:up`) và migration đã chạy từ laptop: `pnpm --filter @realestate/identity migration:run` (service để `migrationsRun=false`).
 
 ```powershell
 docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev --profile apps up -d --build
