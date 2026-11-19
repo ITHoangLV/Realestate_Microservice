@@ -147,7 +147,7 @@ src/
 ├── storage/                # S3 (TÙY CHỌN): StorageService, tự tạo bucket, presigned URL
 ├── example/                # module MẪU: xóa khi tạo service thật
 └── scripts/export-openapi.ts
-test/                       # test e2e + helper (createTestApp, upstream giả, expectEventMatchesContract)
+test/                       # test e2e + helper (createTestApp, upstream giả, expectEventMatchesContract, expectResponseMatchesOpenApi)
                             # *.infra-spec.ts: test với hạ tầng thật (pnpm test:infra)
 ```
 
@@ -160,6 +160,7 @@ test/                       # test e2e + helper (createTestApp, upstream giả, 
 | `auth/`        | `JwtAuthGuard` (mặc định mọi route cần JWT), `JwtTokenVerifier` (kiểm chữ ký, hạn, `iss`, claims; guard riêng của service gọi lại được), `RolesGuard`, `@Public()`, `@Roles('ADMIN',...)`, `@CurrentUser()`, `jwt.config.ts` (chọn khóa).       |
 | `idempotency/` | `@Idempotent()` + interceptor: chống xử lý trùng cho thao tác ghi quan trọng (đặc biệt tiền). Cần Redis.                                                                                                                                        |
 | `http/`        | `InternalHttpService`: gọi service khác với timeout, retry an toàn, truyền `X-Request-ID`, đổi lỗi thành `AppException`.                                                                                                                        |
+| `response/`    | `ResponseEnvelopeInterceptor` (bọc `{ data, meta }`), `Paginated` (kết quả danh sách), `PageQueryDto` (query `page`, `pageSize` cho API danh sách), `@RawResponse()`, `@ApiEnvelope()`.                                                         |
 | `lifecycle/`   | `ShutdownLoggerService`: ghi log trình tự tắt gọn khi nhận SIGTERM.                                                                                                                                                                             |
 
 ### Dùng nhanh
@@ -190,6 +191,30 @@ export class DepositController {
 
 `@Roles` nhận **chuỗi tự do**, template không cố định danh sách vai trò (identity-service sẽ quy định, ví dụ
 `ADMIN`, `LANDLORD`, `TENANT`).
+
+Tham số đường dẫn của API nội bộ: dùng `createUuidParamPipe('id')` thay `new ParseUUIDPipe()` để lỗi là `400 VALIDATION_FAILED` đúng hợp đồng (`ParseUUIDPipe` trần trả `BAD_REQUEST`):
+
+```ts
+@Get(':id')
+find(@Param('id', createUuidParamPipe('id')) id: string) {}
+```
+
+API danh sách: kế thừa `PageQueryDto` (`page` ≥ 1 mặc định 1, `pageSize` 1–50 mặc định 20, getter `skip`), thêm bộ lọc của
+API, rồi trả `Paginated`:
+
+```ts
+export class ListUsersQuery extends PageQueryDto {
+  @IsOptional()
+  @IsIn(['TENANT', 'LANDLORD', 'ADMIN'])
+  role?: string;
+}
+
+@Get()
+async list(@Query() q: ListUsersQuery) {
+  const [rows, total] = await this.repo.findAndCount({ skip: q.skip, take: q.pageSize });
+  return new Paginated(rows, q.page, q.pageSize, total); // meta: page, pageSize, total, totalPages
+}
+```
 
 ### Messaging: publish và consume event
 
@@ -245,6 +270,7 @@ export class PaymentEventsHandler implements OnModuleInit {
 - Biết chắc thử lại vô ích (dữ liệu sai): ném `NonRetryableEventError`, message vào DLQ ngay.
 - Log trong handler tự mang `correlationId` của request gốc; event phát tiếp từ handler cũng giữ nguyên nó.
 - Test payload đúng contract: `expectEventMatchesContract(event)` trong `test/helpers/contracts.ts`.
+- Test response API nội bộ khớp OpenAPI: `expectResponseMatchesOpenApi('x-internal.v1.yaml', 'GET', '/internal/x/{id}', 200, res.body)` (cùng file; bắt trường thừa, thiếu trường, sai format).
 - Mẫu đầy đủ (publish, consume, chống trùng, DLQ) chạy với hạ tầng thật: `test/messaging.infra-spec.ts`.
 - Service **không** tự tạo exchange/queue. Thêm queue thì sửa `infra/rabbitmq/definitions.json`.
 
