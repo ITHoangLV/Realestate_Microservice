@@ -6,7 +6,7 @@
 | **Service** | `identity` (cổng 3001) |
 | **Quy tắc** | BR-01, BR-02; quy tắc phụ Bảng 2.6 |
 | **CSDL** | `identity_db` / `identity_user`; Redis (refresh token, OTP, token đặt lại mật khẩu); SMTP (Mailpit khi dev) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v2.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v2.1 |
 
 ## 1. API công khai
 
@@ -17,9 +17,9 @@
 | 3 | `POST /api/v1/auth/refresh` | public | `200` cặp token mới; token cũ dùng một lần | Code |
 | 4 | `POST /api/v1/auth/logout` | public | `204`; thu hồi cả họ refresh token | Code |
 | 5 | `GET /api/v1/auth/me` | user | `200` người đang đăng nhập | Code |
-| 6 | `GET /api/v1/users/me/bank-account` | user | `200` `{ bankName, accountHolder, accountLast4 }` hoặc `404` | Chốt 2026-11-13 |
-| 7 | `PUT /api/v1/users/me/bank-account` | user | `200`; số tài khoản mã hóa khi lưu | Chốt 2026-11-13 |
-| 8 | `GET /api/v1/admin/users` | admin | `200` danh sách phân trang | Chốt 2026-11-13 |
+| 6 | `GET /api/v1/users/me/bank-account` | user | `200` `{ bankName, accountHolder, accountLast4, updatedAt }` hoặc `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND` | Chốt 2026-11-13; §1.4 |
+| 7 | `PUT /api/v1/users/me/bank-account` | user | `200` cùng dạng route 6; số tài khoản mã hóa khi lưu | Chốt 2026-11-13; §1.4 |
+| 8 | `GET /api/v1/admin/users` | admin | `200` danh sách phân trang | Chốt 2026-11-13; §1.11 |
 | 9 | ~~`PATCH /api/v1/admin/users/:id/role`~~ | — | **Bỏ** (2026-11-18): vai trò cố định từ lúc tạo tài khoản | Bỏ 2026-11-18 |
 | 10 | `POST /api/v1/auth/verify-otp` | public | `200` cặp token; tài khoản `ACTIVE` | Chốt 2026-11-13 (B10) |
 | 11 | `POST /api/v1/auth/resend-otp` | public | `202` luôn (không lộ email) | Chốt 2026-11-13 (B10) |
@@ -67,15 +67,23 @@ Kiểm trạng thái **sau** khi đúng mật khẩu, để người không bi�
 
 Token không có, hết hạn, đã thu hồi, bị dùng lại → `401 IDENTITY_INVALID_REFRESH_TOKEN`. Token đã dùng bị gửi lại → thu hồi cả họ.
 
-### 1.4 `PUT /users/me/bank-account`
+### 1.4 Tài khoản nhận tiền (route 6, 7)
+
+Route 7 `PUT /users/me/bank-account`, body:
 
 | Trường | Kiểu | Ràng buộc |
 |---|---|---|
 | `bankName` | string | Tự do, 2–100 ký tự (frontend gợi ý danh sách; chốt 2026-11-16) |
 | `accountNumber` | string | Chỉ chữ số, 6–19 ký tự `^\d{6,19}$` |
-| `accountHolder` | string | |
+| `accountHolder` | string | 1–200 ký tự sau khi cắt khoảng trắng hai đầu (chốt 2026-11-18) |
 
-Một người một tài khoản nhận tiền: `PUT` ghi đè bản cũ (chốt 2026-11-16). Response không bao giờ có số đầy đủ, chỉ `accountLast4`.
+Một người một tài khoản nhận tiền: `PUT` ghi đè bản cũ (chốt 2026-11-16), bằng một câu `INSERT … ON CONFLICT (user_id) DO UPDATE … RETURNING`; luôn `200` (không phân biệt tạo mới hay ghi đè).
+
+Response route 6 và 7 (trong `data`): `{ bankName, accountHolder, accountLast4, updatedAt }`. Không bao giờ có số đầy đủ. Route 6 khi người gọi chưa khai → `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND`. Người gọi luôn là `sub` trong JWT, không nhận `userId` trong đường dẫn hay body.
+
+**Mã hóa (chốt 2026-11-18).** `account_number_encrypted = iv (12 byte) ‖ authTag (16 byte) ‖ ciphertext`, AES-256-GCM, khóa `BANK_ACCOUNT_ENCRYPTION_KEY`. IV ngẫu nhiên mỗi lần ghi. **AAD = `userId`**: dòng của người này chép sang người khác thì giải mã lỗi. Khóa sai hoặc dữ liệu hỏng → giải mã lỗi → `500 INTERNAL_ERROR`, log `error` không kèm số tài khoản. Không có cơ chế xoay khóa: ghi vào mục Hạn chế của báo cáo.
+
+**Khi nào khai (A chốt 2026-11-18).** Trang hồ sơ không có mục khai riêng. Giao diện hiện form khai khi người dùng **rút tiền lần đầu** (payment trả `409 PAYMENT_BANK_ACCOUNT_MISSING`) hoặc **gửi yêu cầu hoàn lần đầu** (giao diện gọi route 6, `404` thì hiện form); sau đó gọi route 7 rồi thử lại. API identity không đổi vì điều này.
 
 ### 1.5 ~~`PATCH /admin/users/:id/role`~~ — bỏ 2026-11-18
 
@@ -143,13 +151,25 @@ Mở khóa: về trạng thái trước khi khóa: `email_verified_at` có → `
 
 Body `{ fullName?, phone? }`. `phone` trùng người khác → `409 IDENTITY_PHONE_TAKEN`; `phone: null` xóa số.
 
+### 1.11 `GET /admin/users` (route 8)
+
+Chỉ `ADMIN` (`@Roles('ADMIN')`; gateway cũng chặn thô `/api/v1/admin/*`). Query:
+
+| Tham số | Kiểu | Ràng buộc |
+|---|---|---|
+| `page` | số nguyên | ≥ 1, mặc định 1 |
+| `pageSize` | số nguyên | 1–50, mặc định 20; vượt → `400 VALIDATION_FAILED` |
+| `role` | string, không bắt buộc | `TENANT`, `LANDLORD`, `ADMIN`; giá trị khác → `400` |
+
+Sắp theo `created_at DESC, id DESC`. `data` là mảng `UserDto` (`id, email, fullName, role, createdAt`); T2.5 thêm `status`. `meta` có `page`, `pageSize`, `total`, `totalPages` (khung `Paginated` của template). Dùng `findAndCount`: **tối đa 2 truy vấn** (lấy trang + đếm; ngưỡng danh sách là 4, `non-functional-standards.md §1`). TypeORM bỏ truy vấn đếm khi trang đầu chưa đầy (`OFFSET 0`, ít dòng hơn `pageSize`) vì `total` chính là số dòng nhận được, nên trường hợp đó chỉ 1 truy vấn; `total` vẫn đúng. Chỉ chọn năm cột của `UserDto`, không bao giờ đọc `password_hash`. Trang vượt quá: `data: []`, `total` và `totalPages` vẫn đúng. Lọc `role` thì `total` tính theo role. Index: `IDX_users_created_at_id`, `IDX_users_role_created_at_id` (§6).
+
 ## 2. API nội bộ
 
 | Method, đường dẫn | Bên gọi | Kết quả | Hợp đồng |
 |---|---|---|---|
 | `GET /internal/users/:id/bank-account` | payment (S3) | `200 { userId, bankName, accountHolder, accountNumber }`; chưa khai → `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND` | Tạo `contracts/openapi/identity-internal.v1.yaml` ở T0.3 |
 
-API nội bộ trả số đầy đủ để quản trị viên chuyển khoản (hợp đồng `identity-internal.v1.yaml`, chốt 2026-11-16). Payment không lưu và không log số đầy đủ; chỉ lưu bản chụp bốn số cuối (`RE.PAYOUT`).
+API nội bộ trả số đầy đủ để quản trị viên chuyển khoản (hợp đồng `identity-internal.v1.yaml`, chốt 2026-11-16). Payment không lưu và không log số đầy đủ; chỉ lưu bản chụp bốn số cuối (`RE.PAYOUT`). `:id` không phải UUID → `400 VALIDATION_FAILED` (message "id phải là UUID", `createUuidParamPipe` của template). Body `200` đúng bốn trường `userId, bankName, accountHolder, accountNumber` (schema `additionalProperties: false`): không có `accountLast4`, `updatedAt`. Identity không log số tài khoản, kể cả ở access log. Giải mã lỗi → `500 INTERNAL_ERROR` (§1.4).
 
 ## 3. Sự kiện phát
 
@@ -188,7 +208,7 @@ API nội bộ trả số đầy đủ để quản trị viên chuyển khoản
 | `JWT_ISSUER` | `realestate-identity` | |
 | `JWT_ACCESS_TTL_SECONDS`, `JWT_REFRESH_TTL_SECONDS` | `900`, `604800` | |
 | `RABBITMQ_URL`, `OUTBOX_RELAY_ENABLED` | | Chỉ phát |
-| `BANK_ACCOUNT_ENCRYPTION_KEY` | bắt buộc; 32 byte base64 | Khóa AES-256-GCM mã hóa số tài khoản. Dev: sinh ngẫu nhiên, không commit |
+| `BANK_ACCOUNT_ENCRYPTION_KEY` | bắt buộc; base64 giải ra đúng 32 byte | Khóa AES-256-GCM mã hóa số tài khoản. Sai độ dài hoặc thiếu → service in lỗi rồi dừng (`env.validation.ts`). Dev: sinh bằng `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`, không commit |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | dev: `mailpit`, `1025`, trống, trống, `no-reply@realestate.local` | Gửi OTP, link đặt lại (B10) |
 | `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SECONDS` | `300`, `5`, `60` | Báo cáo Bảng 2.6 |
 | `PASSWORD_RESET_TTL_SECONDS` | `900` | Đề xuất |
@@ -236,18 +256,27 @@ CREATE UNIQUE INDEX "UQ_users_phone" ON users (phone) WHERE phone IS NOT NULL;
 
 Tài khoản đã có trước migration giữ `ACTIVE` (mặc định); đăng ký mới ghi `PENDING_VERIFICATION`. Seed ADMIN ghi `ACTIVE`.
 
+Index cho route 8 (migration `1732000000001-add-users-list-indexes`, chốt 2026-11-19; truy vấn `[WHERE role = ?] ORDER BY created_at DESC, id DESC`, khớp thứ tự nên không cần bước Sort):
+
+```sql
+CREATE INDEX "IDX_users_created_at_id" ON users (created_at DESC, id DESC);
+CREATE INDEX "IDX_users_role_created_at_id" ON users (role, created_at DESC, id DESC);
+```
+
 Chốt 2026-11-16:
 
 ```sql
 CREATE TABLE bank_accounts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL UNIQUE REFERENCES users(id),
+  user_id uuid NOT NULL,
   bank_name varchar(100) NOT NULL,
   account_holder varchar(200) NOT NULL,
-  account_number_encrypted bytea NOT NULL,  -- AES-GCM
+  account_number_encrypted bytea NOT NULL,  -- iv(12) ‖ authTag(16) ‖ ciphertext, AES-256-GCM, AAD = user_id (§1.4)
   account_last4 char(4) NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT "UQ_bank_accounts_user" UNIQUE (user_id),
+  CONSTRAINT "FK_bank_accounts_user" FOREIGN KEY (user_id) REFERENCES users(id)
 );
 ```
 
@@ -256,3 +285,10 @@ CREATE TABLE bank_accounts (
 1. Route 6–7: `bankName` tự do 2–100 ký tự, `accountNumber` `^\d{6,19}$`, một người một tài khoản (`PUT` ghi đè). Đường dẫn route 1–16 và API nội bộ chốt 2026-11-13.
 2. `phone`: `^0\d{9}$`.
 3. `BANK_ACCOUNT_ENCRYPTION_KEY` (AES-256-GCM, 32 byte base64). Số đầy đủ chỉ đi qua API nội bộ cho payment.
+
+## 8. Đã chốt 2026-11-18 (v2.1)
+
+1. Route 6–7 trả thêm `updatedAt`; `PUT` luôn `200`, ghi đè bằng một câu `INSERT … ON CONFLICT`; `accountHolder` 1–200 ký tự sau khi cắt khoảng trắng (§1.4).
+2. Định dạng mã hóa `iv ‖ authTag ‖ ciphertext`, AAD = `userId`; giải mã lỗi → `500`; không xoay khóa (§1.4).
+3. Route 8: `page`, `pageSize` (20/50), `role?`, sắp `created_at DESC, id DESC`, tối đa hai truy vấn, hai index (§1.11, §6).
+4. Khai tài khoản nhận tiền khi rút lần đầu hoặc hoàn lần đầu, không có mục riêng ở hồ sơ (§1.4).

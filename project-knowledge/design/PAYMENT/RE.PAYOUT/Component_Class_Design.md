@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/payment/src/payment/` (cấu trúc chung ở `RE.PAYMENT/Component_Class_Design.md §1`) |
 | **Quy ước** | `standards/coding-convention.md §4`, `standards/security-policy.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v1.2 |
 
 ## 1. Thành phần
 

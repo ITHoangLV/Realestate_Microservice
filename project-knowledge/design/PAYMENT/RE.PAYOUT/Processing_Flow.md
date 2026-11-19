@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Rút tiền, hoàn tiền, chứng từ, bất biến ví |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, Báo cáo v2 §3.2.3–3.2.4, Hình 3.5 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v1.2 |
 
 ## 1. Rút tiền
 

@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/_template-nest/src/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/reliability-standard.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.2 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v1.3 |
 
 ## 1. Cấu trúc
 
@@ -16,12 +16,12 @@ src/
 ├─ swagger.setup.ts
 ├─ config/                    # env.bootstrap.ts, env.validation.ts (Joi), feature-flags.ts, service-info.ts
 ├─ common/
-│  ├─ errors/                 # AppException, error-codes.ts, AllExceptionsFilter, createValidationPipe
+│  ├─ errors/                 # AppException, error-codes.ts, AllExceptionsFilter, createValidationPipe, createUuidParamPipe
 │  ├─ logging/                # logger.module (pino), correlation-id.middleware, access-log.middleware
 │  ├─ auth/                   # JwtAuthGuard, JwtTokenVerifier, RolesGuard, @Public, @Roles, @CurrentUser, jwt.config
 │  ├─ idempotency/            # @Idempotent, IdempotencyInterceptor, request-fingerprint
 │  ├─ http/                   # InternalHttpService, InternalHttpModule
-│  ├─ response/               # ResponseEnvelopeInterceptor, @RawResponse, @ApiEnvelope, Paginated
+│  ├─ response/               # ResponseEnvelopeInterceptor, @RawResponse, @ApiEnvelope, Paginated, PageQueryDto
 │  └─ lifecycle/              # ShutdownLoggerService
 ├─ health/                    # HealthController, HealthRegistry
 ├─ database/                  # DatabaseModule, data-source.ts, transformers.ts, migrations/
@@ -30,7 +30,7 @@ src/
 ├─ storage/                   # StorageService (S3: tạo bucket, presign PUT/GET, putObject)
 ├─ example/                   # MẪU — xóa khi tạo service thật
 └─ scripts/export-openapi.ts
-test/                         # *.e2e-spec.ts, *.infra-spec.ts, helpers/ (createTestApp, upstream giả, contracts)
+test/                         # *.e2e-spec.ts, *.infra-spec.ts, helpers/ (createTestApp, upstream giả, contracts: expectEventMatchesContract, expectResponseMatchesOpenApi)
 ```
 
 ## 2. Sơ đồ lớp
@@ -98,6 +98,12 @@ Làm theo `services/_template-nest/README.md §1` (PowerShell, robocopy). Việc
 - Không thêm entity, mã lỗi nghiệp vụ, client tới service cụ thể vào template.
 - `JwtTokenVerifier` (v1.2): kiểm chữ ký, hạn, `iss` và claims (`sub`, `roles`, `exp`) của access token, ném `AppException` `AUTH_TOKEN_INVALID`/`AUTH_TOKEN_EXPIRED`. `JwtAuthGuard` gọi lại, hành vi giữ nguyên. Gateway dùng chung để không có bản kiểm token thứ hai (`RE.GATEWAY`).
 
+`PageQueryDto` (`common/response/page-query.dto.ts`, v1.3): query phân trang chung cho API danh sách, `page` ≥ 1 mặc định 1, `pageSize` 1–50 mặc định 20 (`non-functional-standards.md §1`), getter `skip`. DTO riêng của từng API kế thừa và thêm bộ lọc; handler trả `new Paginated(items, query.page, query.pageSize, total)`. Chỉ chứa phân trang, không có bộ lọc hay luật nghiệp vụ.
+
+`createUuidParamPipe(field = 'id')` (`common/errors/uuid-param.pipe.ts`, v1.3): pipe kiểm tham số đường dẫn là UUID, lỗi trả `400 VALIDATION_FAILED`, message "<field> phải là UUID" đúng hợp đồng `contracts/openapi/*-internal.v1.yaml` (bốn spec đều yêu cầu). `new ParseUUIDPipe()` trần trả `BAD_REQUEST`; route công khai đang dùng nó giữ nguyên, API nội bộ mới dùng pipe này.
+
+`expectResponseMatchesOpenApi(spec, method, path, status, body)` (`test/helpers/contracts.ts`, v1.3): kiểm body response thật khớp schema của một response trong `contracts/openapi/<spec>` (bắt trường thừa khi `additionalProperties: false`, thiếu trường, sai format). Dùng gói `yaml` (devDependency). Chỉ dùng trong test.
+
 ## 5. Test bắt buộc
 
 Đã có trong template, mọi service giữ nguyên và phải xanh:
@@ -106,6 +112,9 @@ Làm theo `services/_template-nest/README.md §1` (PowerShell, robocopy). Việc
 |---|---|
 | `test/errors.e2e-spec.ts` | Envelope lỗi, ẩn stack ở 5xx |
 | `test/response-envelope.e2e-spec.ts` | `{ data, meta }`, phân trang, không bọc `/health` |
+| `src/common/errors/uuid-param.pipe.spec.ts` | `createUuidParamPipe`: UUID hợp lệ trả nguyên; sai → `400 VALIDATION_FAILED`, message "<tên> phải là UUID" |
+| `test/contracts-helper.e2e-spec.ts` | `expectResponseMatchesOpenApi`: khớp, thừa trường, thiếu trường, sai format, `$ref` response, status/đường dẫn/spec không có |
+| `src/common/response/page-query.dto.spec.ts` | `PageQueryDto`: mặc định `page=1`, `pageSize=20`; ép kiểu query; từ chối `page < 1`, `pageSize` ngoài 1–50; `skip` |
 | `test/idempotency.e2e-spec.ts` | Replay, `422`, `409` |
 | `test/http-client.e2e-spec.ts`, `http-client-defaults.e2e-spec.ts` | Retry, timeout, giữ nguyên `4xx`, truyền `X-Request-ID` |
 | `test/logging.e2e-spec.ts` | Log JSON có `correlationId` |
