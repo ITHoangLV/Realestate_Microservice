@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-18 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-19 |
 
 **Bảo vệ:** 2026-12-18 (M5) · **Mốc mới** (dời 2026-11-16): M0 11-20, M1 11-27, M2 12-04, M3 12-09, M4 12-11 (`README.md` — Lịch và mốc) · **Hạn nộp báo cáo:** 2026-12-11 (M4, chốt 2026-11-16) · **Đề tài:** Thiết kế hệ thống cho thuê nhà, căn hộ, chung cư Real-estate theo kiến trúc microservices · **Nhóm:** 5 · **Số thành viên:** 3
 
@@ -38,7 +38,7 @@
 
 ## Phase 2 — identity, listing
 
-- [ ] T2.1 identity: tài khoản nhận tiền, đổi vai trò, API nội bộ — A
+- [x] T2.1 identity: tài khoản nhận tiền, API nội bộ — A (2026-11-19, PR #16, `b88817a`; đổi vai trò bỏ 2026-11-18)
 - [ ] T2.2 listing: khung, CRUD sản phẩm, duyệt, ảnh — B
 - [ ] T2.3 listing: tìm kiếm PostGIS, API nội bộ giữ chỗ — B
 - [ ] T2.4 listing: seed dữ liệu — B
@@ -92,3 +92,4 @@
 | 2026-11-17 | A | T1.2 merge vào `develop` (PR #7, `d4dcb14`): gateway unit 226 + e2e 134 PASS, đủ test 1–12; template và identity vá C14, C18, `JwtTokenVerifier`; `test:infra` template + identity user tự chạy. Việc chuyển sang T1.3 ghi ở `.claude/state/luuviethoang2005/current-task.md` mục "Chuyển sang T1.3" | Tick T1.2; làm T1.3 (hạn 11-20) |
 | 2026-11-18 | A | T1.3 merge vào `develop` (`d3a2062`): identity, api-gateway chạy trong profile `apps`; đăng ký, đăng nhập, `/me` qua 8080; cùng `X-Request-ID` ở hai log; `/internal/*` 404 | Tick T1.3; làm T1.1 (A), rồi tag `v0.1-skeleton` |
 | 2026-11-18 | A | T1.1 merge vào `develop`: CI `check` → `test` (template-nest, identity, api-gateway) → `ci` xanh; PR thử schema hỏng (#13) đỏ đúng ở `contracts:check` rồi đóng. Repo chuyển public để bảo vệ nhánh có hiệu lực (GitHub Free); `develop`, `main` bắt buộc PR + `ci` xanh, không bypass. Phase 1 xong | Tick T1.1; tag `v0.1-skeleton`; sang T2.1 |
+| 2026-11-19 | A | T2.1 merge vào `develop` (PR #16, `b88817a`), CI `check`, `test` (template-nest, identity, api-gateway), `ci` xanh. identity unit 201, e2e 97, infra 99 PASS. Có: `bank_accounts` mã hóa AES-256-GCM (AAD `userId`), route 6–8, `GET /internal/users/:id/bank-account` khớp `identity-internal.v1.yaml`, `revokeAllForUser`, `BANK_ACCOUNT_ENCRYPTION_KEY` bắt buộc; template thêm `PageQueryDto`, `createUuidParamPipe`, `expectResponseMatchesOpenApi`. Repo chuyển sang `hoanglv25/Realestate_Microservice`. A chốt C19 phương án (b) | Tick T2.1; sửa template theo C19 trước T2.2 rồi làm T2.2 |

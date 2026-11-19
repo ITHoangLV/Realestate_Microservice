@@ -1,7 +1,7 @@
 ---
 task: T2.1 identity — tài khoản nhận tiền, API nội bộ
 created: 2026-11-18
-status: in_progress
+status: done
 phase: PHASE-2
 branch: feature/T2.1-identity-bank-account
 ---
@@ -26,7 +26,7 @@ Người làm: A. Hạn M1 — 2026-11-27.
 - [x] Test 1–9, 11, 12 ở `RE.IDENTITY/Component_Class_Design.md §5` PASS (test 10 bỏ)
 - [x] Test thêm: mã hóa/giải mã, `revokeAllForUser`, route 8 phân trang
 - [x] `pnpm --filter @realestate/identity test`, `test:e2e`, `test:infra` PASS (201 / 97 / 99, 2026-11-19)
-- [ ] `pnpm lint`, `format:check`, `build`, `contracts:check` PASS (đã PASS cục bộ 2026-11-19); **CI xanh: chờ mở PR**
+- [x] `pnpm lint`, `format:check`, `build`, `contracts:check` PASS (cục bộ 2026-11-19); CI xanh trên PR #16 (`check`, `test` ×3, `ci`), merge `b88817a` 2026-11-19 16:23
 - [x] Response thật của `/internal/users/:id/bank-account` khớp `identity-internal.v1.yaml`
 - [x] Số truy vấn trong ngưỡng (`non-functional-standards.md §1`)
 - [x] Walkthrough `guides/RE_Identity_Code_Walkthrough.md` (đã đăng ký ở `CLAUDE.md §2.5`) + code-review 5 chiều (xem Blockers / Ghi chú)
@@ -41,7 +41,7 @@ Người làm: A. Hạn M1 — 2026-11-27.
 - [x] 5. API nội bộ (TDD): RED 10/10 → GREEN. Thêm ở template (chép sang identity): `createUuidParamPipe`, `expectResponseMatchesOpenApi`, devDependency `yaml@2.9.1` (A cho phép pnpm add). 2026-11-19: template unit 96, e2e 110; identity unit 177, e2e 97, infra 72; template infra 13 PASS; lint, format, build, contracts sạch. Đột biến thêm accountLast4 vào body thì chỉ test 200 đỏ
 - [x] 6. Route 8 (TDD): RED (TS2307 + 25 test infra đỏ) → GREEN. Thêm migration `1732000000001-add-users-list-indexes` (2 index, EXPLAIN xác nhận không Sort; up/down/up trên DB dev OK). 2026-11-19: identity unit 193, e2e 97, infra 99 PASS; lint, format, build, contracts sạch. Số truy vấn: tối đa 2 (TypeORM bỏ COUNT khi trang đầu chưa đầy → 1)
 - [x] 7. Env, compose, .env.example: `identity.env.ts` dùng lại `parseEncryptionKey` (RED 8 test → GREEN 13); `.env.example` gốc + service để trống kèm lệnh sinh khóa; compose `${BANK_ACCOUNT_ENCRYPTION_KEY:-}`; guide "Lần đầu" + §3.1; services/identity/README.md. A cho phép: sinh khóa ghi vào `.env` gốc và `services/identity/.env` (cùng khóa, 32 byte, không in). Build lại profile apps OK (re-identity, re-api-gateway healthy). Smoke: PUT qua 8080 200; /internal trong mạng Docker 200 đúng 4 trường, id sai 400; /internal qua 8080 404 GATEWAY_ROUTE_NOT_FOUND; DB không có số rõ; log không có số. identity unit 201, e2e 97, infra 99 PASS
-- [x] 8. Kiểm chứng, walkthrough, code-review (xong; còn: A đồng ý chia commit, commit, mở PR, CI xanh, tick `implementation/progress.md` sau merge)
+- [x] 8. Kiểm chứng, walkthrough, code-review, commit, PR #16 (CI xanh, merge 2026-11-19); tick `implementation/progress.md` ở nhánh `docs/T2.1-dong`
 
 ## Tái sử dụng (Reuse Report)
 

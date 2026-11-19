@@ -1,6 +1,6 @@
 ---
 dev: luuviethoang2005
-updated: 2026-11-17 (thêm #6–#8)
+updated: 2026-11-19 (thêm #9–#13; #12 đã chốt hướng)
 ---
 
 ## Nợ kỹ thuật
@@ -20,7 +20,7 @@ updated: 2026-11-17 (thêm #6–#8)
 | 9 | Không xoay khóa mã hóa số tài khoản (`BANK_ACCOUNT_ENCRYPTION_KEY`): lộ hoặc đổi khóa thì dữ liệu cũ không giải mã được | TB | `services/identity/src/identity/services/bank-account.cipher.ts` | M | accepted | Phạm vi đồ án (`security-policy.md §6`). Hướng: thêm số phiên bản khóa vào đầu `bytea`, giữ nhiều khóa, giải mã theo phiên bản, ghi lại bằng khóa mới khi `PUT` |
 | 10 | `PUT /users/me/bank-account` với người dùng không còn trong DB nhưng token còn hạn → lỗi khóa ngoại `23503` → 500 | Thấp | `services/identity/src/identity/services/bank-account.service.ts` | S | open | Chưa có API xóa người dùng nên chưa xảy ra. Khi T2.5 thêm khóa/xóa: map `23503` sang `404 IDENTITY_USER_NOT_FOUND` |
 | 11 | `expectResponseMatchesOpenApi` chép logic `rewriteRefs` + ajv của `contracts/scripts/check-openapi.mjs` | Thấp | `services/_template-nest/test/helpers/contracts.ts` (và bản chép ở identity) | S | open | Script ESM không import được từ test TS. Gộp về một module dùng chung khi có chỗ đặt (ví dụ package `contracts` trong workspace) |
-| 12 | Template có hai cách báo `id` sai (`BAD_REQUEST` công khai, `VALIDATION_FAILED` nội bộ) | TB | `services/_template-nest/src/common/errors/uuid-param.pipe.ts`, `example.controller.ts` | M | open | Chờ A chốt (C19 ở `van-de-can-quyet-dinh.md`); đề xuất thống nhất `VALIDATION_FAILED` |
+| 12 | Template có hai cách báo `id` sai (`BAD_REQUEST` công khai, `VALIDATION_FAILED` nội bộ) | TB | `services/_template-nest/src/common/errors/uuid-param.pipe.ts`, `example.controller.ts` | M | open | A chốt C19 phương án (b) 2026-11-19: thống nhất `VALIDATION_FAILED`. Sửa ở task riêng trước T2.2; xong thì đổi `resolved` |
 | 13 | Ba file infra-spec của T2.1 (`bank-account`, `internal-users`, `admin-users`) lặp dựng app, tạo schema Postgres, `newUser`, đếm truy vấn | Thấp | `services/identity/test/*.infra-spec.ts` | S | open | Gom vào `test/helpers/` khi có dịp; giống mục 8 |
 
 Trước Phase 7, A đọc gộp `state/*/tech-debt.md` để đưa vào mục "Hạn chế" của báo cáo.
