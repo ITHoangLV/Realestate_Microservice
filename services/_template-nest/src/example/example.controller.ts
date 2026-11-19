@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpStatus, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Param, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -14,6 +14,7 @@ import { CurrentUser } from '../common/auth/current-user.decorator';
 import { Public } from '../common/auth/public.decorator';
 import { Roles } from '../common/auth/roles.decorator';
 import { ErrorResponseDto } from '../common/errors/error-response.dto';
+import { createUuidParamPipe } from '../common/errors/uuid-param.pipe';
 import { ApiEnvelope } from '../common/response/api-envelope.decorator';
 import { Idempotent } from '../common/idempotency/idempotent.decorator';
 import { CreateExampleDto } from './dto/create-example.dto';
@@ -81,7 +82,7 @@ export class ExampleController {
   @ApiOperation({ summary: 'Chi tiết một bản ghi' })
   @ApiEnvelope(ExampleDto)
   @ApiNotFoundResponse({ type: ErrorResponseDto, description: 'EXAMPLE_NOT_FOUND' })
-  findOne(@Param('id', new ParseUUIDPipe()) id: string): ExampleDto {
+  findOne(@Param('id', createUuidParamPipe('id')) id: string): ExampleDto {
     return this.examples.findOne(id);
   }
 }

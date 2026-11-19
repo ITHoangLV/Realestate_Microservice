@@ -5,7 +5,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-16 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-19 |
 
 ## 1. Hai loại API
 
@@ -33,7 +33,7 @@
 | `200` | Đọc, sửa thành công |
 | `201` | Tạo tài nguyên |
 | `204` | Thành công, không có body (đăng xuất) |
-| `400` | `VALIDATION_FAILED`: đầu vào sai, có `details` theo từng trường |
+| `400` | `VALIDATION_FAILED`: đầu vào sai, có `details` theo từng trường, kể cả tham số đường dẫn sai kiểu (`id` không phải UUID → message "<tên> phải là UUID", dùng `createUuidParamPipe`, C19). `BAD_REQUEST` chỉ cho body không đọc được (JSON sai cú pháp) và header sai dạng |
 | `401` | Thiếu, sai, hết hạn token; sai thông tin đăng nhập |
 | `403` | Không đủ vai trò, hoặc không phải chủ tài nguyên |
 | `404` | Không có tài nguyên |

@@ -7,7 +7,7 @@
 | **Quy tắc** | Không có `BR-xx`; hiện thực NFR02, NFR03, NFR06 |
 | **Quyết định** | ADR-0011, ADR-0013, ADR-0014 |
 | **CSDL** | Tùy chọn: bật khi có `DATABASE_URL` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v1.3 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-19 — v2.0 |
 
 > Mô tả hợp đồng mà template **đã có trong code**. Nguồn: `services/_template-nest/README.md`. Mọi service kế thừa nguyên các hợp đồng này.
 
@@ -28,6 +28,8 @@ Theo `standards/api-convention.md §4–5`. Do `ResponseEnvelopeInterceptor` và
 | Tình huống | Status | `error.code` |
 |---|---|---|
 | DTO sai | 400 | `VALIDATION_FAILED`, `details` theo trường |
+| Tham số đường dẫn không phải UUID (v2.0) | 400 | `VALIDATION_FAILED`, message "<tên> phải là UUID", `details: [{ field, errors }]` |
+| Body không đọc được (JSON sai cú pháp) | 400 | `BAD_REQUEST` |
 | Thiếu token | 401 | `AUTH_TOKEN_MISSING` |
 | Token sai chữ ký | 401 | `AUTH_TOKEN_INVALID` |
 | Token hết hạn | 401 | `AUTH_TOKEN_EXPIRED` |

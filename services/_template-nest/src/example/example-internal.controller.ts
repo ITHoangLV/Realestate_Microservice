@@ -1,6 +1,7 @@
-import { Controller, Get, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { Public } from '../common/auth/public.decorator';
+import { createUuidParamPipe } from '../common/errors/uuid-param.pipe';
 import { ExampleDto } from './dto/example.dto';
 import { ExampleService } from './example.service';
 
@@ -20,7 +21,7 @@ export class ExampleInternalController {
   constructor(private readonly examples: ExampleService) {}
 
   @Get(':id')
-  findOne(@Param('id', new ParseUUIDPipe()) id: string): ExampleDto {
+  findOne(@Param('id', createUuidParamPipe('id')) id: string): ExampleDto {
     return this.examples.findOne(id);
   }
 }

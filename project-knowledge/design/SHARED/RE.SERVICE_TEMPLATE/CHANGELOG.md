@@ -2,6 +2,39 @@
 
 > Tạo ở lần sửa đầu tiên sau baseline v1.0 (`standards/design-standards.md §9`). Mục mới lên đầu, không sửa mục cũ.
 
+## [v2.0] — 2026-11-19
+
+- **type:** MAJOR
+- **author:** hoang.lv
+- **summary:** Mọi tham số đường dẫn kiểu UUID, công khai và nội bộ, dùng `createUuidParamPipe`; `id` sai trả `400 VALIDATION_FAILED` thay `400 BAD_REQUEST` (chốt C19).
+
+### Thay đổi
+
+**1.** Thống nhất mã lỗi khi `id` trong đường dẫn sai.
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 1 | `API_Spec.md` §2, `Component_Class_Design.md` §4, §5 | Sửa |
+
+- **Cũ:** (v1.3) route công khai dùng `new ParseUUIDPipe()` trần → `400 BAD_REQUEST`; chỉ API nội bộ mới dùng `createUuidParamPipe` → `400 VALIDATION_FAILED`. Route nội bộ mẫu `GET /internal/examples/:id` của template cũng còn dùng pipe trần.
+- **Mới:** mọi `@Param` kiểu UUID dùng `createUuidParamPipe('<tên>')`: `400 VALIDATION_FAILED`, message "<tên> phải là UUID", `details: [{ field, errors }]`. Không dùng `new ParseUUIDPipe()` trần trong `services/*/src` (luật ESLint `no-restricted-imports` ở `eslint.config.mjs` gốc chặn). `BAD_REQUEST` chỉ còn cho body không đọc được (JSON sai cú pháp) và `Idempotency-Key` sai dạng.
+- **Lý do:** A chốt C19 phương án (b) 2026-11-19 (`implementation/van-de-can-quyet-dinh.md` mục D): một mã cho một lỗi, client không phải xử lý hai mã tùy route. MAJOR vì đổi mã lỗi của route đã có (`design-standards.md §9`).
+
+### File design đã sửa
+
+- `API_Spec.md` §2 (thêm dòng "Tham số đường dẫn không phải UUID")
+- `Component_Class_Design.md` §4 (đoạn `createUuidParamPipe`), §5 (thêm `test/example.e2e-spec.ts`)
+- Header 3 file: v1.3 → v2.0 (`Processing_Flow.md` chỉ đổi số phiên bản)
+
+### Ảnh hưởng
+
+- `services/_template-nest`: `example.controller.ts`, `example-internal.controller.ts` đổi sang `createUuidParamPipe`; `test/example.e2e-spec.ts` kỳ vọng `VALIDATION_FAILED`.
+- `services/identity`: không có route dùng pipe trần; chép lại chú thích `uuid-param.pipe.ts`.
+- `api-gateway`: không kiểm `id`, không đổi.
+- `contracts/openapi/*-internal.v1.yaml`: không đổi (đã khai `VALIDATION_FAILED`).
+- listing, rental, payment, notification: nhận khi tạo từ template; luật ESLint chặn dùng pipe trần.
+- `standards/api-convention.md` §3, §6 cập nhật cùng lúc.
+
 ## [v1.3] — 2026-11-18
 
 - **type:** MINOR
