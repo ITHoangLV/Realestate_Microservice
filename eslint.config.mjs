@@ -17,6 +17,28 @@ export default tseslint.config(
     },
   },
   {
+    // C19 (2026-11-19): id sai trong đường dẫn phải trả 400 VALIDATION_FAILED.
+    // `ParseUUIDPipe` trần trả BAD_REQUEST → dùng createUuidParamPipe('<tên>').
+    files: ['services/*/src/**/*.ts'],
+    ignores: ['services/*/src/common/errors/uuid-param.pipe.ts'],
+    // Chặn ở import để bắt cả `new ParseUUIDPipe()` lẫn `@Param('id', ParseUUIDPipe)`.
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@nestjs/common',
+              importNames: ['ParseUUIDPipe'],
+              message:
+                "Dùng createUuidParamPipe('<tên>') (src/common/errors/uuid-param.pipe.ts) để id sai trả 400 VALIDATION_FAILED (C19).",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Script Node chạy trực tiếp (không qua NestJS), ví dụ contracts/scripts/check-events.mjs, scripts/generate-jwt-keys.mjs
     files: ['contracts/scripts/**/*.mjs', 'scripts/**/*.mjs'],
     languageOptions: {

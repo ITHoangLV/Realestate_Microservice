@@ -60,9 +60,14 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
       expect(missing.body.error.code).toBe('EXAMPLE_NOT_FOUND');
       expect(missing.body.meta.correlationId).toBeDefined();
 
+      // C19 (2026-11-19): id sai trong đường dẫn trả VALIDATION_FAILED như API nội bộ, không còn BAD_REQUEST
       const bad = await t.http().get('/api/v1/examples/khong-phai-uuid');
       expect(bad.status).toBe(400);
-      expect(bad.body.error.code).toBe('BAD_REQUEST');
+      expect(bad.body.error).toEqual({
+        code: 'VALIDATION_FAILED',
+        message: 'id phải là UUID',
+        details: [{ field: 'id', errors: ['id phải là UUID'] }],
+      });
     });
 
     it('tiền phải là số nguyên VND: số thập phân bị từ chối', async () => {
@@ -117,6 +122,16 @@ describe('Module mẫu example (tiêu chí XONG của template)', () => {
       expect(internal.headers['x-request-id']).toBeDefined();
       const prefixed = await t.http().get(`/api/v1/internal/examples/${created.body.data.id}`);
       expect(prefixed.status).toBe(404);
+    });
+
+    it('API nội bộ: id sai định dạng → 400 VALIDATION_FAILED đúng hợp đồng nội bộ', async () => {
+      const bad = await t.http().get('/internal/examples/khong-phai-uuid');
+      expect(bad.status).toBe(400);
+      expect(bad.body.error).toEqual({
+        code: 'VALIDATION_FAILED',
+        message: 'id phải là UUID',
+        details: [{ field: 'id', errors: ['id phải là UUID'] }],
+      });
     });
   });
 
