@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/_template-nest/src/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/reliability-standard.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v1.3 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-19 — v2.0 |
 
 ## 1. Cấu trúc
 
@@ -100,7 +100,7 @@ Làm theo `services/_template-nest/README.md §1` (PowerShell, robocopy). Việc
 
 `PageQueryDto` (`common/response/page-query.dto.ts`, v1.3): query phân trang chung cho API danh sách, `page` ≥ 1 mặc định 1, `pageSize` 1–50 mặc định 20 (`non-functional-standards.md §1`), getter `skip`. DTO riêng của từng API kế thừa và thêm bộ lọc; handler trả `new Paginated(items, query.page, query.pageSize, total)`. Chỉ chứa phân trang, không có bộ lọc hay luật nghiệp vụ.
 
-`createUuidParamPipe(field = 'id')` (`common/errors/uuid-param.pipe.ts`, v1.3): pipe kiểm tham số đường dẫn là UUID, lỗi trả `400 VALIDATION_FAILED`, message "<field> phải là UUID" đúng hợp đồng `contracts/openapi/*-internal.v1.yaml` (bốn spec đều yêu cầu). `new ParseUUIDPipe()` trần trả `BAD_REQUEST`; route công khai đang dùng nó giữ nguyên, API nội bộ mới dùng pipe này.
+`createUuidParamPipe(field = 'id')` (`common/errors/uuid-param.pipe.ts`, v1.3, phạm vi v2.0): pipe kiểm tham số đường dẫn là UUID, lỗi trả `400 VALIDATION_FAILED`, message "<field> phải là UUID", `details: [{ field, errors }]`, đúng hợp đồng `contracts/openapi/*-internal.v1.yaml`. Dùng cho **mọi** tham số đường dẫn kiểu UUID, công khai và nội bộ (C19, 2026-11-19). Không dùng `new ParseUUIDPipe()` trần (trả `BAD_REQUEST`); luật ESLint `no-restricted-imports` ở `eslint.config.mjs` gốc chặn import `ParseUUIDPipe` trong `services/*/src` (bắt cả `new ParseUUIDPipe()` lẫn truyền class), trừ chính `uuid-param.pipe.ts`.
 
 `expectResponseMatchesOpenApi(spec, method, path, status, body)` (`test/helpers/contracts.ts`, v1.3): kiểm body response thật khớp schema của một response trong `contracts/openapi/<spec>` (bắt trường thừa khi `additionalProperties: false`, thiếu trường, sai format). Dùng gói `yaml` (devDependency). Chỉ dùng trong test.
 
@@ -113,6 +113,7 @@ Làm theo `services/_template-nest/README.md §1` (PowerShell, robocopy). Việc
 | `test/errors.e2e-spec.ts` | Envelope lỗi, ẩn stack ở 5xx |
 | `test/response-envelope.e2e-spec.ts` | `{ data, meta }`, phân trang, không bọc `/health` |
 | `src/common/errors/uuid-param.pipe.spec.ts` | `createUuidParamPipe`: UUID hợp lệ trả nguyên; sai → `400 VALIDATION_FAILED`, message "<tên> phải là UUID" |
+| `test/example.e2e-spec.ts` | Route mẫu công khai và nội bộ: `id` sai → `400 VALIDATION_FAILED`, message "id phải là UUID", `details` (v2.0) |
 | `test/contracts-helper.e2e-spec.ts` | `expectResponseMatchesOpenApi`: khớp, thừa trường, thiếu trường, sai format, `$ref` response, status/đường dẫn/spec không có |
 | `src/common/response/page-query.dto.spec.ts` | `PageQueryDto`: mặc định `page=1`, `pageSize=20`; ép kiểu query; từ chối `page < 1`, `pageSize` ngoài 1–50; `skip` |
 | `test/idempotency.e2e-spec.ts` | Replay, `422`, `409` |
