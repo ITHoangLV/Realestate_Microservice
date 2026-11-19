@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -16,7 +17,9 @@ function run(env: Record<string, string>) {
   const baseEnv = { ...process.env } as Record<string, string | undefined>;
   for (const key of Object.keys(baseEnv)) {
     if (
-      /^(SERVICE_NAME|PORT|LOG_LEVEL|REDIS_URL|DATABASE_URL|JWT_.*|HTTP_.*|NODE_ENV)$/.test(key)
+      /^(SERVICE_NAME|PORT|LOG_LEVEL|REDIS_URL|DATABASE_URL|JWT_.*|HTTP_.*|NODE_ENV|BANK_ACCOUNT_ENCRYPTION_KEY)$/.test(
+        key,
+      )
     ) {
       delete baseEnv[key];
     }
@@ -64,6 +67,7 @@ describe('env.bootstrap (khởi động tiến trình)', () => {
     }
     expect(r.stderr).toContain('JWT_PRIVATE_KEY');
     expect(r.stderr).toContain('JWT_PUBLIC_KEY');
+    expect(r.stderr).toContain('BANK_ACCOUNT_ENCRYPTION_KEY');
   });
 
   it('identity đủ cấu hình -> thoát mã 0', () => {
@@ -75,8 +79,27 @@ describe('env.bootstrap (khởi động tiến trình)', () => {
       JWT_ISSUER: 'realestate-identity',
       JWT_PRIVATE_KEY_PATH: '../../secrets/jwt-private.pem',
       JWT_PUBLIC_KEY_PATH: '../../secrets/jwt-public.pem',
+      BANK_ACCOUNT_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
     });
     expect(r.stderr).toBe('');
     expect(r.status).toBe(0);
+  });
+
+  it('identity có khóa mã hóa sai độ dài -> thoát mã 1, nói rõ cần 32 byte, không in giá trị khóa', () => {
+    const badKey = randomBytes(16).toString('base64');
+    const r = run({
+      SERVICE_NAME: 'identity',
+      DATABASE_URL: 'postgres://u:p@localhost:5433/identity_db',
+      RABBITMQ_URL: 'amqp://u:p@localhost:5672/%2F',
+      REDIS_URL: 'redis://:p@localhost:6379',
+      JWT_ISSUER: 'realestate-identity',
+      JWT_PRIVATE_KEY_PATH: '../../secrets/jwt-private.pem',
+      JWT_PUBLIC_KEY_PATH: '../../secrets/jwt-public.pem',
+      BANK_ACCOUNT_ENCRYPTION_KEY: badKey,
+    });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('BANK_ACCOUNT_ENCRYPTION_KEY');
+    expect(r.stderr).toContain('32 byte');
+    expect(r.stderr).not.toContain(badKey);
   });
 });

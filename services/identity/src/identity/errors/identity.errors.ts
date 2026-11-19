@@ -5,7 +5,11 @@ export const IdentityError = {
   EMAIL_TAKEN: 'IDENTITY_EMAIL_TAKEN', // 409
   INVALID_CREDENTIALS: 'IDENTITY_INVALID_CREDENTIALS', // 401
   INVALID_REFRESH_TOKEN: 'IDENTITY_INVALID_REFRESH_TOKEN', // 401
+  BANK_ACCOUNT_NOT_FOUND: 'IDENTITY_BANK_ACCOUNT_NOT_FOUND', // 404
 } as const;
+
+export const bankAccountNotFound = (): AppException =>
+  new AppException(IdentityError.BANK_ACCOUNT_NOT_FOUND, 'Chưa khai tài khoản nhận tiền', 404);
 
 export const emailTaken = (): AppException =>
   new AppException(IdentityError.EMAIL_TAKEN, 'Email này đã được đăng ký', 409);

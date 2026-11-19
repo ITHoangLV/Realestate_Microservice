@@ -45,6 +45,8 @@ export interface EnvVars {
   JWT_REFRESH_TTL_SECONDS: number;
   /** Tiền tố key Redis lưu refresh token (test đổi để không đụng dữ liệu thật). */
   REFRESH_TOKEN_REDIS_PREFIX: string;
+  /** identity-service: khóa AES-256-GCM mã hóa số tài khoản nhận tiền, base64 của đúng 32 byte. */
+  BANK_ACCOUNT_ENCRYPTION_KEY?: string;
 }
 
 const optionalString = Joi.string().trim().empty('');
@@ -80,6 +82,7 @@ export const envSchema = Joi.object<EnvVars>({
   JWT_ACCESS_TTL_SECONDS: Joi.number().integer().min(60).max(86400).default(900),
   JWT_REFRESH_TTL_SECONDS: Joi.number().integer().min(300).max(7776000).default(604800),
   REFRESH_TOKEN_REDIS_PREFIX: Joi.string().trim().min(1).default('identity:'),
+  BANK_ACCOUNT_ENCRYPTION_KEY: optionalString,
 
   // --- Messaging (RabbitMQ + outbox/inbox), chỉ có tác dụng khi có RABBITMQ_URL ---
   RABBITMQ_EXCHANGE: Joi.string().trim().min(1).default('domain.events'),
