@@ -29,6 +29,8 @@ Object.assign(process.env, {
   SWAGGER_ENABLED: 'false',
   DATABASE_URL: databaseUrl,
   RABBITMQ_URL: rabbitUrl,
+  // Khóa cố định CHỈ cho test (32 byte base64), không dùng ở môi trường thật
+  BANK_ACCOUNT_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
 });
 // S3 do storage.infra-spec.ts tự bật (để test messaging không có thêm check 's3')
 for (const name of [

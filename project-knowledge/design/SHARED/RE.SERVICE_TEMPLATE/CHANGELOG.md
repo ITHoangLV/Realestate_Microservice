@@ -2,6 +2,53 @@
 
 > Tạo ở lần sửa đầu tiên sau baseline v1.0 (`standards/design-standards.md §9`). Mục mới lên đầu, không sửa mục cũ.
 
+## [v1.3] — 2026-11-18
+
+- **type:** MINOR
+- **author:** hoang.lv
+- **summary:** Thêm `PageQueryDto` (query phân trang), `createUuidParamPipe` (lỗi UUID đúng hợp đồng nội bộ) và `expectResponseMatchesOpenApi` (test response khớp OpenAPI).
+
+### Thay đổi
+
+**1.**
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 1 | `Component_Class_Design.md` §1, §4, §5 | Thêm |
+
+- **Cũ:** template có `Paginated` (khung response) nhưng không có DTO đọc `page`, `pageSize` từ query; mỗi service sẽ tự viết một bản.
+- **Mới:** `src/common/response/page-query.dto.ts` + `.spec.ts`: `page` ≥ 1 (mặc định 1), `pageSize` 1–50 (mặc định 20), `@Type(() => Number)`, getter `skip`.
+- **Lý do:** listing, rental, payment, notification, identity đều có API danh sách; ngưỡng 20/50 ở `non-functional-standards.md §1` cần một nơi duy nhất (ADR-0014). Phát hiện khi `reuse-scan` của T2.1.
+
+**2.** Thêm `createUuidParamPipe`.
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 2 | `Component_Class_Design.md` §1, §4, §5 | Thêm |
+
+- **Cũ:** `new ParseUUIDPipe()` trần trả `400 BAD_REQUEST`; bốn `contracts/openapi/*-internal.v1.yaml` đều khai `400 VALIDATION_FAILED`, message "<tên> phải là UUID".
+- **Mới:** `src/common/errors/uuid-param.pipe.ts` + `.spec.ts`. Route công khai đang dùng `ParseUUIDPipe` (có test `BAD_REQUEST`) giữ nguyên; chỉ API nội bộ mới dùng pipe mới.
+- **Lý do:** phát hiện khi viết test Bước 5 T2.1; listing, rental, payment cũng cần (ADR-0014).
+
+**3.** Thêm `expectResponseMatchesOpenApi`.
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 3 | `Component_Class_Design.md` §1, §4, §5 | Thêm |
+
+- **Cũ:** test chỉ kiểm được sự kiện khớp contract (`expectEventMatchesContract`); response API nội bộ không được kiểm với `contracts/openapi/`.
+- **Mới:** `test/helpers/contracts.ts` thêm `expectResponseMatchesOpenApi(spec, method, path, status, body)` + `test/contracts-helper.e2e-spec.ts`; thêm devDependency `yaml@2.9.1` (cùng bản với gốc).
+- **Lý do:** DoD T2.1 "response thật khớp `identity-internal.v1.yaml`"; mọi service có API nội bộ cần (ADR-0012).
+
+### File design đã sửa
+
+- `Component_Class_Design.md` §1, §4, §5
+- Header 3 file: v1.2 → v1.3 (`API_Spec.md`, `Processing_Flow.md` chỉ đổi số phiên bản, không đổi nội dung)
+
+### Ảnh hưởng
+
+- `services/_template-nest` (A, T2.1): thêm `src/common/response/page-query.dto.ts`, `src/common/errors/uuid-param.pipe.ts`, `test/helpers/contracts.ts`, devDependency `yaml`; đã chép sang identity. api-gateway không cần. listing, rental, payment, notification nhận khi tạo từ template.
+
 ## [v1.2] — 2026-11-16
 
 - **type:** MINOR

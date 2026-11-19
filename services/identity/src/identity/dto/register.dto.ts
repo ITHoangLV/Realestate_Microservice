@@ -5,7 +5,7 @@ import { SELF_REGISTER_ROLES } from '../entities/user.entity';
 import type { UserRole } from '../entities/user.entity';
 
 /** Chuẩn hóa chuỗi trước khi validate: bỏ khoảng trắng đầu/cuối. Giá trị không phải chuỗi để nguyên cho validator báo lỗi. */
-const trim = ({ value }: { value: unknown }): unknown =>
+export const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
 
 /** Email luôn về chữ thường để "A@x.com" và "a@x.com" là cùng một tài khoản. */

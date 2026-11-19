@@ -7,7 +7,7 @@
 | **Quy tắc** | BR-10, BR-12, BR-15, BR-16, BR-17, BR-19 |
 | **Quyết định** | ADR-0009 |
 | **CSDL** | `payment_db`: `admin_wallet`, `wallet_transactions`, `refund_requests`, `withdrawal_requests`, `transfer_receipts`, `audit_log`; S3 bucket `payment-proofs`. `Idempotency-Key` lưu Redis bằng `@Idempotent()` của template, không có bảng `idempotency_keys` (B11) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v1.2 |
 
 > Thao tác theo Báo cáo v2 Bảng 3.10. Đường dẫn chốt 2026-11-12 (A6).
 
@@ -194,3 +194,7 @@ CREATE TABLE audit_log (
 2. Chứng từ tải multipart qua payment (server tính `sha256`, kiểm loại và kích thước) rồi lưu S3 `payment-proofs`.
 3. Yêu cầu hoàn `FAILED` không phát sự kiện.
 4. `tenantId` lấy từ `payment_orders`, rental không cần gửi.
+
+## 9. Điểm `[cần xác nhận]`
+
+1. **Quản trị viên xem tài khoản của người thuê khi hoàn** (ghi 2026-11-18, từ T2.1). Đề xuất: màn hình yêu cầu hoàn gọi `GET /internal/users/:tenantId/bank-account` (identity trả số đầy đủ, payment không lưu). Nếu người thuê chưa khai (ví dụ tiền đến muộn): hỏi qua chat `SUPPORT`. Giao diện hiện form khai khi người dùng gửi yêu cầu hoàn lần đầu (`RE.IDENTITY/API_Spec.md §1.4`). Chốt thiết kế chi tiết ở T3.6; không làm trong T2.1.

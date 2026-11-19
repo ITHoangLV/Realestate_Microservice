@@ -1,8 +1,3 @@
-# Thay các placeholder bằng username GitHub thật trước khi bật branch protection.
-
--                       @username-lead-backend
-
-/infra/ @username-devops
-/contracts/ @username-lead-backend
-/services/payment/ @username-payment-owner
-/docs/ @username-lead-backend
+# Reviewer GitHub tu goi y (khong bat buoc duyet: chi can CI xanh, chot 2026-11-18).
+# Moi task giao cho A (2026-11-18); A giao lai thi them dong theo thu muc.
+*    @hoanglv25

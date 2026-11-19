@@ -2,6 +2,33 @@
 
 > Tạo ở lần sửa đầu tiên sau baseline v1.0 (`standards/design-standards.md §9`). Mục mới lên đầu, không sửa mục cũ.
 
+## [v1.2] — 2026-11-18
+
+- **type:** MINOR
+- **author:** hoang.lv
+- **summary:** Ghi `[cần xác nhận]` về cách quản trị viên xem tài khoản nhận tiền của người thuê khi hoàn.
+
+### Thay đổi
+
+**1.**
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 1 | `API_Spec.md` §9 | Thêm |
+
+- **Cũ:** không nói quản trị viên lấy tài khoản người thuê ở đâu khi hoàn.
+- **Mới:** `[cần xác nhận]` kèm đề xuất (gọi API nội bộ identity; chưa khai thì hỏi qua chat `SUPPORT`).
+- **Lý do:** phát sinh khi chốt thời điểm khai tài khoản nhận tiền ở T2.1 (`RE.IDENTITY` v2.1).
+
+### File design đã sửa
+
+- `API_Spec.md` §9
+- Header 3 file: v1.1 → v1.2
+
+### Ảnh hưởng
+
+- payment (C, T3.6): chốt thiết kế chi tiết khi làm T3.6. `contracts/` không đổi.
+
 ## [v1.1] — 2026-11-16
 
 - **type:** MINOR

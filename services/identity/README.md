@@ -121,16 +121,17 @@ Chạy lại an toàn: email đã là ADMIN thì không đổi gì; email đã l
 
 ### Biến môi trường riêng của identity
 
-| Biến                                       | Mặc định               | Ý nghĩa                                                                           |
-| ------------------------------------------ | ---------------------- | --------------------------------------------------------------------------------- |
-| `JWT_PRIVATE_KEY_PATH` / `JWT_PRIVATE_KEY` | bắt buộc một trong hai | Khóa riêng RS256 để ký (đường dẫn tính từ `services/identity`, hoặc PEM với `\n`) |
-| `JWT_PUBLIC_KEY_PATH` / `JWT_PUBLIC_KEY`   | bắt buộc một trong hai | Khóa công khai để kiểm tra token ở `/me`                                          |
-| `JWT_ISSUER`                               | bắt buộc               | Ghi vào token và được kiểm tra khi verify                                         |
-| `JWT_ACCESS_TTL_SECONDS`                   | 900                    | Thời hạn access token                                                             |
-| `JWT_REFRESH_TTL_SECONDS`                  | 604800                 | Thời hạn refresh token                                                            |
-| `REDIS_URL`                                | bắt buộc               | Nơi lưu refresh token                                                             |
-| `REFRESH_TOKEN_REDIS_PREFIX`               | `identity:`            | Tiền tố key Redis                                                                 |
-| `OUTBOX_RELAY_ENABLED`                     | `true`                 | `false`: ghi outbox nhưng không gửi (dùng khi test)                               |
+| Biến                                       | Mặc định               | Ý nghĩa                                                                                            |
+| ------------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------- |
+| `JWT_PRIVATE_KEY_PATH` / `JWT_PRIVATE_KEY` | bắt buộc một trong hai | Khóa riêng RS256 để ký (đường dẫn tính từ `services/identity`, hoặc PEM với `\n`)                  |
+| `JWT_PUBLIC_KEY_PATH` / `JWT_PUBLIC_KEY`   | bắt buộc một trong hai | Khóa công khai để kiểm tra token ở `/me`                                                           |
+| `JWT_ISSUER`                               | bắt buộc               | Ghi vào token và được kiểm tra khi verify                                                          |
+| `JWT_ACCESS_TTL_SECONDS`                   | 900                    | Thời hạn access token                                                                              |
+| `JWT_REFRESH_TTL_SECONDS`                  | 604800                 | Thời hạn refresh token                                                                             |
+| `BANK_ACCOUNT_ENCRYPTION_KEY`              | bắt buộc               | Khóa AES-256-GCM mã hóa số tài khoản nhận tiền: base64 của đúng 32 byte (sinh: xem `.env.example`) |
+| `REDIS_URL`                                | bắt buộc               | Nơi lưu refresh token                                                                              |
+| `REFRESH_TOKEN_REDIS_PREFIX`               | `identity:`            | Tiền tố key Redis                                                                                  |
+| `OUTBOX_RELAY_ENABLED`                     | `true`                 | `false`: ghi outbox nhưng không gửi (dùng khi test)                                                |
 
 ## Test
 

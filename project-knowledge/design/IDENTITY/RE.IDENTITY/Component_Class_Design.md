@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/identity/src/identity/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/security-policy.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v2.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v2.1 |
 
 ## 1. Cấu trúc
 
@@ -23,8 +23,9 @@ src/identity/
 │  ├─ auth.service.ts                    # luồng; issueSession(user)
 │  ├─ password.service.ts                # argon2id
 │  ├─ token.service.ts                   # ký JWT RS256
-│  ├─ + bank-account.service.ts          # mã hóa/giải mã, che số
-│  ├─ + user-admin.service.ts            # danh sách, khóa/mở khóa + thu hồi phiên
+│  ├─ + bank-account.service.ts          # upsert, đọc, lấy số đầy đủ cho payment; che số
+│  ├─ + bank-account.cipher.ts           # AES-256-GCM: encrypt/decrypt, AAD = userId (chỉ identity dùng)
+│  ├─ + user-admin.service.ts            # danh sách (T2.1); khóa/mở khóa + thu hồi phiên (T2.5)
 │  ├─ + email-verification.service.ts    # sinh, kiểm OTP (Redis)
 │  ├─ + password-reset.service.ts        # token đặt lại (Redis)
 │  ├─ + google-auth.service.ts           # kiểm ID token, tìm/tạo/liên kết user
@@ -32,8 +33,10 @@ src/identity/
 ├─ stores/
 │  ├─ refresh-token.store.ts             # interface
 │  └─ redis-refresh-token.store.ts       # Lua script xoay vòng nguyên tử
-├─ dto/ entities/ (user, user-identity, + bank-account) errors/ config/ seed/
+├─ dto/ (+ bank-account.dto, upsert-bank-account.dto, list-users.query) entities/ (user, user-identity, + bank-account) errors/ config/ seed/
 ```
+
+`list-users.query.ts` kế thừa `PageQueryDto` (`src/common/response/page-query.dto.ts`, sửa ở `_template-nest` rồi chép sang, ADR-0014).
 
 ## 2. Sơ đồ lớp
 
@@ -51,15 +54,19 @@ classDiagram
       +create(userId, familyId) string
       +rotate(token) RotateResult
       +revokeFamily(familyId)
-      +revokeAllForUser(userId)
+      +revokeAllForUser(userId) number
     }
     class BankAccountService {
       +upsertMine(userId, dto) BankAccountView
       +getMine(userId) BankAccountView
       +getForPayout(userId) BankAccountFull
     }
+    class BankAccountCipher {
+      +encrypt(plain, userId) Buffer
+      +decrypt(buf, userId) string
+    }
     class UserAdminService {
-      +changeRole(adminId, userId, role)
+      +list(query) Paginated~UserDto~
       +lock(adminId, userId, reason)
       +unlock(adminId, userId)
     }
@@ -83,6 +90,7 @@ classDiagram
     AuthService --> TokenService
     AuthService --> RefreshTokenStore
     AuthService --> OutboxService
+    BankAccountService --> BankAccountCipher
     UserAdminService --> RefreshTokenStore
     EmailVerificationService --> MailService
     PasswordResetService --> MailService
@@ -90,14 +98,16 @@ classDiagram
     GoogleAuthService --> AuthService
 ```
 
-`revokeAllForUser(userId)` (chốt 2026-11-16): mỗi lần cấp họ token mới, `SADD identity:user-families:<userId> <familyId>` và gia hạn TTL 7 ngày; thu hồi = đọc set, đặt `identity:revoked:<familyId>` cho từng phần tử rồi xóa set. Gọi khi khóa tài khoản, đặt lại mật khẩu (Bảng 2.6). Bỏ đổi vai trò 2026-11-18.
+`revokeAllForUser(userId)` (chốt 2026-11-16): mỗi lần cấp họ token mới, `SADD identity:user-families:<userId> <familyId>` và gia hạn TTL 7 ngày; thu hồi = đọc set, đặt `identity:revoked:<familyId>` cho từng phần tử rồi xóa set. Gọi khi khóa tài khoản, đặt lại mật khẩu (Bảng 2.6). Bỏ đổi vai trò 2026-11-18. Trả về số họ đã thu hồi (user chưa có họ → 0). Đọc set, đặt cờ thu hồi và xóa set chạy trong một Lua script nên nguyên tử; `create` ghi `SADD` + `EXPIRE` cùng `multi` với bản ghi token. `rotate` thành công cũng `SADD familyId` rồi gia hạn TTL của set (cùng script Lua): họ xoay vòng lâu không sống lâu hơn set, và phiên cũ tự vào set ở lần refresh kế tiếp. Token đã dùng (`reuse`) hoặc không hợp lệ không thêm gì vào set.
+
+**Hạn chế (chốt 2026-11-18, sửa 2026-11-19):** phiên tạo **trước** khi có thay đổi này không có trong set `user-families`, nên cho tới lần refresh kế tiếp của phiên đó `revokeAllForUser` không thu hồi được; phiên chưa bao giờ refresh thì tự hết hạn, tối đa 7 ngày (`JWT_REFRESH_TTL_SECONDS`). Phiên đã refresh một lần sau thay đổi này thì thu hồi được. Chấp nhận vì hệ thống chưa chạy thật (chỉ có phiên dev). Ghi ở `standards/security-policy.md §6`.
 
 ## 3. Redis
 
 ```text
 identity:rt:<sha256(token)>   hash {userId, familyId, used}   TTL 7 ngày
 identity:revoked:<familyId>   "1"                             TTL 7 ngày
-identity:user-families:<userId> set {familyId}                TTL 7 ngày (gia hạn khi thêm)
+identity:user-families:<userId> set {familyId}                TTL 7 ngày (SADD + gia hạn khi create và rotate)
 identity:otp:<userId>         hash {otpHash, attempts}        TTL OTP_TTL_SECONDS
 identity:otp-cooldown:<userId> "1"                            TTL OTP_RESEND_COOLDOWN_SECONDS
 identity:pwreset:<sha256(token)> userId                       TTL PASSWORD_RESET_TTL_SECONDS
@@ -122,8 +132,12 @@ OTP băm bằng SHA-256 kèm `userId` trước khi lưu; so sánh hằng thời 
 | 7 | Đăng ký ghi outbox cùng transaction | Rollback thì không có sự kiện | Có |
 | 8 | `identity.registered` đúng schema | `expectEventMatchesContract` | Kiểm lại |
 | 9 | Khai tài khoản ngân hàng | Lưu mã hóa, response chỉ bốn số cuối | Mới |
+| 9a | `BankAccountCipher` | Khứ hồi đúng; hai lần mã hóa cùng số cho kết quả khác nhau; sai `userId` (AAD), sai khóa, sửa một byte → lỗi | Mới (T2.1, `test`) |
+| 9b | `PUT` hai lần, `GET` trước khi khai, không token | Một dòng trong DB, lần hai ghi đè; `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND`; `401` | Mới (T2.1, `test:infra`) |
+| 9c | `revokeAllForUser` | Hai họ của cùng user bị thu hồi, họ user khác không; user chưa có họ → 0 | Mới (T2.1, `test:infra`) |
+| 9d | `GET /admin/users` | ADMIN: `meta.page/pageSize/total/totalPages`, thứ tự `created_at DESC, id DESC` (cả khi trùng `created_at`), lọc `role` (total theo role), trang vượt → `data []` + total đúng; `role` sai, `pageSize=51`, `page=0` → `400`; không token `401`, TENANT/LANDLORD `403`; tối đa 2 truy vấn, không đọc `password_hash`; `EXPLAIN` dùng index, không Sort | Mới (T2.1, `test:infra`) |
 | 10 | ~~Đổi vai trò~~ | Bỏ 2026-11-18 (không còn route đổi vai trò) | Bỏ |
-| 11 | `/internal/users/:id/bank-account` chưa khai | `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND` | Mới |
+| 11 | `/internal/users/:id/bank-account` | Chưa khai → `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND`; đã khai → số đầy đủ, body khớp schema `BankAccountResponse` trong `identity-internal.v1.yaml`; `id` sai → `400`; access log không có số tài khoản | Mới |
 | 12 | Seed chạy hai lần | Không đổi gì | Có (`seed-admin.infra-spec.ts`) |
 | 13 | Đăng ký mới | `status = PENDING_VERIFICATION`, Mailpit nhận một email OTP | Mới |
 | 14 | Đăng nhập khi chưa xác minh / bị khóa (đúng mật khẩu) | `403 IDENTITY_EMAIL_NOT_VERIFIED` / `403 IDENTITY_ACCOUNT_LOCKED`; sai mật khẩu vẫn `401` | Mới |

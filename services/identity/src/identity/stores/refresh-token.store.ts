@@ -23,6 +23,15 @@ export interface RefreshTokenStore {
 
   /** Thu hồi cả họ của token (đăng xuất). Trả false nếu token không tồn tại. */
   revokeFamilyOf(token: string): Promise<boolean>;
+
+  /**
+   * Thu hồi MỌI họ của một người dùng (khóa tài khoản, đặt lại mật khẩu). Trả số họ đã thu hồi.
+   *
+   * Chỉ thu hồi được các họ đã có trong danh sách họ của user (ghi lúc `create` và `rotate`). Phiên tạo
+   * trước khi có danh sách này chỉ vào danh sách ở lần refresh kế tiếp; chưa refresh thì không bị
+   * thu hồi, tự hết hạn theo TTL (tối đa 7 ngày), xem `RE.IDENTITY §2`.
+   */
+  revokeAllForUser(userId: string): Promise<number>;
 }
 
 /** Token DI để inject `RefreshTokenStore` (interface không inject trực tiếp được). */

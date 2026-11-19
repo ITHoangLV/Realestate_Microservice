@@ -7,7 +7,7 @@
 | **Quy tắc** | Không có `BR-xx`; hiện thực NFR02, NFR03, NFR06 |
 | **Quyết định** | ADR-0011, ADR-0013, ADR-0014 |
 | **CSDL** | Tùy chọn: bật khi có `DATABASE_URL` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.2 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v1.3 |
 
 > Mô tả hợp đồng mà template **đã có trong code**. Nguồn: `services/_template-nest/README.md`. Mọi service kế thừa nguyên các hợp đồng này.
 
