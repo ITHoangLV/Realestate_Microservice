@@ -1,19 +1,21 @@
 ---
-task: T2.1 identity — tài khoản nhận tiền, API nội bộ
-updated: 2026-11-19 16:40
-percent: 100
+task: C19 — thống nhất 400 VALIDATION_FAILED khi id trong đường dẫn sai
+updated: 2026-11-19 17:00
+percent: 95
 ---
 
 ## Đang làm
-- Bước hiện tại: xong. PR #16 merge vào `develop` (`b88817a`), CI xanh
-- Tóm tắt: đóng task ở nhánh `docs/T2.1-dong` (tick `implementation/progress.md`, ghi quyết định C19)
+- Bước hiện tại: 6 — đã commit ở máy A; chờ A push, mở PR, CI xanh
+- Tóm tắt: template dùng `createUuidParamPipe` ở mọi route; ESLint `no-restricted-imports` chặn `ParseUUIDPipe`; `RE.SERVICE_TEMPLATE` v2.0
 
 ## Đã xong (phiên này)
-- Commit, PR #16, CI `check`, `test` (template-nest, identity, api-gateway), `ci` xanh; merge 2026-11-19 16:23
-- Tick T2.1 ở `implementation/progress.md`; A chốt C19 phương án (b)
+- Tài liệu: `RE.SERVICE_TEMPLATE` v2.0 + CHANGELOG, `api-convention.md §3`
+- TDD: RED 2 ca → GREEN; template unit 96, e2e 111; identity unit 201, e2e 97; lint, format, build, contracts sạch
+- README template, walkthrough identity, tech-debt #12 resolved; code-review 5 chiều (sửa 1 MINOR luật ESLint)
 
 ## Còn lại
-- Việc tiếp: sửa template theo C19 (task ngoài kế hoạch, A đồng ý 2026-11-19), rồi T2.2 listing
+- A push `fix/C19-uuid-validation-failed`, mở PR vào `develop`, CI xanh, merge
+- Sau đó: T2.2 listing (`/cf-task T2.2`)
 
 ## Blockers
 _không có_

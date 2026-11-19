@@ -8,8 +8,8 @@
 | **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-19 |
 | **Thành phần** | `services/identity/` (cổng 3001); phần chép từ `services/_template-nest/` ghi rõ ở §3 |
 | **Task** | `T2.1` (`implementation/PHASE-2.md`); phần đã có từ trước (đăng ký, đăng nhập, làm mới, `/me`, seed ADMIN) giải thích ở §1, §3 để đủ bức tranh |
-| **Thiết kế** | `design/IDENTITY/RE.IDENTITY/` (v2.1), `design/SHARED/RE.SERVICE_TEMPLATE/` (v1.3), `design/PAYMENT/RE.PAYOUT/` (v1.2, chỉ một `[cần xác nhận]`) |
-| **Commit / PR** | Chưa commit; nhánh `feature/T2.1-identity-bank-account`; PR chưa mở |
+| **Thiết kế** | `design/IDENTITY/RE.IDENTITY/` (v2.1), `design/SHARED/RE.SERVICE_TEMPLATE/` (v2.0), `design/PAYMENT/RE.PAYOUT/` (v1.2, chỉ một `[cần xác nhận]`) |
+| **Commit / PR** | T2.1: PR #16, merge `b88817a` (2026-11-19). C19: nhánh `fix/C19-uuid-validation-failed` |
 
 ## 1. Luồng chung
 
@@ -152,7 +152,7 @@ services/identity/
 | `ROTATE_LUA` làm `SADD familyId` rồi `EXPIRE` set | (1) Gia hạn: họ xoay vòng ngày thứ 6 sống tới ngày 13, set hết hạn ngày 7 thì thu hồi sót. (2) `SADD`: phiên tạo trước thay đổi tự vào set ở lần refresh kế tiếp | Chỉ `EXPIRE` (phiên cũ không bao giờ vào set); migration quét Redis để nạp set | A chốt 2026-11-19; `Component_Class_Design §2` |
 | `GET /admin/users`: **tối đa 2** truy vấn, `findAndCount` | TypeORM bỏ `COUNT` khi trang đầu chưa đầy (`OFFSET 0`, ít dòng hơn `LIMIT`) vì `total` chính là số dòng nhận được; vẫn đúng, trong ngưỡng 4 | Tự `find` + `count` luôn 2 truy vấn | `non-functional-standards §1`; A chốt "giữ nguyên" 2026-11-19 |
 | Hai index `(created_at DESC, id DESC)` và `(role, created_at DESC, id DESC)` | Chuẩn: MUST có index cho cột sắp xếp, lọc. Khớp thứ tự nên `EXPLAIN` không có bước Sort | Không index (bảng nhỏ) | `non-functional-standards §1`, `API_Spec §6` |
-| `createUuidParamPipe` thay `new ParseUUIDPipe()` cho API nội bộ | `ParseUUIDPipe` trần trả `BAD_REQUEST`; cả bốn hợp đồng nội bộ khai `VALIDATION_FAILED` + "<tên> phải là UUID". Route công khai của template giữ nguyên (có test, code đã merge) | Sửa `ParseUUIDPipe` cho mọi route (đổi hành vi đã merge) | C19 ở `van-de-can-quyet-dinh.md` |
+| `createUuidParamPipe` thay `new ParseUUIDPipe()` | `ParseUUIDPipe` trần trả `BAD_REQUEST`; cả bốn hợp đồng nội bộ khai `VALIDATION_FAILED` + "<tên> phải là UUID". Từ C19 (2026-11-19) áp cho mọi route, công khai và nội bộ; luật ESLint chặn pipe trần | Giữ hai cách: route công khai `BAD_REQUEST`, nội bộ `VALIDATION_FAILED` (client phải xử lý hai mã) | C19 ở `van-de-can-quyet-dinh.md` mục D, `RE.SERVICE_TEMPLATE` v2.0 |
 | `PageQueryDto` ở template, chép sang identity | listing, rental, payment, notification đều cần; ngưỡng 20/50 ở một nơi | Viết riêng ở identity | ADR-0014 |
 | `BANK_ACCOUNT_ENCRYPTION_KEY` bắt buộc ở `identity.env.ts` nhưng compose dùng `${…:-}` | Thiếu thì identity tự báo rõ rồi dừng; `:?` sẽ làm hỏng cả `infra:up` của người chưa thêm biến | `:?` trong compose | `API_Spec §5` |
 | Không có route đổi vai trò | Vai trò cố định từ lúc tạo; muốn vai trò khác thì email mới | Route 9 | A chốt 2026-11-18 |
@@ -172,7 +172,7 @@ services/identity/
 | Vì sao `/internal` không cần JWT? | Gateway trả 404 cho `/internal/*` từ ngoài, cổng service không publish; tin mạng Docker. Hướng: xác thực service-to-service hoặc mTLS | `security-policy §2, §6` |
 | Vì sao danh sách người dùng có khóa phụ `id`? | Nhiều người có thể cùng `created_at`; thiếu khóa phụ thì phân trang lặp hoặc sót dòng | `admin-users.infra-spec.ts` |
 | Vì sao test dùng `EXPLAIN` với `enable_seqscan=off`? | Bảng test chỉ vài dòng nên planner chọn quét tuần tự; tắt `seqscan` để chứng minh index **dùng được** và khớp thứ tự (không Sort) | `admin-users.infra-spec.ts` |
-| Vì sao có hai cách báo `id` sai? | Route công khai của template giữ `BAD_REQUEST` (code đã merge, có test); API nội bộ theo hợp đồng `VALIDATION_FAILED`. Chờ A chốt thống nhất | C19 |
+| `id` sai trong đường dẫn trả gì, vì sao không dùng `ParseUUIDPipe` trần? | `400 VALIDATION_FAILED`, message "id phải là UUID", `details` theo trường, ở mọi route. `ParseUUIDPipe` trần trả `BAD_REQUEST`, lệch hợp đồng nội bộ; A chốt một mã cho một lỗi (C19), ESLint `no-restricted-imports` chặn pipe trần | C19, `api-convention.md §3` |
 | Contract-first nghĩa là gì ở đây? | `identity-internal.v1.yaml` viết trước; test `expectResponseMatchesOpenApi` kiểm body **thật** khớp, bắt cả trường thừa | ADR-0012 |
 
 ## 6. Hạn chế đã biết
@@ -181,7 +181,6 @@ services/identity/
 |---|---|---|
 | Không xoay khóa mã hóa | Lộ khóa hoặc mất khóa: không đổi khóa mà giữ dữ liệu cũ được | Đánh số phiên bản khóa trong `bytea` (`security-policy §6`); ghi `tech-debt.md` |
 | Phiên tạo trước thay đổi `user-families` chưa refresh thì `revokeAllForUser` không thu hồi được | Tối đa 7 ngày (hệ thống chưa chạy thật) | Tự vào set khi refresh; không cần xử lý thêm (`security-policy §6`) |
-| Hai cách báo `id` sai (C19) | Client phải xử lý hai mã (`BAD_REQUEST`, `VALIDATION_FAILED`) tùy route | A chốt; đề xuất thống nhất `VALIDATION_FAILED` |
 | `/internal/*` tin mạng Docker | Ai vào được mạng Docker đọc được số tài khoản đầy đủ | Xác thực service-to-service hoặc mTLS (`security-policy §6`) |
 | Người dùng không còn trong DB nhưng token còn hạn → `PUT` lỗi khóa ngoại → 500 | Hiện chưa có API xóa người dùng nên chưa xảy ra | Map lỗi `23503` sang `IDENTITY_USER_NOT_FOUND` khi có xóa/khóa (T2.5); ghi `tech-debt.md` |
 | `findAndCount` có thể trả `total` tính từ trang đầu khi trang chưa đầy | Không sai; đồng thời có người đăng ký giữa hai truy vấn thì `total` lệch tạm thời | Chấp nhận |

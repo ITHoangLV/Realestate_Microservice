@@ -192,7 +192,7 @@ export class DepositController {
 `@Roles` nhận **chuỗi tự do**, template không cố định danh sách vai trò (identity-service sẽ quy định, ví dụ
 `ADMIN`, `LANDLORD`, `TENANT`).
 
-Tham số đường dẫn của API nội bộ: dùng `createUuidParamPipe('id')` thay `new ParseUUIDPipe()` để lỗi là `400 VALIDATION_FAILED` đúng hợp đồng (`ParseUUIDPipe` trần trả `BAD_REQUEST`):
+Tham số đường dẫn kiểu UUID (mọi route, công khai và nội bộ, C19): dùng `createUuidParamPipe('<tên>')` để lỗi là `400 VALIDATION_FAILED`, message "<tên> phải là UUID", đúng hợp đồng. Không dùng `new ParseUUIDPipe()` trần (trả `BAD_REQUEST`); luật ESLint ở `eslint.config.mjs` gốc báo lỗi nếu có:
 
 ```ts
 @Get(':id')
