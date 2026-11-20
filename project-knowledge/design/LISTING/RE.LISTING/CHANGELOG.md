@@ -2,6 +2,36 @@
 
 > Tạo ở lần sửa đầu tiên sau baseline v1.0 (`standards/design-standards.md §9`). Mục mới lên đầu, không sửa mục cũ.
 
+## [v1.3] — 2026-11-20
+
+- **type:** MINOR
+- **author:** hoang.lv (A chốt §8 sau khi T2.2 merge)
+- **summary:** Chốt hai điểm `[cần xác nhận]` còn lại: trường bắt buộc khi tạo tin, độ dài mô tả, ảnh không xác nhận trên S3.
+
+### Thay đổi
+
+**1.**
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 1 | `API_Spec.md` §1.1 (`description`, `district`/`city`/`address`) | Sửa |
+| 2 | `API_Spec.md` §7 (mục 9–10) | Thêm |
+| 3 | `API_Spec.md` §8 | Xóa |
+
+- **Cũ:** §8 ghi `description` ≤ 5000 và `address`, `district`, `city` bắt buộc ở route 1 là đề xuất của Claude, chờ xác nhận; ảnh không xác nhận nằm lại trên S3 cũng để ở §8.
+- **Mới:** A chốt đúng như đề xuất; ghi vào §1.1 và §7. DDL §6 không đổi (cột vẫn cho phép `NULL`, chỉ kiểm ở API). §8 không còn điểm nào.
+- **Lý do:** business-spec (Báo cáo v2) không quy định; tìm kiếm FR03 lọc theo quận nên tin thiếu quận không lọc ra được. Code T2.2 (PR #19) đã làm theo đề xuất, không phải sửa.
+
+### File design đã sửa
+
+- `API_Spec.md` §1.1, §7, §8
+- Header 3 file: v1.2 → v1.3
+
+### Ảnh hưởng
+
+- listing: không đổi code (DTO đã kiểm như trên từ T2.2).
+- `contracts/`: không đổi. Gateway: không đổi.
+
 ## [v1.2] — 2026-11-19
 
 - **type:** MINOR

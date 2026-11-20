@@ -121,5 +121,5 @@ Phần chép nguyên từ `_template-nest` (`common/`, `health/`, `redis/`, `mes
 | Ảnh lấy upload-url nhưng không xác nhận nằm lại trên S3 | Tốn dung lượng | Job dọn hoặc lifecycle rule (`tech-debt.md` #14) |
 | `listing_db` có bảng `outbox_events`, `processed_events` không dùng | Không ảnh hưởng | `tech-debt.md` #15 |
 | Chưa có tìm kiếm, giữ chỗ, `/internal/*` | Rental chưa gọi được listing | T2.3 |
-| `description` ≤ 5000 và trường bắt buộc khi tạo (`address`, `district`, `city`) là đề xuất | DDL cho phép `NULL` | `API_Spec §8` chờ A xác nhận |
+| `address`, `district`, `city` bắt buộc và `description` ≤ 5000 chỉ kiểm ở API (A chốt 2026-11-20, `RE.LISTING` v1.3) | DDL vẫn cho phép `NULL`; dữ liệu chèn thẳng vào DB có thể thiếu | Thêm `NOT NULL` bằng migration nếu cần (đổi bảng, MAJOR) |
 | Ảnh quá giới hạn 10 khi xác nhận, ảnh hợp lệ nằm lại trên S3 | Như trên | Cùng tech-debt #14 |
