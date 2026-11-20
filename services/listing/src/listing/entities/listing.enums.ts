@@ -11,6 +11,10 @@ export type PropertyType = (typeof PROPERTY_TYPES)[number];
 export const LISTING_STATUSES = ['AVAILABLE', 'HELD', 'DEPOSITED', 'RENTED', 'HIDDEN'] as const;
 export type ListingStatus = (typeof LISTING_STATUSES)[number];
 
+/** Đích hợp lệ của `PUT /internal/listings/:id/status` (hợp đồng: `AVAILABLE`, `DEPOSITED`, `RENTED`). */
+export const TARGET_STATUSES = ['AVAILABLE', 'DEPOSITED', 'RENTED'] as const;
+export type TargetStatus = (typeof TARGET_STATUSES)[number];
+
 /** Trạng thái duyệt tin (`listings.approval_status`, chốt 2026-11-16). */
 export const APPROVAL_STATUSES = ['PENDING_REVIEW', 'APPROVED', 'REJECTED'] as const;
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];

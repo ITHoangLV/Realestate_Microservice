@@ -2,6 +2,48 @@
 
 > Tạo ở lần sửa đầu tiên sau baseline v1.0 (`standards/design-standards.md §9`). Mục mới lên đầu, không sửa mục cũ.
 
+## [v1.4] — 2026-11-20
+
+- **type:** MINOR
+- **author:** hoang.lv (A duyệt kế hoạch T2.3 cùng ngày)
+- **summary:** Chốt response và ngữ nghĩa query của tìm kiếm (route 11), ba index cho lọc và sắp xếp, quy tắc idempotent của đổi trạng thái theo đơn, cách chứng minh `EXPLAIN` khi chưa có seed.
+
+### Thay đổi
+
+**1.**
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 1 | `API_Spec.md` §1.3 (bảng ngữ nghĩa query, thứ tự, điều kiện nền) | Sửa |
+| 2 | `API_Spec.md` §1.4 (`ListingSummaryDto`, route 11) | Thêm |
+| 3 | `API_Spec.md` §2 (route a), §2.1 (`heldUntil`), §2.2 (bảng idempotent, `details`) | Sửa |
+| 4 | `API_Spec.md` §6 (`ix_listings_amenities`, `ix_listings_created`, `ix_listings_area`) | Thêm |
+| 5 | `API_Spec.md` §7 (mục 11–15) | Thêm |
+| 6 | `Component_Class_Design.md` §1, §2, §3 (test 4, 10, 11 sửa; test 18–21 thêm), §4 | Sửa |
+| 7 | `Processing_Flow.md` §5 (dòng tìm kiếm, bản chụp), §6 (tìm kiếm theo bán kính) | Sửa, thêm |
+
+- **Cũ:** §1.3 chỉ liệt kê tên tham số; response route 11 chưa có hình dạng; DDL §6 không có index cho `created_at` (sắp `newest` mặc định), `amenities` (`@>`) và `area_m2` (lọc diện tích); §2.2 viết "đã ở đích với cùng `depositId` → `200`" nên không áp được cho đích `AVAILABLE` (listing xóa `held_by_deposit_id` khi về `AVAILABLE`); test 4 chạy "trên seed" trong khi seed là T2.4, phụ thuộc T2.3.
+- **Mới:**
+  - Route 11 trả `ListingSummaryDto` (ảnh bìa, `distanceM` khi có `lat/lng`, không `images[]`, `description`). `lat`+`lng` đi cùng nhau; `radiusKm` ∈ (0, 50] và chỉ khi có `lat/lng`; có `lat/lng` không `radiusKm` → không lọc bán kính, vẫn có `distanceM`; `sort=distance` cần `lat/lng`; `district` so khớp đúng chuỗi; `amenities` CSV; mặc định loại `HIDDEN`, vẫn trả `HELD`, `DEPOSITED`, `RENTED`.
+  - Ba index mới bắt buộc (không ghi nợ kỹ thuật).
+  - Đổi trạng thái: đích `AVAILABLE` và tin đã `AVAILABLE` → `200` với mọi `depositId`; tin thuộc đơn khác → `409 LISTING_INVALID_STATUS` kèm `details { current, target }`; `heldUntil` không kiểm "tương lai".
+  - Test 4 chạy trên fixture (tin tọa độ thật + ~5.000 tin ngẫu nhiên đã `ANALYZE`); T2.4 chạy lại `EXPLAIN` bán kính 2 km trên seed.
+- **Lý do:** A chốt khi duyệt kế hoạch T2.3 (2026-11-20). Viết trước code theo `design-standards.md §9`; index theo `non-functional-standards.md §1` ("MUST có index cho cột lọc, sắp xếp"); với ~30 dòng seed, planner có thể chọn quét tuần tự nên cần tập dữ liệu đủ lớn mới chứng minh được GiST.
+
+### File design đã sửa
+
+- `API_Spec.md` §1.3, §1.4, §2, §2.1, §2.2, §6, §7
+- `Component_Class_Design.md` §1, §2, §3, §4
+- `Processing_Flow.md` §5, §6
+- Header 3 file: v1.3 → v1.4
+
+### Ảnh hưởng
+
+- listing (T2.3): thêm `ListingSummaryDto`, bộ dựng SQL tìm kiếm, `ListingHoldService`, controller nội bộ; migration thêm 3 index; `listingInvalidStatus` nhận `details`.
+- rental (T3.3, C): cần xử lý `409 LISTING_INVALID_STATUS` khi đích `AVAILABLE` là kết cục cuối, không retry (`[cần xác nhận]` ở `RE.DEPOSIT_SAGA/API_Spec.md §8`, `van-de-can-quyet-dinh.md` C20). Không sửa rental ở T2.3.
+- T2.4: thêm vào DoD "chạy lại `EXPLAIN` bán kính 2 km trên seed thật".
+- `contracts/`: không đổi (`listing-internal.v1.yaml` đã khớp). Gateway: không đổi.
+
 ## [v1.3] — 2026-11-20
 
 - **type:** MINOR

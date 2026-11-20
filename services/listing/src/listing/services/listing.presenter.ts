@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm';
 import { StorageService } from '../../storage/storage.service';
 import { LISTING_IMAGES_BUCKET } from '../config/listing.env';
 import { ListingDto, ListingImageDto } from '../dto/listing.dto';
+import { ListingSummaryDto } from '../dto/listing-summary.dto';
+import { SearchRow } from './listing-search.sql';
 import { ListingRow } from './listing.sql';
 
 interface ImageRow {
@@ -50,8 +52,28 @@ export class ListingPresenter {
     }));
   }
 
+  /**
+   * Đổi kết quả tìm kiếm thành `ListingSummaryDto`. KHÔNG truy vấn DB: ảnh bìa đã nằm trong dòng
+   * (`LEFT JOIN LATERAL`), chỉ ký URL cục bộ. `distanceM` chỉ có khi dòng có khoảng cách.
+   */
+  async presentSummaries(rows: SearchRow[]): Promise<ListingSummaryDto[]> {
+    return Promise.all(
+      rows.map(async ({ coverKey, distanceM, createdAt, ...rest }) => ({
+        ...rest,
+        ...(distanceM === undefined || distanceM === null ? {} : { distanceM }),
+        coverImageUrl: coverKey === null ? null : await this.imageUrl(coverKey),
+        createdAt: createdAt.toISOString(),
+      })),
+    );
+  }
+
   /** Ảnh với URL xem tạm (hết hạn sau `S3_PRESIGN_TTL_SECONDS`). */
   async imageDto(id: string, objectKey: string, sortOrder: number): Promise<ListingImageDto> {
-    return { id, url: await this.storage.presignGet(LISTING_IMAGES_BUCKET, objectKey), sortOrder };
+    return { id, url: await this.imageUrl(objectKey), sortOrder };
+  }
+
+  /** Presigned GET của ảnh trong bucket `listing-images` (ký ở máy, không gọi mạng). */
+  private imageUrl(objectKey: string): Promise<string> {
+    return this.storage.presignGet(LISTING_IMAGES_BUCKET, objectKey);
   }
 }

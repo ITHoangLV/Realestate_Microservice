@@ -109,7 +109,7 @@ EXPLAIN SELECT ... WHERE ST_DWithin(location, ST_MakePoint(105.84, 21.00)::geogr
 
 **Các bước:** script nạp 30 tin có tọa độ thật ở Hà Nội, 3 chủ trọ, 5 người thuê (theo kế hoạch sprint); tài khoản seed ở `ACTIVE` (bỏ qua OTP); id cố định để Postman và k6 dùng; chạy lại an toàn.
 
-**DoD:** `guides/RE_Docker_Local_Guide.md §5` liệt kê đúng id seed.
+**DoD:** `guides/RE_Docker_Local_Guide.md §5` liệt kê đúng id seed. Chạy lại `EXPLAIN` bán kính 2 km (`ST_DWithin(location, ST_MakePoint(105.84, 21.00)::geography, 2000)`) trên seed thật và dán plan (chốt 2026-11-20, `RE.LISTING §7` mục 15). Seed chỉ ~30 dòng nên planner có thể chọn `Seq Scan`: ghi đúng plan nhận được; việc dùng `ix_listings_location` đã được chứng minh ở test 4 (T2.3) với ~5.000 dòng.
 
 ---
 

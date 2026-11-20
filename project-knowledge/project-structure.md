@@ -62,7 +62,7 @@ Realestate_Microservice/
 │  ├─ listing/                        ✓ T2.2 (route 1–10, 12, mine); T2.3 thêm search, internal. Cổng 3002, listing_db (PostGIS) + S3 (RE.LISTING)
 │  │  └─ src/listing/
 │  │     ├─ controllers/ listings, listings.admin, listings.internal
-│  │     ├─ services/ listing-command, listing-query, listing-review, listing-image, listing-hold
+│  │     ├─ services/ listing-command, listing-query, listing-search.sql, listing-review, listing-image, listing-hold (+ .rules)
 │  │     └─ dto/ entities/ errors/ seed/
 │  │
 │  ├─ rental/                         + cổng 3003, rental_db + Redis (RE.VIEWING, RE.DEPOSIT_SAGA, RE.DEPOSIT_LIFECYCLE)
