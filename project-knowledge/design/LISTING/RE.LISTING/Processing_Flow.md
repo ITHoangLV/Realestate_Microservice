@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Quản lý sản phẩm, tải ảnh, tìm kiếm, giữ chỗ và đổi trạng thái theo đơn |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, ADR-0010 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-19 — v1.2 |
 
 ## 1. Vòng đời trạng thái BĐS
 
@@ -33,7 +33,10 @@ sequenceDiagram
     C->>S3: PUT ảnh
     C->>L: POST /listings/:id/images { key }
     L->>S3: HeadObject(key)
-    alt quá kích thước / không có
+    alt key đã có trong listing_images
+        L-->>C: 200 ảnh đã có
+    else quá kích thước / sai loại / không có
+        L->>S3: deleteObject(key) (lỗi chỉ ghi log)
         L-->>C: 400 LISTING_IMAGE_INVALID
     else
         L->>L: INSERT listing_images
@@ -71,5 +74,11 @@ Một câu `UPDATE listings SET deleted_at = now() WHERE id AND owner_id AND sta
 |---|---|
 | Tìm kiếm | 2 (count + data có ảnh bìa qua join cùng DB) |
 | Chi tiết | 2 (tin + ảnh) |
+| Của tôi | 3 (count + data + ảnh của trang) |
+| Thêm, ẩn, hiện | 1–3 (ghi có điều kiện, 0 dòng thì đọc lại để chọn lỗi, đọc ảnh cho response) |
+| Sửa | 3 (đọc tin, `UPDATE ... RETURNING`, ảnh) |
+| Xóa mềm | 1, cộng 1 khi 0 dòng |
+| Xác nhận ảnh | 5 (đọc tin, khóa tin + đếm + thêm ảnh + đổi duyệt trong một transaction; `HeadObject` ngoài transaction) |
+| Duyệt, từ chối | 3 (`UPDATE ... RETURNING`, đọc lại khi 0 dòng, ảnh) |
 | Giữ chỗ | 1, cộng 1 khi 0 dòng để phân biệt gọi lại |
 | Đổi trạng thái | 1, cộng 1 khi 0 dòng |
