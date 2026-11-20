@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Đặt cọc thành công, bù trừ, hết hạn giữ chỗ, đối soát, bảng xử lý từng điểm lỗi |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, ADR-0004, Báo cáo v2 Hình 3.9–3.11, Bảng 4.9 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v1.2 |
 
 ## 1. Luồng thành công
 
@@ -69,7 +69,8 @@ Ba lớp chặn (Báo cáo §3.2.1, Bảng 4.9):
 | Tạo order | `4xx` | Nghiệp vụ | `cancelAfterHold` | `4xx` | `CANCELLED` |
 | Tạo order | Từ chối kết nối | Chưa thực hiện | `cancelAfterHold` | `503` | `CANCELLED` |
 | Tạo order | Timeout, `5xx` | Chưa biết | `saga_log UNKNOWN`; job (a) đối soát | `504` | `PENDING_PAYMENT` |
-| Nhả chỗ (bù trừ) | listing lỗi | | `listing_target_status` giữ, job (b) đẩy lại | Như lỗi gốc | `CANCELLED` |
+| Nhả chỗ (bù trừ) | listing lỗi (`503`/`504`/kết nối) | | `listing_target_status` giữ, job (b) đẩy lại | Như lỗi gốc | `CANCELLED` |
+| Nhả chỗ (bù trừ) | listing `409 LISTING_INVALID_STATUS` | **[cần xác nhận]** `API_Spec.md §8` | Đề xuất: kết cục cuối, không retry, đánh dấu đã đồng bộ, `saga_log BUSINESS_ERROR`, log `warn` | Như lỗi gốc | `CANCELLED` |
 | Rental chết giữa saga | | | Khởi động lại: job (a) hoặc `HoldExpiryJob` xử lý | Mất kết nối | Kết quả cuối |
 | Hết 10 phút | | | Hủy link → `EXPIRED` → nhả chỗ | — | `EXPIRED` |
 | Hết 10 phút, payment báo đã `PAID` | | Đua với webhook | Bỏ qua, chờ `payment.deposited` | — | `PAID` |

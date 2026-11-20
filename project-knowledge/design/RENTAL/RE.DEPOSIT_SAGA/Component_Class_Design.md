@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/rental/src/rental/` |
 | **Quy ước** | `standards/coding-convention.md §4`, `standards/reliability-standard.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v1.2 |
 
 ## 1. Cấu trúc
 
@@ -187,7 +187,7 @@ Mock `ListingClient`, `PaymentClient` cho unit; Postgres + Redis thật cho test
 | 14 | `payment.deposited` hợp lệ | `PAID`, mốc 48h/72h đúng, đích `DEPOSITED`; yêu cầu xem `REQUESTED` của người khác trên tin thành `CANCELLED` (`LISTING_DEPOSITED`) |
 | 15 | `payment.deposited` giao hai lần | Một lần đổi; không hủy thêm lịch xem |
 | 16 | `payment.deposited` khi đơn `EXPIRED` | Không đổi, log `warn` |
-| 17 | Listing sync lỗi | Job (b) đẩy lại tới khi xong |
+| 17 | Listing sync lỗi `503`/`504`/kết nối (`409 LISTING_INVALID_STATUS`: **[cần xác nhận]**, `API_Spec.md §8`) | Job (b) đẩy lại tới khi xong |
 | 18 | Unique index `ux_deposits_active_listing` | Đơn hoạt động thứ hai trên cùng tin bị chặn |
 
 ## 9. Đã chốt 2026-11-16

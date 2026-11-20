@@ -7,7 +7,7 @@
 | **Quy tắc** | BR-04, BR-05, BR-06, BR-07, BR-09, BR-18 |
 | **Quyết định** | ADR-0004 (saga tại rental), ADR-0005 (bản chụp), ADR-0009 (payOS) |
 | **CSDL** | `rental_db`: `deposits`, `saga_log`, `outbox_events`, `processed_events`; Redis (khóa theo tin, idempotency) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v1.2 |
 
 ## 1. `POST /api/v1/deposits`
 
@@ -162,3 +162,7 @@ CREATE INDEX ix_saga_log_deposit ON saga_log (deposit_id, created_at);
 
 1. Tham số job, khóa ở §5. `PAYMENT_CALL_TIMEOUT_MS` vẫn chốt sau khi đo E1, E2 (A2).
 2. Lỗi nghiệp vụ của listing (`LISTING_*`, ví dụ `LISTING_NOT_AVAILABLE`) chuyển nguyên mã cho client.
+
+## 8. Điểm [cần xác nhận]
+
+1. **[cần xác nhận] `409 LISTING_INVALID_STATUS` khi rental đẩy đích `AVAILABLE` (nhả chỗ, bù trừ, hết hạn).** Listing (`RE.LISTING/API_Spec.md §2.2`, v1.4) trả `200` khi tin đã `AVAILABLE`, và `409 LISTING_INVALID_STATUS` kèm `details { current, target }` khi tin đang `HELD`/`DEPOSITED`/`RENTED` thuộc đơn **khác** (chỗ đã giao cho người khác, hoặc đơn này đã mất quyền trên tin). Đề xuất cho rental: coi `409` này là **kết cục cuối**, không retry. `ListingSyncService.push` đặt `listing_synced_at = now()`, ghi `saga_log` `BUSINESS_ERROR` và log `warn` kèm `details`; job (b) không nhặt lại (hiện ghi "đẩy lại tới khi xong", test 17). Chỉ `503`/`504`/lỗi kết nối mới đẩy lại. Chưa chốt → rental sẽ lặp vô hạn trên một tin không còn thuộc đơn. Xử lý ở T3.x (C, T3.3 đồng bộ listing); **không sửa rental ở T2.3**. Sổ: `implementation/van-de-can-quyet-dinh.md` C20.
