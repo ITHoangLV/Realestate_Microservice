@@ -7,7 +7,7 @@
 | **Quy tắc** | BR-03, BR-05, BR-06, BR-14 |
 | **Quyết định** | ADR-0010 (gộp sản phẩm vào listing), ADR-0007 (S3) |
 | **CSDL** | `listing_db` / `listing_user` (PostGIS, pgcrypto); S3 bucket `listing-images` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-19 — v1.2 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v1.3 |
 
 > Báo cáo v2 Bảng 3.8 chỉ liệt kê **thao tác**. Đường dẫn chốt 2026-11-12 (A6); tên trường, giá trị chốt 2026-11-16.
 
@@ -33,12 +33,12 @@
 | Trường | Kiểu | Ràng buộc |
 |---|---|---|
 | `title` | string | 5–200 ký tự |
-| `description` | string | |
+| `description` | string | Tùy chọn, ≤ 5000 ký tự (chốt 2026-11-20) |
 | `propertyType` | string | `ROOM` (phòng trọ), `APARTMENT` (căn hộ chung cư), `HOUSE` (nhà nguyên căn) |
 | `priceVnd` | int | > 0, giá thuê tháng |
 | `depositAmountVnd` | int | > 0, tiền cọc (BR-04) |
 | `areaM2` | number | > 0 |
-| `district`, `city`, `address` | string | |
+| `district`, `city`, `address` | string | Bắt buộc khi tạo (route 1); `address` ≤ 300, `district`, `city` ≤ 100 (chốt 2026-11-20) |
 | `amenities` | string[] | Mã trong danh mục cố định: `AIR_CONDITIONER`, `WATER_HEATER`, `WASHING_MACHINE`, `FRIDGE`, `WIFI`, `PARKING`, `ELEVATOR`, `PRIVATE_BATHROOM`, `BALCONY`, `FURNISHED`, `PET_ALLOWED`; mã lạ → `400 VALIDATION_FAILED` |
 | `lat`, `lng` | number | WGS84 |
 
@@ -230,7 +230,11 @@ CREATE INDEX ix_listing_images_listing ON listing_images (listing_id, sort_order
 7. Route 8: key đã có → `200` kèm ảnh đã có; ảnh không hợp lệ → `deleteObject`, lỗi xóa chỉ log.
 8. Request/response ở §1.4; route 12 vẫn trả tin `HIDDEN`; route 5 trả `204`.
 
+### 2026-11-20 (A chốt §8)
+
+9. Route 1 bắt buộc `address`, `district`, `city` (tìm kiếm lọc theo quận, FR03); `description` tùy chọn, ≤ 5000 ký tự. Chỉ kiểm ở API; DDL §6 giữ cột cho phép `NULL` (không đổi bảng).
+10. Ảnh đã lấy upload-url mà không gọi route 8 nằm lại trên S3, không dọn ở bản này (`tech-debt.md` #14; A chốt 2026-11-19).
+
 ## 8. Điểm [cần xác nhận]
 
-- Giới hạn `description` ≤ 5000 ký tự và các trường bắt buộc của route 1 (`address`, `district`, `city`) ở §1.4: đề xuất của Claude khi viết T2.2, DDL cho phép `NULL`.
-- Ảnh đã lấy `upload-url` mà không gọi route 8 nằm lại trên S3 (không dọn): ghi hạn chế ở `tech-debt.md`.
+Không còn điểm nào (đã chốt 2026-11-20, §7 mục 9–10).

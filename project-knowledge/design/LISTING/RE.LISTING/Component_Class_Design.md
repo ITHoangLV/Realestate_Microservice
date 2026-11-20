@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/listing/src/listing/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/non-functional-standards.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-19 — v1.2 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v1.3 |
 
 ## 1. Cấu trúc
 
