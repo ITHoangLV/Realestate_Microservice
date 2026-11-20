@@ -32,6 +32,8 @@ import { ConfirmImageDto } from '../dto/confirm-image.dto';
 import { CreateListingDto } from '../dto/create-listing.dto';
 import { ListMineQuery } from '../dto/list-mine.query';
 import { ListingDto, ListingImageDto } from '../dto/listing.dto';
+import { ListingSummaryDto } from '../dto/listing-summary.dto';
+import { SearchListingsQuery } from '../dto/search-listings.query';
 import { UpdateListingDto } from '../dto/update-listing.dto';
 import { UploadUrlDto, UploadUrlResponseDto } from '../dto/upload-url.dto';
 import { ListingCommandService } from '../services/listing-command.service';
@@ -39,10 +41,10 @@ import { ListingImageService } from '../services/listing-image.service';
 import { ListingQueryService } from '../services/listing-query.service';
 
 /**
- * Sản phẩm của chủ trọ: /api/v1/listings (`RE.LISTING/API_Spec.md §1`, route 1–8, 12 và `mine`).
+ * Sản phẩm của chủ trọ: /api/v1/listings (`RE.LISTING/API_Spec.md §1`, route 1–8, 11, 12 và `mine`).
  *
  * Ghi, sửa, ẩn, xóa, ảnh, `mine` cần vai trò `LANDLORD` (gateway chặn thô, service chặn lại) và kiểm
- * chủ sở hữu ở service bằng `sub` của JWT (BR-03). Chỉ `GET /:id` là công khai.
+ * chủ sở hữu ở service bằng `sub` của JWT (BR-03). `GET /` (tìm kiếm) và `GET /:id` là công khai.
  * `mine` PHẢI khai báo trước `:id`, nếu không Nest coi "mine" là một id.
  */
 @ApiTags('listings')
@@ -63,6 +65,20 @@ export class ListingsController {
   @ApiForbiddenResponse({ type: ErrorResponseDto, description: 'FORBIDDEN_ROLE' })
   create(@CurrentUser('sub') ownerId: string, @Body() dto: CreateListingDto): Promise<ListingDto> {
     return this.commands.create(ownerId, dto);
+  }
+
+  @Get()
+  @Public()
+  @ApiOperation({
+    summary:
+      'Tìm kiếm tin đăng: lọc giá, diện tích, quận, tiện ích, còn trống; bán kính; phân trang',
+    description:
+      'Chỉ tin đã duyệt, chưa xóa, không ẩn. Có lat, lng, radiusKm thì lọc theo bán kính (PostGIS); ' +
+      'có lat, lng thì response có distanceM và sort=distance hợp lệ.',
+  })
+  @ApiEnvelope(ListingSummaryDto, { isArray: true })
+  search(@Query() query: SearchListingsQuery): Promise<Paginated<ListingSummaryDto>> {
+    return this.queries.search(query);
   }
 
   @Get('mine')

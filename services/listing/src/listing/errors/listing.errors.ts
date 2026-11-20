@@ -24,8 +24,9 @@ export const listingNotOwner = (): AppException =>
 export const listingHasActiveDeposit = (): AppException =>
   new AppException(ListingError.HAS_ACTIVE_DEPOSIT, 'Tin đang có đơn đặt cọc, không thể xóa', 409);
 
-export const listingInvalidStatus = (): AppException =>
-  new AppException(ListingError.INVALID_STATUS, 'Không thể chuyển trạng thái tin', 409);
+/** `details` (API nội bộ đổi trạng thái): `{ current, target }` như ví dụ ở `listing-internal.v1.yaml`. */
+export const listingInvalidStatus = (details?: { current: string; target: string }): AppException =>
+  new AppException(ListingError.INVALID_STATUS, 'Không thể chuyển trạng thái tin', 409, details);
 
 export const listingAlreadyReviewed = (): AppException =>
   new AppException(ListingError.ALREADY_REVIEWED, 'Tin đã được duyệt hoặc từ chối', 409);

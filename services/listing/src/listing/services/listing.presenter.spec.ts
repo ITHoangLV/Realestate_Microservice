@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { StorageService } from '../../storage/storage.service';
+import { SearchRow } from './listing-search.sql';
 import { ListingPresenter } from './listing.presenter';
 import { ListingRow } from './listing.sql';
 
@@ -69,6 +70,73 @@ describe('ListingPresenter', () => {
       { id: 'i1', url: 'https://s3/listing-images/listings/a/1.png?sig', sortOrder: 0 },
     ]);
     expect(JSON.stringify(dto)).not.toContain('objectKey');
+  });
+
+  describe('presentSummaries (kết quả tìm kiếm, ListingSummaryDto)', () => {
+    const summary = (id: string, over: Partial<SearchRow> = {}): SearchRow => ({
+      id,
+      ownerId: 'owner-1',
+      title: `Tin ${id}`,
+      propertyType: 'ROOM',
+      priceVnd: 3500000,
+      depositAmountVnd: 3500000,
+      areaM2: 25.5,
+      address: '1 Đại Cồ Việt',
+      district: 'Hai Bà Trưng',
+      city: 'Hà Nội',
+      amenities: ['WIFI'],
+      lat: 21.0054,
+      lng: 105.8431,
+      status: 'AVAILABLE',
+      createdAt: new Date('2026-11-19T01:00:00.000Z'),
+      coverKey: null,
+      ...over,
+    });
+
+    it('không có kết quả: [] và không truy vấn', async () => {
+      const { presenter, query } = make([]);
+      await expect(presenter.presentSummaries([])).resolves.toEqual([]);
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it('ảnh bìa: presigned GET của bucket listing-images; chưa có ảnh thì null; KHÔNG truy vấn DB', async () => {
+      const { presenter, query, presignGet } = make([]);
+      const [withCover, noCover] = await presenter.presentSummaries([
+        summary('a', { coverKey: 'listings/a/1.png' }),
+        summary('b'),
+      ]);
+      expect(presignGet).toHaveBeenCalledTimes(1);
+      expect(presignGet).toHaveBeenCalledWith('listing-images', 'listings/a/1.png');
+      expect(withCover.coverImageUrl).toBe('https://s3/listing-images/listings/a/1.png?sig');
+      expect(noCover.coverImageUrl).toBeNull();
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it('distanceM chỉ có khi dòng có khoảng cách; không lộ coverKey', async () => {
+      const { presenter } = make([]);
+      const [near, plain] = await presenter.presentSummaries([
+        summary('a', { distanceM: 350 }),
+        summary('b'),
+      ]);
+      expect(near.distanceM).toBe(350);
+      expect(plain).not.toHaveProperty('distanceM');
+      expect(JSON.stringify(near)).not.toContain('coverKey');
+      expect(near.createdAt).toBe('2026-11-19T01:00:00.000Z');
+    });
+
+    it('không có description, approvalStatus, rejectReason, images, updatedAt', async () => {
+      const { presenter } = make([]);
+      const [dto] = await presenter.presentSummaries([summary('a')]);
+      for (const field of [
+        'description',
+        'approvalStatus',
+        'rejectReason',
+        'images',
+        'updatedAt',
+      ]) {
+        expect(dto).not.toHaveProperty(field);
+      }
+    });
   });
 
   it('thời gian ra ISO 8601 UTC; các trường khác giữ nguyên', async () => {
