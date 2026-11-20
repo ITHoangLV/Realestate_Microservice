@@ -1,6 +1,6 @@
 ---
 dev: luuviethoang2005
-updated: 2026-11-19 (thêm #9–#13; #12 resolved)
+updated: 2026-11-19 (thêm #9–#15; #12 resolved)
 ---
 
 ## Nợ kỹ thuật
@@ -22,5 +22,7 @@ updated: 2026-11-19 (thêm #9–#13; #12 resolved)
 | 11 | `expectResponseMatchesOpenApi` chép logic `rewriteRefs` + ajv của `contracts/scripts/check-openapi.mjs` | Thấp | `services/_template-nest/test/helpers/contracts.ts` (và bản chép ở identity) | S | open | Script ESM không import được từ test TS. Gộp về một module dùng chung khi có chỗ đặt (ví dụ package `contracts` trong workspace) |
 | 12 | Template có hai cách báo `id` sai (`BAD_REQUEST` công khai, `VALIDATION_FAILED` nội bộ) | TB | `services/_template-nest/src/common/errors/uuid-param.pipe.ts`, `example.controller.ts` | M | resolved | A chốt C19 phương án (b) 2026-11-19; nhánh `fix/C19-uuid-validation-failed`: template dùng `createUuidParamPipe` ở mọi route, luật ESLint chặn `new ParseUUIDPipe()` trần, `RE.SERVICE_TEMPLATE` v2.0 |
 | 13 | Ba file infra-spec của T2.1 (`bank-account`, `internal-users`, `admin-users`) lặp dựng app, tạo schema Postgres, `newUser`, đếm truy vấn | Thấp | `services/identity/test/*.infra-spec.ts` | S | open | Gom vào `test/helpers/` khi có dịp; giống mục 8 |
+| 14 | Ảnh đã lấy `upload-url` (route 7) nhưng client không gọi xác nhận (route 8) nằm lại trên S3, không có `listing_images` trỏ tới | Thấp | `services/listing/src/listing/services/listing-image.service.ts`, bucket `listing-images` | M | open | A chốt 2026-11-19: ghi nợ, không dọn. Ảnh không hợp lệ thì route 8 tự `deleteObject`. Hướng: job quét object không có dòng `listing_images` quá N giờ, hoặc lifecycle rule của bucket. Ghi ở "Hạn chế" của báo cáo |
+| 15 | `listing_db` có bảng `outbox_events`, `processed_events` (migration `CreateMessagingTables` chép từ template) nhưng listing không phát hay nghe sự kiện | Thấp | `services/listing/src/database/migrations/1730000000001-create-messaging-tables.ts` | S | accepted | A đồng ý 2026-11-19 (Q5): giữ nguyên bản chép theo ADR-0014, `RABBITMQ_URL` không đặt nên `MessagingModule` không nạp. Bỏ khi template tách migration messaging thành tùy chọn |
 
 Trước Phase 7, A đọc gộp `state/*/tech-debt.md` để đưa vào mục "Hạn chế" của báo cáo.

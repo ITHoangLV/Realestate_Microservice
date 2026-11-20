@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Vòng đời request, gọi service khác, idempotency, lỗi về client |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, `standards/reliability-standard.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-19 — v2.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-19 — v2.1 |
 
 ## 1. Vòng đời một request
 

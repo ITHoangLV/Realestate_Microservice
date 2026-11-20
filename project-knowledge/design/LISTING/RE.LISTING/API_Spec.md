@@ -7,7 +7,7 @@
 | **Quy tắc** | BR-03, BR-05, BR-06, BR-14 |
 | **Quyết định** | ADR-0010 (gộp sản phẩm vào listing), ADR-0007 (S3) |
 | **CSDL** | `listing_db` / `listing_user` (PostGIS, pgcrypto); S3 bucket `listing-images` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-19 — v1.2 |
 
 > Báo cáo v2 Bảng 3.8 chỉ liệt kê **thao tác**. Đường dẫn chốt 2026-11-12 (A6); tên trường, giá trị chốt 2026-11-16.
 
@@ -42,7 +42,16 @@
 | `amenities` | string[] | Mã trong danh mục cố định: `AIR_CONDITIONER`, `WATER_HEATER`, `WASHING_MACHINE`, `FRIDGE`, `WIFI`, `PARKING`, `ELEVATOR`, `PRIVATE_BATHROOM`, `BALCONY`, `FURNISHED`, `PET_ALLOWED`; mã lạ → `400 VALIDATION_FAILED` |
 | `lat`, `lng` | number | WGS84 |
 
-Sửa giá hoặc tiền cọc không ảnh hưởng đơn đã tạo (rental giữ bản chụp). Tin `APPROVED` bị sửa `title`, `description`, `propertyType`, `address`/`district`/`city`, `lat`/`lng`, hoặc thêm ảnh (route 8) → về `PENDING_REVIEW`, xóa `reviewed_*`; sửa `priceVnd`, `depositAmountVnd`, `areaM2`, `amenities` → giữ `APPROVED` (chốt 2026-11-16).
+Sửa giá hoặc tiền cọc không ảnh hưởng đơn đã tạo (rental giữ bản chụp). Duyệt lại khi sửa (chốt 2026-11-16, bổ sung 2026-11-19):
+
+| Trạng thái duyệt | Sửa gì | Kết quả |
+|---|---|---|
+| `APPROVED` | `title`, `description`, `propertyType`, `address`/`district`/`city`, `lat`/`lng`, hoặc thêm ảnh (route 8) | `PENDING_REVIEW`, xóa `reviewed_*` |
+| `APPROVED` | `priceVnd`, `depositAmountVnd`, `areaM2`, `amenities` | Giữ `APPROVED` |
+| `REJECTED` | **Bất kỳ** trường nào, hoặc thêm ảnh | `PENDING_REVIEW` (nộp lại), xóa `reject_reason`, `reviewed_*` |
+| `PENDING_REVIEW` | Bất kỳ | Giữ `PENDING_REVIEW` |
+
+Quy tắc "giá, cọc, diện tích, tiện ích không duyệt lại" chỉ áp cho tin `APPROVED`.
 
 ### 1.2 Thứ tự kiểm tra (route 2–5, 7–8)
 
@@ -52,12 +61,44 @@ Sửa giá hoặc tiền cọc không ảnh hưởng đơn đã tạo (rental gi
 | 2 | `owner_id ≠ sub` | `403 LISTING_NOT_OWNER` (BR-03, Báo cáo T04) |
 | 3 | Route 5: `status ∈ {HELD, DEPOSITED}` | `409 LISTING_HAS_ACTIVE_DEPOSIT` (BR-03, Báo cáo T18) |
 | 4 | Route 3: `status ≠ AVAILABLE` | `409 LISTING_INVALID_STATUS` |
-| 5 | Route 8: ảnh vượt kích thước hoặc không tồn tại | `400 LISTING_IMAGE_INVALID` |
-| 6 | Route 7, 8: tin đã có 10 ảnh | `409 LISTING_IMAGE_LIMIT_REACHED` |
+| 5 | Route 7: `contentType` ngoài `LISTING_IMAGE_TYPES` | `400 LISTING_IMAGE_INVALID` |
+| 6 | Route 8: `key` không thuộc tin này (sai tiền tố `listings/{id}/` hoặc sai dạng), object không tồn tại, vượt `LISTING_IMAGE_MAX_BYTES`, hoặc `Content-Type` không thuộc `LISTING_IMAGE_TYPES` | `400 LISTING_IMAGE_INVALID`. Object có trên S3 nhưng không hợp lệ thì service gọi `deleteObject`; lỗi khi xóa chỉ ghi log `warn`, không đổi kết quả. Key không lưu |
+| 7 | Route 8: `key` đã có trong `listing_images` của tin này | `200` kèm ảnh đã có (idempotent), không đổi trạng thái duyệt |
+| 8 | Route 7, 8: tin đã có 10 ảnh | `409 LISTING_IMAGE_LIMIT_REACHED` (route 8 kiểm sau mục 7, nên gọi lại cùng key khi đã đủ 10 vẫn `200`) |
 
 ### 1.3 Tìm kiếm (route 11)
 
 Query: `minPrice`, `maxPrice`, `minArea`, `maxArea`, `district`, `amenities` (mọi tiện ích phải có), `available` (chỉ `AVAILABLE`), `lat` + `lng` + `radiusKm`, `page`, `pageSize`, `sort` (`price_asc`, `price_desc`, `newest` mặc định, `distance` chỉ khi có `lat/lng`); `pageSize` mặc định 20, tối đa 50. Có `lat/lng/radiusKm` thì dùng `ST_DWithin` trên `geography` (index GiST, Báo cáo T05).
+
+### 1.4 Request và response (T2.2, chốt 2026-11-19)
+
+**`ListingDto`** (response của route 1–4, 6, 9, 10, 12; camelCase):
+
+| Trường | Ghi chú |
+|---|---|
+| `id`, `ownerId` | |
+| `title`, `description`, `propertyType`, `priceVnd`, `depositAmountVnd`, `areaM2`, `address`, `district`, `city`, `amenities`, `lat`, `lng` | như §1.1; `lat`/`lng` đọc từ `location` |
+| `status`, `approvalStatus` | |
+| `rejectReason` | `null` khi chưa bị từ chối |
+| `images` | `[{ id, url, sortOrder }]` xếp theo `sortOrder`, `createdAt`; `url` là presigned GET (`S3_PRESIGN_TTL_SECONDS`), DB chỉ lưu `object_key` |
+| `createdAt`, `updatedAt` | ISO 8601 UTC |
+
+Không trả `version`, `held_until`, `held_by_deposit_id`, `reviewed_by`, `reviewed_at`.
+
+| Route | Request | Response |
+|---|---|---|
+| 1 | Body: bắt buộc `title`, `propertyType`, `priceVnd`, `depositAmountVnd`, `areaM2`, `address`, `district`, `city`, `lat`, `lng`; tùy chọn `description` (≤ 5000), `amenities` (mặc định `[]`, không trùng) | `201 ListingDto` |
+| 2 | Body: mọi trường của route 1, tùy chọn từng trường, ít nhất một trường; `lat` và `lng` đi cùng nhau | `200 ListingDto` |
+| 3, 4 | Không body | `200 ListingDto` |
+| 5 | Không body | `204` |
+| 6 | Query `page`, `pageSize` (20, tối đa 50); sắp `created_at DESC, id DESC`; gồm tin `PENDING_REVIEW`, `APPROVED`, `REJECTED`, `HIDDEN`, không gồm tin đã xóa | `200` danh sách `ListingDto`, `meta` phân trang |
+| 7 | Body `{ contentType }` thuộc `LISTING_IMAGE_TYPES` | `200 { uploadUrl, key, expiresInSeconds }`; key `listings/{id}/{uuid}.{ext}`; client `PUT` với đúng `Content-Type` |
+| 8 | Body `{ key }` | `201 { id, url, sortOrder }`; key đã có: `200` cùng dạng (mục 7 của §1.2) |
+| 9 | Không body | `200 ListingDto`, `approvalStatus = APPROVED`, `reject_reason = NULL` |
+| 10 | Body `{ reason }` 1–500 ký tự | `200 ListingDto`, `approvalStatus = REJECTED` |
+| 12 | Không | `200 ListingDto` của tin `APPROVED`, chưa xóa. **Tin `HIDDEN` vẫn được trả** (chỉ tìm kiếm, route 11, loại tin `HIDDEN`); `404` khi không có, chưa duyệt hoặc đã xóa |
+
+Giới hạn trường theo DDL §6: `address` ≤ 300, `district`, `city` ≤ 100, `areaM2` ≤ 999999.99, `lat` -90..90, `lng` -180..180.
 
 ## 2. API nội bộ
 
@@ -170,11 +211,26 @@ CREATE TABLE listing_images (
   sort_order smallint NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE INDEX ix_listing_images_listing ON listing_images (listing_id, sort_order);  -- v1.2: đọc ảnh theo tin (NFR §1)
 ```
 
-## 7. Đã chốt 2026-11-16
+## 7. Đã chốt
+
+### 2026-11-16
 
 1. Trường và ràng buộc §1.1; `propertyType` 3 giá trị; danh mục tiện ích cố định 11 mã.
 2. `approvalStatus`: `PENDING_REVIEW`, `APPROVED`, `REJECTED`.
 3. Sửa nội dung hiển thị hoặc thêm ảnh → duyệt lại; sửa giá, cọc, diện tích, tiện ích → không.
 4. Ảnh: jpeg/png/webp, ≤ 5 MB, ≤ 10 ảnh/tin. Tìm kiếm: `pageSize` 20, tối đa 50.
+
+### 2026-11-19 (A duyệt kế hoạch T2.2)
+
+5. Phạm vi T2.2 gồm cả route 6 và 12 (đọc); route 11 và API nội bộ ở T2.3.
+6. Duyệt lại khi sửa: bảng ở §1.1; tin `REJECTED` sửa bất kỳ trường hoặc thêm ảnh → `PENDING_REVIEW`.
+7. Route 8: key đã có → `200` kèm ảnh đã có; ảnh không hợp lệ → `deleteObject`, lỗi xóa chỉ log.
+8. Request/response ở §1.4; route 12 vẫn trả tin `HIDDEN`; route 5 trả `204`.
+
+## 8. Điểm [cần xác nhận]
+
+- Giới hạn `description` ≤ 5000 ký tự và các trường bắt buộc của route 1 (`address`, `district`, `city`) ở §1.4: đề xuất của Claude khi viết T2.2, DDL cho phép `NULL`.
+- Ảnh đã lấy `upload-url` mà không gọi route 8 nằm lại trên S3 (không dọn): ghi hạn chế ở `tech-debt.md`.

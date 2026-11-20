@@ -10,6 +10,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
   ListBucketsCommand,
   PutObjectCommand,
   S3Client,
@@ -23,6 +24,15 @@ import { HealthRegistry } from '../health/health.registry';
 
 /** Mã lỗi S3 khi bucket đã tồn tại: coi như tạo thành công (CreateBucket chạy lại không lỗi). */
 const BUCKET_EXISTS = new Set(['BucketAlreadyOwnedByYou', 'BucketAlreadyExists']);
+
+/** Mã lỗi S3 khi object không tồn tại (HeadObject không có body nên thường chỉ có HTTP 404). */
+const NOT_FOUND = new Set(['NotFound', 'NoSuchKey']);
+
+/** Kích thước và loại của một object trên S3 (kết quả HeadObject). */
+export interface ObjectHead {
+  contentLength: number;
+  contentType?: string;
+}
 
 /**
  * Object storage qua API S3 (Silo ở dev, xem docs/adr/ADR-007). Không phụ thuộc gì riêng của
@@ -113,6 +123,26 @@ export class StorageService implements OnModuleInit, OnApplicationBootstrap, OnA
 
   async deleteObject(bucket: string, key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+  }
+
+  /**
+   * HeadObject: kích thước và loại của object. Trả `null` khi không có object (NotFound/NoSuchKey,
+   * HTTP 404); lỗi khác (403, mất kết nối...) ném lại. Dùng sau khi client tải lên bằng presigned PUT
+   * để kiểm kích thước, vì presigned PUT không giới hạn được (gotchas.md).
+   */
+  async headObject(bucket: string, key: string): Promise<ObjectHead | null> {
+    try {
+      const out = await this.client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+      return { contentLength: out.ContentLength ?? 0, contentType: out.ContentType };
+    } catch (err) {
+      if (
+        err instanceof S3ServiceException &&
+        (err.$metadata?.httpStatusCode === 404 || NOT_FOUND.has(err.name))
+      ) {
+        return null;
+      }
+      throw err;
+    }
   }
 
   /** URL tạm để trình duyệt xem/tải file (mặc định S3_PRESIGN_TTL_SECONDS). */

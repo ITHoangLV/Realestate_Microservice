@@ -82,4 +82,14 @@ describe('StorageService với S3 thật', () => {
     });
     expect(put.status).toBe(403);
   });
+
+  it('headObject: trả đúng kích thước và loại; không có object → null', async () => {
+    const body = Buffer.alloc(1234, 1);
+    await storage.putObject(bucket, 'images/d.png', body, 'image/png');
+    await expect(storage.headObject(bucket, 'images/d.png')).resolves.toEqual({
+      contentLength: 1234,
+      contentType: 'image/png',
+    });
+    await expect(storage.headObject(bucket, 'images/khong-co.png')).resolves.toBeNull();
+  });
 });

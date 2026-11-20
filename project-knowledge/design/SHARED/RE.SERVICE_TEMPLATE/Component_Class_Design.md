@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/_template-nest/src/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/reliability-standard.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-19 — v2.0 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-19 — v2.1 |
 
 ## 1. Cấu trúc
 
@@ -69,7 +69,8 @@ classDiagram
       +presignPut(bucket, key, contentType) string
       +presignGet(bucket, key) string
       +putObject(bucket, key, buf, type)
-      +headObject(bucket, key)
+      +deleteObject(bucket, key)
+      +headObject(bucket, key) ObjectHead?
     }
     AllExceptionsFilter ..> AppException
     InternalHttpService ..> AppException
@@ -100,6 +101,8 @@ Làm theo `services/_template-nest/README.md §1` (PowerShell, robocopy). Việc
 
 `PageQueryDto` (`common/response/page-query.dto.ts`, v1.3): query phân trang chung cho API danh sách, `page` ≥ 1 mặc định 1, `pageSize` 1–50 mặc định 20 (`non-functional-standards.md §1`), getter `skip`. DTO riêng của từng API kế thừa và thêm bộ lọc; handler trả `new Paginated(items, query.page, query.pageSize, total)`. Chỉ chứa phân trang, không có bộ lọc hay luật nghiệp vụ.
 
+`StorageService.headObject(bucket, key)` (v2.1): `HeadObject`, trả `{ contentLength, contentType }`, hoặc `null` khi không có object (S3 `NotFound`/`NoSuchKey`, HTTP 404); lỗi khác ném lại. Dùng để kiểm kích thước và loại file sau khi client tải lên bằng presigned PUT (presigned PUT không giới hạn được kích thước).
+
 `createUuidParamPipe(field = 'id')` (`common/errors/uuid-param.pipe.ts`, v1.3, phạm vi v2.0): pipe kiểm tham số đường dẫn là UUID, lỗi trả `400 VALIDATION_FAILED`, message "<field> phải là UUID", `details: [{ field, errors }]`, đúng hợp đồng `contracts/openapi/*-internal.v1.yaml`. Dùng cho **mọi** tham số đường dẫn kiểu UUID, công khai và nội bộ (C19, 2026-11-19). Không dùng `new ParseUUIDPipe()` trần (trả `BAD_REQUEST`); luật ESLint `no-restricted-imports` ở `eslint.config.mjs` gốc chặn import `ParseUUIDPipe` trong `services/*/src` (bắt cả `new ParseUUIDPipe()` lẫn truyền class), trừ chính `uuid-param.pipe.ts`.
 
 `expectResponseMatchesOpenApi(spec, method, path, status, body)` (`test/helpers/contracts.ts`, v1.3): kiểm body response thật khớp schema của một response trong `contracts/openapi/<spec>` (bắt trường thừa khi `additionalProperties: false`, thiếu trường, sai format). Dùng gói `yaml` (devDependency). Chỉ dùng trong test.
@@ -122,4 +125,5 @@ Làm theo `services/_template-nest/README.md §1` (PowerShell, robocopy). Việc
 | `test/health.e2e-spec.ts` | `200`/`503` theo phụ thuộc |
 | `test/auth.e2e-spec.ts` | Guard JWT, vai trò (chạy qua `JwtTokenVerifier`, kết quả không đổi) |
 | `test/messaging.infra-spec.ts` | Outbox, inbox, DLQ với RabbitMQ thật |
-| `test/storage.infra-spec.ts` | Tạo bucket, presign |
+| `src/storage/storage.service.spec.ts` | `headObject`: có object → `{ contentLength, contentType }`; `NotFound`/`NoSuchKey` → `null`; lỗi khác ném lại (v2.1) |
+| `test/storage.infra-spec.ts` | Tạo bucket, presign, `headObject` với S3 thật (v2.1) |
