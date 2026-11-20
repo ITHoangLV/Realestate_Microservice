@@ -19,6 +19,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:infra": "jest --config ./test/jest-infra.json",
     "seed:admin": "ts-node src/scripts/seed-admin.ts",
+    "seed:users": "ts-node src/scripts/seed-users.ts",
     "openapi:export": "node scripts/ensure-env.mjs && ts-node src/scripts/export-openapi.ts",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
