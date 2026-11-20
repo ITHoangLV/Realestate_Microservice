@@ -59,7 +59,7 @@ Realestate_Microservice/
 │  │     ├─ services/ auth, password, token ✓; + bank-account, user-admin
 │  │     ├─ stores/ dto/ entities/ errors/ config/ seed/   ✓
 │  │
-│  ├─ listing/                        + cổng 3002, listing_db (PostGIS) + S3 (RE.LISTING)
+│  ├─ listing/                        ✓ T2.2 (route 1–10, 12, mine); T2.3 thêm search, internal. Cổng 3002, listing_db (PostGIS) + S3 (RE.LISTING)
 │  │  └─ src/listing/
 │  │     ├─ controllers/ listings, listings.admin, listings.internal
 │  │     ├─ services/ listing-command, listing-query, listing-review, listing-image, listing-hold
