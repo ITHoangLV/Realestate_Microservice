@@ -1,21 +1,22 @@
 ---
-task: C19 — thống nhất 400 VALIDATION_FAILED khi id trong đường dẫn sai
-updated: 2026-11-19 17:00
+task: T2.2 listing: khung, CRUD sản phẩm, duyệt, ảnh
+updated: 2026-11-20
 percent: 95
 ---
 
 ## Đang làm
-- Bước hiện tại: 6 — đã commit ở máy A; chờ A push, mở PR, CI xanh
-- Tóm tắt: template dùng `createUuidParamPipe` ở mọi route; ESLint `no-restricted-imports` chặn `ParseUUIDPipe`; `RE.SERVICE_TEMPLATE` v2.0
+- Bước hiện tại: chờ A duyệt commit và mở PR
+- Tóm tắt: code, test, tài liệu, walkthrough, code-review xong; mọi DoD đã tick
 
 ## Đã xong (phiên này)
-- Tài liệu: `RE.SERVICE_TEMPLATE` v2.0 + CHANGELOG, `api-convention.md §3`
-- TDD: RED 2 ca → GREEN; template unit 96, e2e 111; identity unit 201, e2e 97; lint, format, build, contracts sạch
-- README template, walkthrough identity, tech-debt #12 resolved; code-review 5 chiều (sửa 1 MINOR luật ESLint)
+- Template: `StorageService.headObject` (RE.SERVICE_TEMPLATE v2.1), chép sang identity
+- `RE.LISTING` v1.2; `services/listing` đủ route 1–10, 12, mine; migration; compose profile apps
+- listing unit 233, e2e 97, infra 52; template, identity, gateway vẫn xanh; lint, format, build, contracts sạch
+- Smoke qua gateway 8080 đạt; walkthrough, README, CLAUDE.md §2.5, project-structure
 
 ## Còn lại
-- A push `fix/C19-uuid-validation-failed`, mở PR vào `develop`, CI xanh, merge
-- Sau đó: T2.2 listing (`/cf-task T2.2`)
+- A xem `git diff`, cho phép commit (5 commit, Bước 10), push, mở PR vào `develop`, CI xanh
+- Sau merge: tick `implementation/progress.md` T2.2
 
 ## Blockers
 _không có_
