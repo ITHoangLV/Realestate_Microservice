@@ -47,7 +47,7 @@ src/identity/
   entities/                    bảng DB: users, user_identities
   errors/                      mã lỗi nghiệp vụ IDENTITY_*
   config/                      kiểm tra biến môi trường bắt buộc của identity
-  seed/                        tạo tài khoản ADMIN
+  seed/                        tạo ADMIN (seed-admin) và người dùng dev (seed-users)
 ```
 
 File test `*.spec.ts` nằm cạnh file được test. Phần dùng chung của template giữ nguyên:
@@ -118,6 +118,18 @@ pnpm seed:admin                                      # production sau build: nod
 
 Chạy lại an toàn: email đã là ADMIN thì không đổi gì; email đã là người dùng thường thì bị từ chối
 (không tự nâng quyền).
+
+### Nạp người dùng dev (T2.4)
+
+3 chủ trọ và 5 người thuê id cố định (bảng id ở `project-knowledge/guides/RE_Docker_Local_Guide.md §5`):
+
+```powershell
+$env:SEED_USER_PASSWORD='mat-khau-dai-it-nhat-12'   # tối thiểu 12 ký tự, KHÔNG ghi vào .env
+pnpm seed:users                                      # production sau build: node dist/scripts/seed-users.js
+```
+
+Chạy lại an toàn (không đổi mật khẩu, không ghi event thêm). Email hoặc id đã dùng cho dòng khác thì báo
+lỗi nêu dòng xung đột và hoàn tác cả lần nạp. Chưa ghi `status`, `email_verified_at` (T2.5).
 
 ### Biến môi trường riêng của identity
 

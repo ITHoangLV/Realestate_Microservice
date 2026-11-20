@@ -19,7 +19,7 @@ export class SeedAdminError extends Error {}
 
 /** Mật khẩu ADMIN yêu cầu dài hơn người dùng thường (8): tài khoản này có quyền cao nhất. */
 export const ADMIN_PASSWORD_MIN_LENGTH = 12;
-const PASSWORD_MAX_LENGTH = 128;
+export const PASSWORD_MAX_LENGTH = 128;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**

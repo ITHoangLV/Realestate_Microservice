@@ -83,7 +83,35 @@ Hạ tầng chỉ publish ra `127.0.0.1`.
 |---|---|
 | Migration một service | `pnpm --filter @realestate/<service> migration:run` |
 | Tạo ADMIN | `$env:SEED_ADMIN_EMAIL='admin@example.com'; $env:SEED_ADMIN_PASSWORD='<≥12 ký tự>'; pnpm --filter @realestate/identity seed:admin` |
-| Seed tin đăng | T2.4: 30 tin Hà Nội, 3 chủ trọ, 5 người thuê. Id cố định: `[cần xác nhận]` khi viết script |
+| Seed người dùng dev (chạy **trước** seed tin) | `$env:SEED_USER_PASSWORD='<≥12 ký tự>'; pnpm --filter @realestate/identity seed:users` |
+| Seed tin đăng (cần `migration:run` của listing) | `pnpm --filter @realestate/listing seed:listings` |
+
+Cả hai chạy lại an toàn (lần hai không đổi gì, không ghi đè tin đã sửa). Mật khẩu chỉ đặt qua biến tạm, không ghi vào `.env`. Muốn về dữ liệu gốc thì reset DB (§7).
+
+**Id seed** (UUID cố định, dùng cho Postman và k6):
+
+| Đối tượng | Id | Email (`@seed.realestate.local`) |
+|---|---|---|
+| Chủ trọ 1 · Nguyễn Văn Hùng | `a0000000-0000-4000-8000-000000000001` | `landlord1` |
+| Chủ trọ 2 · Trần Thị Lan | `a0000000-0000-4000-8000-000000000002` | `landlord2` |
+| Chủ trọ 3 · Lê Quang Minh | `a0000000-0000-4000-8000-000000000003` | `landlord3` |
+| Người thuê 1–5 | `b0000000-0000-4000-8000-00000000000N`, N = 1…5 | `tenant1` … `tenant5` |
+| Tin 1–30 | `c0000000-0000-4000-8000-0000000000NN`, NN = `01`…`30` | |
+
+Chủ của tin NN: chủ trọ `((NN − 1) mod 3) + 1`. Tin theo khoảng cách tới điểm (lat 21.00, lng 105.84):
+
+| Nhóm | Tin | Trạng thái |
+|---|---|---|
+| Trong 2 km | 01, 02, 04, 05, 07, 09, 10, 11, 12, 14, 15 | `AVAILABLE` + `APPROVED` (11 tin) |
+| | 13 | `RENTED` + `APPROVED` |
+| | 06, 08 | `PENDING_REVIEW` |
+| | 03 | `HIDDEN` + `APPROVED` |
+| 2,1–3 km | 16, 17, 18 | `AVAILABLE` + `APPROVED` |
+| Xa hơn 3 km | 19, 20, 22, 23, 24, 25, 26, 27, 28, 30 | `AVAILABLE` + `APPROVED` (10 tin) |
+| | 21 | `PENDING_REVIEW` |
+| | 29 | `REJECTED` (có `rejectReason`) |
+
+Route 11 quanh điểm trên với `radiusKm=2` trả 12 tin (11 `AVAILABLE` + tin 13 `RENTED`); `radiusKm=3` thêm 16, 17, 18. Không có tin `HELD`, `DEPOSITED` (cần đơn đặt cọc thật) và không có ảnh (tải qua API). Đăng nhập bằng email trên với mật khẩu `SEED_USER_PASSWORD` đã dùng khi seed.
 
 ## 6. Đặt cọc thật với payOS thử nghiệm
 

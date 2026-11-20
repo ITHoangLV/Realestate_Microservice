@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/identity/src/identity/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/security-policy.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v2.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v2.2 |
 
 ## 1. Cấu trúc
 
@@ -33,7 +33,7 @@ src/identity/
 ├─ stores/
 │  ├─ refresh-token.store.ts             # interface
 │  └─ redis-refresh-token.store.ts       # Lua script xoay vòng nguyên tử
-├─ dto/ (+ bank-account.dto, upsert-bank-account.dto, list-users.query) entities/ (user, user-identity, + bank-account) errors/ config/ seed/
+├─ dto/ (+ bank-account.dto, upsert-bank-account.dto, list-users.query) entities/ (user, user-identity, + bank-account) errors/ config/ seed/ (+ seed-users.ts, seed-users.data.ts)
 ```
 
 `list-users.query.ts` kế thừa `PageQueryDto` (`src/common/response/page-query.dto.ts`, sửa ở `_template-nest` rồi chép sang, ADR-0014).
@@ -115,9 +115,11 @@ identity:pwreset:<sha256(token)> userId                       TTL PASSWORD_RESET
 
 OTP băm bằng SHA-256 kèm `userId` trước khi lưu; so sánh hằng thời gian.
 
-## 4. Seed ADMIN
+## 4. Seed
 
-`pnpm seed:admin` với `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` (≥ 12 ký tự, không ghi `.env`). Chạy lại an toàn; không nâng quyền người dùng thường.
+**ADMIN:** `pnpm seed:admin` với `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` (≥ 12 ký tự, không ghi `.env`). Chạy lại an toàn; không nâng quyền người dùng thường.
+
+**Người dùng dev (T2.4):** `pnpm seed:users` với `SEED_USER_PASSWORD` (≥ 12 ký tự, không ghi `.env`) nạp 3 chủ trọ và 5 người thuê, id cố định (`seed/seed-users.data.ts`; bảng id ở `guides/RE_Docker_Local_Guide.md §5`), mọi tài khoản dùng chung mật khẩu đó, ghi `identity.registered` cho người mới. Một transaction; chạy lại không đổi gì (không đổi mật khẩu, không thêm event). Email hoặc id đã dùng cho dòng khác (khác id, email, vai trò) → báo lỗi nêu dòng xung đột, hoàn tác cả lần nạp, không sửa dữ liệu của người khác. Chưa ghi `status`, `email_verified_at` (thuộc T2.5, tech-debt #16).
 
 ## 5. Test bắt buộc
 
@@ -139,6 +141,7 @@ OTP băm bằng SHA-256 kèm `userId` trước khi lưu; so sánh hằng thời 
 | 10 | ~~Đổi vai trò~~ | Bỏ 2026-11-18 (không còn route đổi vai trò) | Bỏ |
 | 11 | `/internal/users/:id/bank-account` | Chưa khai → `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND`; đã khai → số đầy đủ, body khớp schema `BankAccountResponse` trong `identity-internal.v1.yaml`; `id` sai → `400`; access log không có số tài khoản | Mới |
 | 12 | Seed chạy hai lần | Không đổi gì | Có (`seed-admin.infra-spec.ts`) |
+| 12a | `seed:users`: lần đầu, chạy lại, có sẵn một phần, 5 lần đồng thời, email hoặc id trùng dòng khác | Tạo 8 và 8 event khớp contract; lần hai `created 0`; chỉ tạo phần thiếu; tổng `created` đúng 8; lỗi nêu rõ, hoàn tác, không sửa dòng của người khác | Mới (T2.4, `seed-users.spec.ts`, `seed-users.infra-spec.ts`) |
 | 13 | Đăng ký mới | `status = PENDING_VERIFICATION`, Mailpit nhận một email OTP | Mới |
 | 14 | Đăng nhập khi chưa xác minh / bị khóa (đúng mật khẩu) | `403 IDENTITY_EMAIL_NOT_VERIFIED` / `403 IDENTITY_ACCOUNT_LOCKED`; sai mật khẩu vẫn `401` | Mới |
 | 15 | OTP đúng | `ACTIVE`, trả cặp token | Mới |

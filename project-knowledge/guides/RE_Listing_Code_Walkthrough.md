@@ -6,9 +6,9 @@
 |---|---|
 | **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-20 |
 | **Thành phần** | `services/listing/` (cổng 3002, `listing_db` PostGIS, bucket `listing-images`) |
-| **Task** | T2.2 (CRUD, duyệt, ảnh) và T2.3 (tìm kiếm PostGIS, `/internal/*`, giữ chỗ) — `implementation/PHASE-2.md` |
+| **Task** | T2.2 (CRUD, duyệt, ảnh), T2.3 (tìm kiếm PostGIS, `/internal/*`, giữ chỗ) và T2.4 (seed 30 tin) — `implementation/PHASE-2.md` |
 | **Thiết kế** | `design/LISTING/RE.LISTING/` v1.4, ADR-0010; `design/SHARED/RE.SERVICE_TEMPLATE/` v2.1 |
-| **Commit / PR** | T2.2: PR #19. T2.3: chưa có (nhánh `feature/T2.3-listing-search-holds`) |
+| **Commit / PR** | T2.2: PR #19. T2.3: PR #21. T2.4: chưa có (nhánh `feature/T2.4-listing-seed`) |
 
 ## 1. Luồng chung
 
@@ -71,7 +71,9 @@ services/listing/
 │     │            listing.presenter, listing-edit.rules, listing-image.rules, listing-hold.rules,
 │     │            listing-search.sql, listing.sql
 │     ├─ dto/ (search-listings.query, listing-summary.dto, internal-listing.dto, ...) entities/ errors/
-├─ test/ (template + listing-crud, listing-search, listing-internal .infra-spec.ts + helpers/listing-fixtures.ts)
+│     └─ seed/ seed-listings.data.ts, seed-listings.ts (+ spec)     # T2.4: 30 tin Hà Nội
+│  └─ scripts/ export-openapi.ts, seed-listings.ts              # `pnpm openapi:export`, `pnpm seed:listings`
+├─ test/ (template + listing-crud, listing-search, listing-internal, seed-listings .infra-spec.ts + helpers/listing-fixtures.ts)
 ├─ Dockerfile, package.json, .env.example
 ```
 
@@ -115,6 +117,11 @@ Phần chép nguyên từ `_template-nest` (`common/`, `health/`, `redis/`, `mes
 | `test/listing-search.infra-spec.ts` | Test 4, 18, 19, số truy vấn: 9 tin tọa độ thật ở Hà Nội, khoảng cách đối chứng bằng haversine (độc lập với PostGIS), kiểm 4 index có trong catalog, `EXPLAIN` dùng `ix_listings_location` trên ~5.000 tin ngẫu nhiên đã `ANALYZE` | `pnpm test:infra` | Seed thật là T2.4 nên dùng fixture; T2.4 chạy lại `EXPLAIN` trên seed |
 | `test/listing-internal.infra-spec.ts` | Test 5–11, 20, 21: kể cả 50 lời giữ chỗ đồng thời (đúng một `200`, `version = 1`), mọi response khớp `listing-internal.v1.yaml` | `pnpm test:infra` | Đã thử đột biến: bỏ điều kiện `held_until < now()` thì 4 ca fail, test 7 nhận 50 lần `200` |
 | `test/helpers/listing-fixtures.ts` | `insertListing` (dựng tin bằng SQL, đặt được `status`, `held_*`), `haversineM` | Hai infra-spec mới | API không cho đặt các trường này |
+| `src/listing/seed/seed-listings.data.ts` | T2.4: `SEED_LISTINGS` (30 tin, id `c0000000-…-0000000000NN`), `SEED_OWNER_IDS` (3 chủ trọ seed). Tọa độ thật ở Hà Nội; cơ cấu theo khoảng cách tới (21.00, 105.84) ghi ở đầu file | `seed-listings.ts`, test | `ownerId` lặp id của `identity/seed/seed-users.data.ts` (không import code service khác) |
+| `src/listing/seed/seed-listings.ts` | `seedListings(dataSource)`: một transaction, mỗi tin `INSERT ... ON CONFLICT (id) DO NOTHING`, `ST_MakePoint(lng, lat)`; trả `{ created, existing }` | `scripts/seed-listings.ts`, infra-spec | Không ghi đè tin đã sửa; `created_at` lệch 1 giờ/tin; `reviewed_by` để `NULL` |
+| `src/listing/seed/seed-listings.spec.ts` | 15 ca không cần DB: 30 tin, id, enum, giới hạn trường, `0 < cọc ≤ giá`, tọa độ, cơ cấu trạng thái, phân bố theo haversine (≥ 10 tin trong 2 km, 2–3 tin ở 2,1–3 km, có `PENDING_REVIEW` và `HIDDEN` trong 2 km, không tin sát ranh 2 và 3 km) | `pnpm test` | Khóa các con số trong `RE_Docker_Local_Guide.md §5` |
+| `src/scripts/seed-listings.ts` | CLI `pnpm seed:listings`: nạp `.env`, mở `DataSource` riêng, gọi `seedListings`; không khởi động Nest | `package.json` | Giống `seed-admin.ts` của identity |
+| `test/seed-listings.infra-spec.ts` | 9 ca với Postgres + PostGIS thật: tạo 30 đúng cột, chạy lại, không ghi đè tin đã sửa, 5 lần đồng thời, route 11 trên seed (2 km đúng tập, 3 km thêm đúng 2,1–3 km, tổng 25), in `EXPLAIN` | `pnpm test:infra` | Dùng lại `buildSearchSql` thật |
 | `.env.example`, `Dockerfile` | Cấu hình dev, ảnh Docker | | |
 | `infra/compose/docker-compose.yml` (khối `listing`) | Service `re-listing`, không publish cổng | gateway gọi `http://listing:3002` | Chạy kèm `--profile dev` (cần `s3`, `postgres`) |
 
@@ -140,6 +147,9 @@ Phần chép nguyên từ `_template-nest` (`common/`, `health/`, `redis/`, `mes
 | Đích `AVAILABLE` mà tin đã `AVAILABLE` → `200` với mọi `depositId` | Về `AVAILABLE` xóa `held_by_deposit_id` nên không còn kiểm "cùng đơn"; rental retry bù trừ vẫn phải nhận `200`. Tin của đơn khác → `409 LISTING_INVALID_STATUS` kèm `details`. Hệ quả cho rental ghi ở `van-de-can-quyet-dinh.md` C20 | Bắt buộc cùng `depositId` (rental retry sẽ `409`) | A chốt 2026-11-20 |
 | `/internal/*` là `@Public()` | Tin mạng Docker; gateway chặn từ ngoài (smoke: `404`) | Xác thực service-to-service | `security-policy §6` |
 | `rowsOf` bọc mọi `UPDATE ... RETURNING` | TypeORM + Postgres trả `[dòng, số]` cho UPDATE/DELETE, mảng dòng cho SELECT/INSERT | Đoán kiểu ở từng chỗ | Lỗi 500 phát hiện ở infra test |
+| Seed không ghi đè tin đã có (`ON CONFLICT (id) DO NOTHING`) | Đang demo, chạy thử saga hay sửa tin xong chạy lại seed không được mất dữ liệu. Muốn về gốc thì reset DB | `ON CONFLICT DO UPDATE` | A duyệt 2026-11-20 |
+| Seed tin không đọc `identity_db`, id chủ trọ viết cứng ở hai nơi | listing không import code hay DB của identity (ADR-0005); bảng id ở `RE_Docker_Local_Guide.md §5` là nguồn đối chiếu | Dùng file chung giữa hai service | `architecture.md §6` |
+| Không seed `HELD`, `DEPOSITED`, ảnh | Hai trạng thái cần `held_by_deposit_id` của đơn có thật; ảnh cần đối tượng trên S3 | Tạo đơn giả, upload ảnh trong seed | A duyệt 2026-11-20 |
 | Bản chép template còn `src/messaging`, migration messaging | ADR-0014: không sửa riêng bản chép | Xóa phần thừa | `tech-debt.md` #15 |
 
 ## 5. Câu hỏi vấn đáp
@@ -158,6 +168,9 @@ Phần chép nguyên từ `_template-nest` (`common/`, `health/`, `redis/`, `mes
 | Vì sao test dùng haversine mà không tin `ST_Distance`? | Đối chứng độc lập: không dùng PostGIS để tự kiểm PostGIS (sai số cầu so với spheroid < 0,5%, test cho ±1%) | `listing-search.infra-spec.ts` |
 | Hỏi `radiusKm` mà không có tọa độ thì sao? | `400 VALIDATION_FAILED`: `lat` và `lng` phải đi cùng nhau và đi kèm `radiusKm` hoặc `sort=distance` | `API_Spec §1.3`, test 19 |
 | Rental gọi lại bước nhả chỗ thì sao? | Idempotent: đã `AVAILABLE` → `200`. Tin đã giao cho đơn khác → `409`; rental coi là kết cục cuối (đề xuất, chờ C chốt ở T3.3) | `API_Spec §2.2`, C20 |
+| Chạy seed hai lần có nhân đôi tin không? | Không: id cố định và `ON CONFLICT (id) DO NOTHING`; lần hai `created 0, existing 30`. Tin đã sửa tay giữ nguyên | `seed-listings.infra-spec.ts` |
+| Vì sao seed tin chạy được khi chưa có chủ trọ? | `owner_id` không có khóa ngoại sang `identity_db`; seed người dùng ở identity (`seed:users`) để chủ trọ đăng nhập được | ADR-0005, `RE_Docker_Local_Guide.md §5` |
+| Vì sao không tin nào nằm sát 2 km hay 3 km? | PostGIS tính trên spheroid, haversine trên mặt cầu: lệch dưới 0,5%; cách xa ranh ±50 m để tập kết quả không phụ thuộc cách tính | `seed-listings.spec.ts` |
 | Vì sao listing không có `clients/` hay outbox? | Không gọi và không phát sự kiện; rental gọi listing, không ngược lại | `architecture.md §7`, ADR-0004 |
 
 ## 6. Hạn chế đã biết
@@ -167,7 +180,7 @@ Phần chép nguyên từ `_template-nest` (`common/`, `health/`, `redis/`, `mes
 | Ảnh lấy upload-url nhưng không xác nhận nằm lại trên S3 | Tốn dung lượng | Job dọn hoặc lifecycle rule (`tech-debt.md` #14) |
 | `listing_db` có bảng `outbox_events`, `processed_events` không dùng | Không ảnh hưởng | `tech-debt.md` #15 |
 | `/internal/*` tin mạng Docker, không xác thực | Container nào trong mạng cũng gọi được giữ chỗ | `security-policy §6`; hướng: xác thực service-to-service hoặc mTLS |
-| `EXPLAIN` chỉ chứng minh GiST trên dữ liệu đủ lớn (~5.000 dòng) | Seed ~30 dòng planner có thể quét tuần tự | T2.4 chạy lại trên seed và ghi đúng plan nhận được |
+| `EXPLAIN` chỉ chứng minh GiST ổn định trên dữ liệu đủ lớn (~5.000 dòng) | Seed ~30 dòng: planner có thể đổi plan khi thống kê khác. Trên seed thật (2026-11-20, sau `ANALYZE`): `Bitmap Heap Scan` ← `Bitmap Index Scan on ix_listings_location`, 15 dòng, 6,5 ms | Test 4 (T2.3) là bằng chứng chính |
 | Tìm kiếm phân trang bằng `OFFSET` | Trang rất sâu chậm dần (chặn `pageSize ≤ 50`, dữ liệu đồ án nhỏ) | Phân trang theo con trỏ nếu cần |
 | `district` đúng chuỗi, không bỏ dấu | Gõ "Hai Ba Trung" không ra "Hai Bà Trưng" | `unaccent` + index biểu thức nếu cần |
 | Tìm kiếm không cache | Mỗi lần gọi chạm DB | Không cần ở phạm vi đồ án |
