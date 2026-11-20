@@ -1,14 +1,14 @@
 ---
 task: T2.4 listing: seed dữ liệu
 created: 2026-11-20
-status: in_progress
+status: done
 phase: implementation/PHASE-2.md#T2.4
 branch: feature/T2.4-listing-seed (tách từ `develop` sau PR #22, working tree sạch lúc nhận task)
 ---
 
 ## Mô tả
 
-Script nạp dữ liệu dev: 30 tin có tọa độ thật ở Hà Nội (`listing_db`), 3 chủ trọ + 5 người thuê ở `ACTIVE` (`identity_db`, bỏ qua OTP), id cố định cho Postman/k6, chạy lại an toàn. Chạy lại `EXPLAIN` bán kính 2 km trên seed thật và dán plan. Người làm: A (tự giao lại từ B; `progress.md` còn ghi B, sửa lúc tick sau merge). Hạn M1 — 2026-11-27, ước ~3 giờ.
+Script nạp dữ liệu dev: 30 tin có tọa độ thật ở Hà Nội (`listing_db`), 3 chủ trọ + 5 người thuê ở `ACTIVE` (`identity_db`, bỏ qua OTP), id cố định cho Postman/k6, chạy lại an toàn. Chạy lại `EXPLAIN` bán kính 2 km trên seed thật và dán plan. Người làm: A (tự giao lại từ B). Hạn M1 — 2026-11-20, ước ~3 giờ.
 
 ## Thiết kế liên quan
 
@@ -17,7 +17,7 @@ Script nạp dữ liệu dev: 30 tin có tọa độ thật ở Hà Nội (`list
 ## Definition of Done
 
 - [x] `guides/RE_Docker_Local_Guide.md §5` liệt kê đúng id seed (người dùng, tin) và lệnh chạy
-- [x] `EXPLAIN` bán kính 2 km (`ST_DWithin(location, ST_MakePoint(105.84, 21.00)::geography, 2000)`) chạy trên seed thật, dán plan đúng như nhận được (seed ~30 dòng nên có thể là `Seq Scan`; việc dùng `ix_listings_location` đã chứng minh ở test 4 / T2.3 với ~5.000 dòng)
+- [x] `EXPLAIN` bán kính 2 km (`ST_DWithin(location, ST_MakePoint(105.84, 21.00)::geography, 2000)`) chạy trên seed thật, plan thật trên seed 30 dòng: `Bitmap Heap Scan on listings` ← `Bitmap Index Scan on ix_listings_location` (không phải `Seq Scan`); test 4 / T2.3 (~5.000 dòng) vẫn là bằng chứng chính
 - [x] Chạy lại seed lần 2 không đổi dữ liệu, không lỗi (test hạ tầng)
 - [x] Test của seed pass (dán output): unit `test`, `test:infra` của identity và listing
 - [x] `pnpm lint`, `pnpm format:check`, `pnpm build`, `pnpm contracts:check` không lỗi
