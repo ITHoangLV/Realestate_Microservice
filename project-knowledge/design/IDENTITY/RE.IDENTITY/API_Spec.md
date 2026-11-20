@@ -6,7 +6,7 @@
 | **Service** | `identity` (cổng 3001) |
 | **Quy tắc** | BR-01, BR-02; quy tắc phụ Bảng 2.6 |
 | **CSDL** | `identity_db` / `identity_user`; Redis (refresh token, OTP, token đặt lại mật khẩu); SMTP (Mailpit khi dev) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-18 — v2.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v2.2 |
 
 ## 1. API công khai
 

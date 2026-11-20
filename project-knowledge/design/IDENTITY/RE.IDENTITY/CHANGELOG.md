@@ -2,6 +2,24 @@
 
 > Tạo ở lần sửa đầu tiên sau baseline v1.0 (`standards/design-standards.md §9`). Mục mới lên đầu, không sửa mục cũ.
 
+## [v2.2] — 2026-11-20
+
+- **type:** MINOR
+- **author:** hoang.lv
+- **summary:** Thêm `pnpm seed:users` (3 chủ trọ, 5 người thuê id cố định) cho dữ liệu dev của T2.4.
+
+### Thay đổi
+
+**1.**
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 1 | `Component_Class_Design.md` §1, §4, §5 | Sửa, thêm test 12a |
+
+- **Cũ:** §4 chỉ có seed ADMIN.
+- **Mới:** §4 thêm seed người dùng dev: biến `SEED_USER_PASSWORD` (≥ 12 ký tự), id cố định, một transaction, chạy lại không đổi gì, xung đột email/id/vai trò báo lỗi và hoàn tác; không ghi `status`, `email_verified_at` (T2.5 cập nhật, tech-debt #16). Thêm test 12a.
+- **Lý do:** T2.4 cần chủ trọ và người thuê `ACTIVE` để `owner_id` của 30 tin seed trỏ vào tài khoản thật; listing không được ghi `identity_db`. A duyệt kế hoạch 2026-11-20. Không đổi API, hợp đồng, DDL.
+
 ## [v2.1] — 2026-11-18
 
 - **type:** MINOR
