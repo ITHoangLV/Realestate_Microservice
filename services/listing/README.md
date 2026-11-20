@@ -7,17 +7,17 @@ Thiết kế: `project-knowledge/design/LISTING/RE.LISTING/`. Giải thích code
 
 ## Chức năng (T2.2)
 
-| Route (`/api/v1`) | Quyền | Mô tả |
-| --- | --- | --- |
-| `POST /listings` | LANDLORD | Thêm sản phẩm: `PENDING_REVIEW`, `AVAILABLE` |
-| `GET /listings/mine` | LANDLORD | Sản phẩm của tôi (phân trang) |
-| `GET /listings/:id` | công khai | Chi tiết tin đã duyệt, chưa xóa (tin `HIDDEN` vẫn xem được) |
-| `PATCH /listings/:id` | chủ tin | Sửa; sửa nội dung hiển thị thì về `PENDING_REVIEW` |
-| `POST /listings/:id/hide`, `/unhide` | chủ tin | `AVAILABLE ↔ HIDDEN` |
-| `DELETE /listings/:id` | chủ tin | Xóa mềm; `409` khi tin đang `HELD`/`DEPOSITED` |
-| `POST /listings/:id/images/upload-url` | chủ tin | Presigned PUT, service đặt key |
-| `POST /listings/:id/images` | chủ tin | Xác nhận ảnh (`HeadObject`: ≤ 5 MB, jpeg/png/webp, ≤ 10 ảnh); gọi lại cùng key: `200` |
-| `POST /admin/listings/:id/approve`, `/reject` | ADMIN | Duyệt, từ chối (lý do bắt buộc) |
+| Route (`/api/v1`)                             | Quyền     | Mô tả                                                                                 |
+| --------------------------------------------- | --------- | ------------------------------------------------------------------------------------- |
+| `POST /listings`                              | LANDLORD  | Thêm sản phẩm: `PENDING_REVIEW`, `AVAILABLE`                                          |
+| `GET /listings/mine`                          | LANDLORD  | Sản phẩm của tôi (phân trang)                                                         |
+| `GET /listings/:id`                           | công khai | Chi tiết tin đã duyệt, chưa xóa (tin `HIDDEN` vẫn xem được)                           |
+| `PATCH /listings/:id`                         | chủ tin   | Sửa; sửa nội dung hiển thị thì về `PENDING_REVIEW`                                    |
+| `POST /listings/:id/hide`, `/unhide`          | chủ tin   | `AVAILABLE ↔ HIDDEN`                                                                  |
+| `DELETE /listings/:id`                        | chủ tin   | Xóa mềm; `409` khi tin đang `HELD`/`DEPOSITED`                                        |
+| `POST /listings/:id/images/upload-url`        | chủ tin   | Presigned PUT, service đặt key                                                        |
+| `POST /listings/:id/images`                   | chủ tin   | Xác nhận ảnh (`HeadObject`: ≤ 5 MB, jpeg/png/webp, ≤ 10 ảnh); gọi lại cùng key: `200` |
+| `POST /admin/listings/:id/approve`, `/reject` | ADMIN     | Duyệt, từ chối (lý do bắt buộc)                                                       |
 
 Tìm kiếm (`GET /listings`) và `/internal/*` (giữ chỗ, đổi trạng thái) làm ở T2.3.
 
