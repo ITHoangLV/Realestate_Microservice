@@ -2,6 +2,36 @@
 
 > Tạo ở lần sửa đầu tiên sau baseline v1.0 (`standards/design-standards.md §9`). Mục mới lên đầu, không sửa mục cũ.
 
+## [v2.1] — 2026-11-19
+
+- **type:** MINOR
+- **author:** hoang.lv
+- **summary:** Hiện thực `StorageService.headObject` (thiết kế đã khai tên, code chưa có) để service kiểm kích thước ảnh sau khi tải lên (T2.2).
+
+### Thay đổi
+
+**1.** Bổ sung chữ ký và hành vi `headObject`.
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 1 | `Component_Class_Design.md` §2 (sơ đồ lớp), §4, §5 | Sửa |
+
+- **Cũ:** sơ đồ lớp có `+headObject(bucket, key)` không kiểu trả về; không mô tả hành vi; không có `deleteObject`; code `StorageService` chưa có hàm.
+- **Mới:** `headObject(bucket, key)` trả `{ contentLength, contentType }` hoặc `null` khi không có object; lỗi khác ném lại. Sơ đồ ghi thêm `deleteObject` (code đã có từ trước). Thêm `storage.service.spec.ts` và ca `headObject` ở `storage.infra-spec.ts`.
+- **Lý do:** `RE.LISTING` route 8 phải kiểm kích thước ảnh bằng `HeadObject` (Báo cáo v2 §3.6.3, `gotchas.md`); phần kỹ thuật chung nên sửa ở template trước rồi chép sang service (ADR-0014). MINOR vì thêm hàm, không đổi hành vi đã có.
+
+### File design đã sửa
+
+- `Component_Class_Design.md` (sơ đồ `StorageService`, đoạn `headObject`, bảng test)
+- Header 3 file: v2.0 → v2.1 (`API_Spec.md`, `Processing_Flow.md` chỉ đổi số phiên bản)
+
+### Ảnh hưởng
+
+- `services/_template-nest/src/storage/storage.service.ts`: thêm `headObject`.
+- `services/identity`: chép lại `storage.service.ts` cho giống hệt template (identity không dùng S3, không đổi hành vi).
+- `services/listing` (T2.2): dùng ở `ListingImageService.confirm`.
+- `contracts/`: không đổi.
+
 ## [v2.0] — 2026-11-19
 
 - **type:** MAJOR

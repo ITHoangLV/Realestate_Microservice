@@ -291,7 +291,8 @@ const viewUrl = await this.storage.presignGet('listing-images', key);
 ```
 
 - Content-Type được ký vào URL, nên client không đổi được loại file. Kích thước file thì presigned PUT
-  **không** giới hạn được: kiểm tra bằng HeadObject trước khi chấp nhận key.
+  **không** giới hạn được: kiểm tra bằng `storage.headObject(bucket, key)` (trả `{ contentLength, contentType }`, hoặc `null`
+  khi không có object) trước khi chấp nhận key; key không hợp lệ thì `storage.deleteObject`.
 - Lưu **key** trong DB, không lưu URL (URL hết hạn sau `S3_PRESIGN_TTL_SECONDS`).
 - File nhỏ do service tự tạo (ví dụ ảnh QR): `storage.putObject(bucket, key, buffer, contentType)`.
 
