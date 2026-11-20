@@ -7,7 +7,7 @@
 | **Quy tắc** | BR-03, BR-05, BR-06, BR-14 |
 | **Quyết định** | ADR-0010 (gộp sản phẩm vào listing), ADR-0007 (S3) |
 | **CSDL** | `listing_db` / `listing_user` (PostGIS, pgcrypto); S3 bucket `listing-images` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v1.3 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v1.4 |
 
 > Báo cáo v2 Bảng 3.8 chỉ liệt kê **thao tác**. Đường dẫn chốt 2026-11-12 (A6); tên trường, giá trị chốt 2026-11-16.
 
@@ -70,7 +70,25 @@ Quy tắc "giá, cọc, diện tích, tiện ích không duyệt lại" chỉ á
 
 Query: `minPrice`, `maxPrice`, `minArea`, `maxArea`, `district`, `amenities` (mọi tiện ích phải có), `available` (chỉ `AVAILABLE`), `lat` + `lng` + `radiusKm`, `page`, `pageSize`, `sort` (`price_asc`, `price_desc`, `newest` mặc định, `distance` chỉ khi có `lat/lng`); `pageSize` mặc định 20, tối đa 50. Có `lat/lng/radiusKm` thì dùng `ST_DWithin` trên `geography` (index GiST, Báo cáo T05).
 
-### 1.4 Request và response (T2.2, chốt 2026-11-19)
+Ngữ nghĩa chi tiết (chốt 2026-11-20; sai bất kỳ điều nào → `400 VALIDATION_FAILED`):
+
+| Tham số | Kiểu, ràng buộc | Ghi chú |
+|---|---|---|
+| `minPrice`, `maxPrice` | số nguyên ≥ 0 | Lọc `price_vnd`, gồm cả hai đầu. `minPrice > maxPrice` → `400` |
+| `minArea`, `maxArea` | số ≥ 0 | Lọc `area_m2`, gồm cả hai đầu. `minArea > maxArea` → `400` |
+| `district` | chuỗi 1–100 ký tự, bỏ khoảng trắng hai đầu | So khớp **đúng chuỗi** với `listings.district` (phân biệt hoa thường), không `LIKE`, không bỏ dấu |
+| `amenities` | CSV, ví dụ `WIFI,PARKING` | Mã trong danh mục §1.1; mã lạ → `400`. Tin phải có **mọi** mã (`amenities @> $1`) |
+| `available` | `true` hoặc `false` | `true` chỉ tin `status = AVAILABLE`. Không có hoặc `false`: không lọc thêm, trả `AVAILABLE`, `HELD`, `DEPOSITED`, `RENTED`; luôn loại `HIDDEN` |
+| `lat`, `lng` | số, `-90..90` và `-180..180` | **Phải đi cùng nhau**; thiếu một → `400`. Có cả hai thì response có `distanceM` và `sort=distance` hợp lệ |
+| `radiusKm` | số, `0 < radiusKm ≤ 50` | Chỉ hợp lệ khi có `lat` và `lng`; thiếu `lat/lng` → `400`. Có `lat/lng` mà không có `radiusKm` → **không lọc bán kính** (vẫn trả `distanceM`, vẫn cho `sort=distance`) |
+| `sort` | `newest` (mặc định), `price_asc`, `price_desc`, `distance` | `distance` thiếu `lat/lng` → `400` |
+| `page`, `pageSize` | `PageQueryDto` | 1 và 20, tối đa 50 |
+
+Thứ tự (luôn có khóa phụ ổn định, `non-functional-standards.md §1`): `newest` = `created_at DESC, id DESC`; `price_asc` = `price_vnd ASC, created_at DESC, id DESC`; `price_desc` = `price_vnd DESC, created_at DESC, id DESC`; `distance` = khoảng cách tăng dần, rồi `id`.
+
+Điều kiện nền (mọi lần gọi): `approval_status = 'APPROVED' AND deleted_at IS NULL AND status <> 'HIDDEN'`.
+
+### 1.4 Request và response (T2.2 chốt 2026-11-19; route 11 chốt 2026-11-20)
 
 **`ListingDto`** (response của route 1–4, 6, 9, 10, 12; camelCase):
 
@@ -100,13 +118,26 @@ Không trả `version`, `held_until`, `held_by_deposit_id`, `reviewed_by`, `revi
 
 Giới hạn trường theo DDL §6: `address` ≤ 300, `district`, `city` ≤ 100, `areaM2` ≤ 999999.99, `lat` -90..90, `lng` -180..180.
 
+**`ListingSummaryDto`** (response của route 11; camelCase). Là bản gọn của `ListingDto` cho trang kết quả, để số truy vấn không tăng theo số tin (`Processing_Flow.md §5`):
+
+| Trường | Ghi chú |
+|---|---|
+| `id`, `ownerId` | |
+| `title`, `propertyType`, `priceVnd`, `depositAmountVnd`, `areaM2`, `address`, `district`, `city`, `amenities`, `lat`, `lng` | như `ListingDto` |
+| `status` | `AVAILABLE`, `HELD`, `DEPOSITED` hoặc `RENTED` (không bao giờ `HIDDEN`) |
+| `coverImageUrl` | Presigned GET của ảnh có `sort_order` nhỏ nhất (rồi `created_at`, `id`); `null` khi tin chưa có ảnh |
+| `distanceM` | Số nguyên, mét, làm tròn; **chỉ có khi** request có `lat` và `lng` |
+| `createdAt` | ISO 8601 UTC |
+
+Không có `description`, `images[]`, `approvalStatus`, `rejectReason`, `updatedAt` (xem chi tiết ở route 12). Route 11: `200` danh sách `ListingSummaryDto`, `meta` phân trang (`api-convention.md §4`).
+
 ## 2. API nội bộ
 
 Hợp đồng: `contracts/openapi/listing-internal.v1.yaml` (viết lại ở T0.3, 2026-11-13). Hợp đồng là nguồn chi tiết cho request, response, example.
 
 | # | Method, đường dẫn | Bên gọi | Kết quả |
 |---|---|---|---|
-| a | `GET /internal/listings/:id` | rental (S1) | Bản chụp: `id, ownerId, title, depositAmountVnd, status, approvalStatus` (đổi tên theo thuật ngữ, bỏ `landlordName`, `isPublished`, chốt 2026-11-13). `404 LISTING_NOT_FOUND` |
+| a | `GET /internal/listings/:id` | rental (S1) | Bản chụp: `id, ownerId, title, depositAmountVnd, status, approvalStatus` (đổi tên theo thuật ngữ, bỏ `landlordName`, `isPublished`, chốt 2026-11-13). Trả cả tin `HIDDEN` và chưa duyệt (rental tự xử lý); chỉ tin đã xóa mềm hoặc không có → `404 LISTING_NOT_FOUND` |
 | b | `POST /internal/listings/:id/holds` | rental (S1) | Giữ chỗ. Body `{ depositId, heldUntil }`. `200 { status: 'HELD', heldUntil }`; `409 LISTING_NOT_AVAILABLE` |
 | c | `PUT /internal/listings/:id/status` | rental (S1) | Đổi trạng thái theo đơn. Body `{ depositId, status }`, `status ∈ {AVAILABLE, DEPOSITED, RENTED}` |
 
@@ -128,11 +159,22 @@ RETURNING status, held_until;
 | 0 dòng, nhưng `held_by_deposit_id = depositId` và `status = HELD` | `200` (gọi lại cùng đơn) |
 | 0 dòng | `409 LISTING_NOT_AVAILABLE` |
 
+`heldUntil` do rental sinh (`now + HOLD_TTL_SECONDS`); listing chỉ kiểm là chuỗi date-time hợp lệ, **không** thêm luật "phải ở tương lai" (chốt 2026-11-20). Câu `UPDATE` cũng đặt `updated_at = now()`.
+
 Điều kiện `HELD AND held_until < now()` để chỗ giữ của một đơn không tạo được (listing đã `HELD` nhưng rental không nhận được trả lời) tự hết hiệu lực — đây là cách hiện thực câu "`held_until` vẫn bảo đảm chỗ được nhả khi hết hạn" ở Báo cáo §4.7.2 (A9).
 
 ### 2.2 Đổi trạng thái (c)
 
-Idempotent: đã ở trạng thái đích với cùng `depositId` → `200`.
+Idempotent (chốt 2026-11-20). Khi câu `UPDATE` không khớp dòng nào, listing đọc lại tin rồi quyết định:
+
+| Tình huống đọc lại | Kết quả |
+|---|---|
+| Không có tin hoặc đã xóa | `404 LISTING_NOT_FOUND` |
+| Đích `DEPOSITED` hoặc `RENTED`, tin đã ở đích **và** `held_by_deposit_id = depositId` | `200`, không đổi |
+| Đích `AVAILABLE`, tin đã `AVAILABLE` | `200` với **mọi** `depositId`, không đổi. Lý do: về `AVAILABLE` đã xóa `held_by_deposit_id`, nên lần gọi lại không còn kiểm được "cùng `depositId`"; rental retry bù trừ vẫn phải nhận `200` |
+| Còn lại (cặp không có trong bảng, hoặc tin đang `HELD`/`DEPOSITED`/`RENTED` thuộc đơn **khác**, hoặc ở trạng thái khác) | `409 LISTING_INVALID_STATUS`, `details { current, target }` |
+
+Mỗi chuyển là một `UPDATE ... WHERE id AND deleted_at IS NULL AND status = <từ> AND held_by_deposit_id = $depositId`, `version = version + 1`, `updated_at = now()`. API này **không** kiểm `approval_status`.
 
 | Từ | Sang | Khi | Điều kiện |
 |---|---|---|---|
@@ -203,6 +245,10 @@ CREATE INDEX ix_listings_location ON listings USING GIST (location);
 CREATE INDEX ix_listings_search ON listings (approval_status, status, district) WHERE deleted_at IS NULL;
 CREATE INDEX ix_listings_price ON listings (price_vnd);
 CREATE INDEX ix_listings_owner ON listings (owner_id, created_at DESC);
+-- v1.4 (T2.3): index cho cột lọc, sắp xếp của route 11 (non-functional-standards.md §1, MUST)
+CREATE INDEX ix_listings_amenities ON listings USING GIN (amenities);                       -- amenities @> $1
+CREATE INDEX ix_listings_created ON listings (created_at DESC, id DESC) WHERE deleted_at IS NULL;  -- sort newest
+CREATE INDEX ix_listings_area ON listings (area_m2);                                        -- minArea, maxArea
 
 CREATE TABLE listing_images (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -234,6 +280,16 @@ CREATE INDEX ix_listing_images_listing ON listing_images (listing_id, sort_order
 
 9. Route 1 bắt buộc `address`, `district`, `city` (tìm kiếm lọc theo quận, FR03); `description` tùy chọn, ≤ 5000 ký tự. Chỉ kiểm ở API; DDL §6 giữ cột cho phép `NULL` (không đổi bảng).
 10. Ảnh đã lấy upload-url mà không gọi route 8 nằm lại trên S3, không dọn ở bản này (`tech-debt.md` #14; A chốt 2026-11-19).
+
+### 2026-11-20 (A duyệt kế hoạch T2.3)
+
+11. Route 11 trả `ListingSummaryDto` (§1.4): ảnh bìa qua `LEFT JOIN LATERAL`, `distanceM` khi có `lat/lng`; không `images[]`, `description`.
+12. Ngữ nghĩa query ở §1.3: `lat`+`lng` đi cùng nhau; `radiusKm` ∈ (0, 50] chỉ khi có `lat/lng`; có `lat/lng` không `radiusKm` → không lọc bán kính, vẫn có `distanceM` và `sort=distance`; `district` so khớp đúng chuỗi; `amenities` CSV; mặc định loại `HIDDEN`, vẫn trả `HELD`, `DEPOSITED`, `RENTED`.
+13. Thêm ba index (§6): GIN `amenities`, `(created_at DESC, id DESC) WHERE deleted_at IS NULL`, `area_m2` (bắt buộc theo `non-functional-standards.md §1`, không ghi nợ kỹ thuật).
+14. Đổi trạng thái idempotent (§2.2): đích `AVAILABLE` mà tin đã `AVAILABLE` → `200` với mọi `depositId`; tin thuộc đơn khác → `409 LISTING_INVALID_STATUS` kèm `details`. `heldUntil` không kiểm "tương lai".
+15. Test 4 chạy trên **fixture** (tin tọa độ thật ở Hà Nội và ~5.000 tin ngẫu nhiên đã `ANALYZE`), vì seed là T2.4 (phụ thuộc T2.3). T2.4 chạy lại `EXPLAIN` bán kính 2 km trên seed thật (`PHASE-2.md`).
+
+`[cần xác nhận]` thuộc **rental**, không chặn listing: cách rental xử lý `409 LISTING_INVALID_STATUS` khi đích `AVAILABLE` — xem `RE.DEPOSIT_SAGA/API_Spec.md §8` và `implementation/van-de-can-quyet-dinh.md` C20.
 
 ## 8. Điểm [cần xác nhận]
 

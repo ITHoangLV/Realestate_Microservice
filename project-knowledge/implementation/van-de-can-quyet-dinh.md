@@ -7,7 +7,7 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-19 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-20 |
 
 ## A. Chặn code — đã chốt ở T0.1 (2026-11-12)
 
@@ -69,6 +69,7 @@ Mỗi mục có chi tiết ở mục "Điểm [cần xác nhận]" cuối tài l
 | C17 | ~~Thư viện thiết kế đã dùng nhưng chưa có trong `architecture.md §5`~~ Đã chốt 2026-11-16 (mục D) | `architecture.md §5` |
 | C18 | ~~`OUTBOX_RELAY_ENABLED` có ở identity, thiếu ở `_template-nest`~~ Đã chốt 2026-11-16 (mục D) | `services/_template-nest`, `RE.MESSAGING` |
 | C19 | ~~Template có hai cách báo `id` sai (`BAD_REQUEST` ở route công khai, `VALIDATION_FAILED` ở API nội bộ)~~ Đã chốt 2026-11-19 (mục D): phương án (b) | `RE.SERVICE_TEMPLATE v1.3`, `standards/api-convention.md` |
+| C20 | **Rental xử lý `409 LISTING_INVALID_STATUS` khi đẩy đích `AVAILABLE` (nhả chỗ, bù trừ, hết hạn).** Listing trả `409` khi tin thuộc đơn khác; đề xuất: kết cục cuối, không retry, đánh dấu đã đồng bộ, `saga_log BUSINESS_ERROR`, log `warn` (khác `503`/`504`/kết nối: vẫn đẩy lại). Chưa chốt thì job (b) lặp vô hạn. Người chốt: C (A xác nhận). Xử lý ở T3.3, không sửa rental ở T2.3 | `RE.DEPOSIT_SAGA/API_Spec.md §8`, `RE.LISTING/API_Spec.md §2.2` |
 
 ## D. Đã quyết
 
@@ -163,3 +164,4 @@ Mỗi mục có chi tiết ở mục "Điểm [cần xác nhận]" cuối tài l
 | 2026-11-19 | C19: cách báo `id` (UUID) sai trong đường dẫn (A chốt) | Phương án (b): mọi route, công khai và nội bộ, trả `400 VALIDATION_FAILED` + "<tên> phải là UUID" qua `createUuidParamPipe`; bỏ `ParseUUIDPipe` trần. Sửa `_template-nest` trước (test `example.e2e-spec.ts`), chép sang `identity`, ghi `standards/api-convention.md` và `RE.SERVICE_TEMPLATE` (kèm `CHANGELOG.md`). Làm trước T2.2 để listing chép bản đã sửa. Hợp đồng nội bộ không đổi |
 | 2026-11-19 | T2.2: phạm vi, duyệt lại, ảnh (A duyệt kế hoạch) | Làm cả route 6, 12 ở T2.2 (route 11 và `/internal/*` ở T2.3). Tin `REJECTED` sửa bất kỳ trường hoặc thêm ảnh → `PENDING_REVIEW`; quy tắc giá/cọc/diện tích/tiện ích không duyệt lại chỉ áp cho `APPROVED`. Xác nhận lại cùng `key` → `200` kèm ảnh đã có. Ảnh không hợp lệ → `deleteObject` (lỗi xóa chỉ log); ảnh lấy upload-url mà không xác nhận để lại trên S3 (tech-debt). Route 12 vẫn trả tin `HIDDEN`. `RE.LISTING` v1.2; `RE.SERVICE_TEMPLATE` v2.1 (`StorageService.headObject`) |
 | 2026-11-20 | `RE.LISTING` §8: trường bắt buộc khi tạo tin, độ dài mô tả (A chốt) | Route 1 bắt buộc `address`, `district`, `city`; `description` tùy chọn, ≤ 5000 ký tự. Chỉ kiểm ở API, DDL giữ `NULL`. Đúng như code T2.2 (PR #19), không sửa code. `RE.LISTING` v1.3 |
+| 2026-11-20 | T2.3: tìm kiếm, index, đổi trạng thái theo đơn, test 4 (A duyệt kế hoạch) | Route 11 trả `ListingSummaryDto` (ảnh bìa, `distanceM`); `lat`+`lng` đi cùng nhau, `radiusKm` ∈ (0, 50] chỉ khi có `lat/lng`, có `lat/lng` không `radiusKm` → không lọc bán kính nhưng vẫn có `distanceM` và `sort=distance`; mặc định loại `HIDDEN`, vẫn trả `DEPOSITED`, `RENTED`. **Bắt buộc** migration ba index: GIN `amenities`, `(created_at DESC, id DESC) WHERE deleted_at IS NULL`, `area_m2` (`non-functional-standards.md §1`, không ghi nợ kỹ thuật). Đổi trạng thái đích `AVAILABLE` mà tin đã `AVAILABLE` → `200` với mọi `depositId`; tin thuộc đơn khác → `409 LISTING_INVALID_STATUS` + `details` (test 11 dựng trên tin `HELD`/`DEPOSITED` của đơn khác); hệ quả cho rental ghi ở C20. Test 4 dùng fixture (seed là T2.4); T2.4 chạy lại `EXPLAIN` bán kính 2 km trên seed (`PHASE-2.md`). `RE.LISTING` v1.4; `RE.DEPOSIT_SAGA` v1.2 (chỉ thêm `[cần xác nhận]`) |

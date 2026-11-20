@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Quản lý sản phẩm, tải ảnh, tìm kiếm, giữ chỗ và đổi trạng thái theo đơn |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, ADR-0010 |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v1.3 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v1.4 |
 
 ## 1. Vòng đời trạng thái BĐS
 
@@ -72,7 +72,8 @@ Một câu `UPDATE listings SET deleted_at = now() WHERE id AND owner_id AND sta
 
 | Endpoint | Truy vấn |
 |---|---|
-| Tìm kiếm | 2 (count + data có ảnh bìa qua join cùng DB) |
+| Tìm kiếm | 2 (count + data; ảnh bìa qua `LEFT JOIN LATERAL` trong cùng câu data) |
+| Bản chụp nội bộ | 1 |
 | Chi tiết | 2 (tin + ảnh) |
 | Của tôi | 3 (count + data + ảnh của trang) |
 | Thêm, ẩn, hiện | 1–3 (ghi có điều kiện, 0 dòng thì đọc lại để chọn lỗi, đọc ảnh cho response) |
@@ -82,3 +83,20 @@ Một câu `UPDATE listings SET deleted_at = now() WHERE id AND owner_id AND sta
 | Duyệt, từ chối | 3 (`UPDATE ... RETURNING`, đọc lại khi 0 dòng, ảnh) |
 | Giữ chỗ | 1, cộng 1 khi 0 dòng để phân biệt gọi lại |
 | Đổi trạng thái | 1, cộng 1 khi 0 dòng |
+
+## 6. Tìm kiếm theo bán kính
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant L as listing
+    participant DB as listing_db (PostGIS)
+    C->>L: GET /listings?lat=21.00&lng=105.84&radiusKm=2&sort=distance
+    L->>L: kiểm query (lat+lng đi cùng, radiusKm 0..50, sort=distance cần lat/lng)
+    L->>DB: SELECT count(*) WHERE nền AND bộ lọc AND ST_DWithin(location, điểm, 2000)
+    L->>DB: SELECT ... ST_Distance(location, điểm) AS distanceM, ảnh bìa (LATERAL) ... ORDER BY ... LIMIT/OFFSET
+    L->>L: presign ảnh bìa (ký cục bộ, không gọi mạng)
+    L-->>C: 200 { data: ListingSummaryDto[], meta phân trang }
+```
+
+`ST_DWithin` trên `geography` dùng GiST `ix_listings_location` (Báo cáo T05). Count và data dùng **cùng** mệnh đề `WHERE` do một hàm thuần dựng, nên `total` luôn khớp tập trả về. Không có `lat/lng` thì không có `ST_DWithin`, `ST_Distance`. Mọi giá trị đi qua tham số SQL; cột và hướng sắp xếp lấy từ bảng cố định, không từ input.
