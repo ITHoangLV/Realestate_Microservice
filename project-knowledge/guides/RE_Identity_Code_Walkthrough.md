@@ -5,10 +5,10 @@
 
 | | |
 |---|---|
-| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-19 |
+| **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-20 |
 | **Thành phần** | `services/identity/` (cổng 3001); phần chép từ `services/_template-nest/` ghi rõ ở §3 |
-| **Task** | `T2.1` (`implementation/PHASE-2.md`); phần đã có từ trước (đăng ký, đăng nhập, làm mới, `/me`, seed ADMIN) giải thích ở §1, §3 để đủ bức tranh |
-| **Thiết kế** | `design/IDENTITY/RE.IDENTITY/` (v2.1), `design/SHARED/RE.SERVICE_TEMPLATE/` (v2.0), `design/PAYMENT/RE.PAYOUT/` (v1.2, chỉ một `[cần xác nhận]`) |
+| **Task** | `T2.1` và phần `seed:users` của `T2.4` (`implementation/PHASE-2.md`); phần đã có từ trước (đăng ký, đăng nhập, làm mới, `/me`, seed ADMIN) giải thích ở §1, §3 để đủ bức tranh |
+| **Thiết kế** | `design/IDENTITY/RE.IDENTITY/` (v2.2), `design/SHARED/RE.SERVICE_TEMPLATE/` (v2.0), `design/PAYMENT/RE.PAYOUT/` (v1.2, chỉ một `[cần xác nhận]`) |
 | **Commit / PR** | T2.1: PR #16, merge `b88817a` (2026-11-19). C19: nhánh `fix/C19-uuid-validation-failed` |
 
 ## 1. Luồng chung
@@ -58,8 +58,8 @@ services/identity/
 │  │  ├─ entities/             # user, user-identity, bank-account
 │  │  ├─ dto/                  # register, login, refresh, auth-tokens, user, bank-account, upsert-bank-account, list-users.query
 │  │  ├─ errors/identity.errors.ts
-│  │  └─ seed/seed-admin.ts (+ spec)
-│  └─ scripts/                 # seed-admin.ts, export-openapi.ts
+│  │  └─ seed/                 # seed-admin.ts, seed-users.ts, seed-users.data.ts (+ spec)
+│  └─ scripts/                 # seed-admin.ts, seed-users.ts, export-openapi.ts
 ├─ test/                       # e2e (chép từ template), *.infra-spec.ts (Postgres, Redis, RabbitMQ thật), helpers/
 ├─ scripts/ensure-env.mjs
 ├─ Dockerfile, Dockerfile.dockerignore, nest-cli.json, tsconfig*.json, package.json
@@ -94,6 +94,9 @@ services/identity/
 | `dto/register.dto.ts`, `login.dto.ts`, `refresh.dto.ts`, `auth-tokens.dto.ts`, `user.dto.ts` | DTO của auth, `UserDto.from` | | Đã có; `register.dto.ts` export thêm `trim` |
 | `errors/identity.errors.ts` | Mã lỗi `IDENTITY_*` và hàm dựng `AppException` | Service | T2.1 thêm `IDENTITY_BANK_ACCOUNT_NOT_FOUND` |
 | `seed/seed-admin.ts` | Tạo ADMIN idempotent, không tự nâng quyền | `scripts/seed-admin.ts` | Đã có |
+| `seed/seed-users.data.ts` | T2.4: `SEED_USERS` — 3 chủ trọ (`a0000000-…-00000000000N`) và 5 người thuê (`b0000000-…`), email `…@seed.realestate.local` | `seed-users.ts`, test | Id chủ trọ lặp ở `listing/seed/seed-listings.data.ts` (không import chéo service); bảng id ở `RE_Docker_Local_Guide.md §5` |
+| `seed/seed-users.ts` | `seedUsers(dataSource, { password })`: băm một lần, một transaction, mỗi người `INSERT … ON CONFLICT DO NOTHING`; người mới ghi `identity.registered` vào outbox; trả `{ created, existing }`. Đã có dòng thì đối chiếu id, email, vai trò: lệch → `SeedUsersError` nêu dòng xung đột và hoàn tác | `scripts/seed-users.ts` | Mật khẩu ≥ 12 ký tự; không ghi `status`, `email_verified_at` (tech-debt #16, T2.5 cập nhật) |
+| `seed/seed-users.spec.ts` | 10 ca không cần DB: 3+5 người, id, email, id đúng quy ước, mật khẩu ngắn/dài không chạm DB | `pnpm test` | |
 
 ### 3.2 Cấu hình, database, script
 
@@ -107,7 +110,7 @@ services/identity/
 | `src/database/migrations/1732000000000-create-bank-accounts.ts` | Bảng `bank_accounts` (PK, `UQ_bank_accounts_user`, `FK_bank_accounts_user`) | T2.1 |
 | `src/database/migrations/1732000000001-add-users-list-indexes.ts` | Hai index cho `GET /admin/users` | T2.1; không sửa migration cũ |
 | `src/database/data-source.ts`, `database.module.ts`, `database.health.ts`, `transformers.ts` | DataSource cho CLI, module DB, health, transformer cột | Từ template |
-| `src/scripts/seed-admin.ts`, `export-openapi.ts`, `scripts/ensure-env.mjs` | Script `pnpm seed:admin`, xuất OpenAPI, tạo `.env` khi `pnpm dev` | |
+| `src/scripts/seed-admin.ts`, `seed-users.ts`, `export-openapi.ts`, `scripts/ensure-env.mjs` | Script `pnpm seed:admin`, `pnpm seed:users` (biến tạm `SEED_USER_PASSWORD`), xuất OpenAPI, tạo `.env` khi `pnpm dev` | |
 | `Dockerfile`, `Dockerfile.dockerignore` | Ảnh 3 stage | Không đổi ở T2.1; khóa mã hóa truyền qua env của compose |
 | `.env.example`, `README.md` | Mẫu biến (khóa để trống kèm lệnh sinh), bảng biến | T2.1 thêm `BANK_ACCOUNT_ENCRYPTION_KEY` |
 | `infra/compose/docker-compose.yml` (service `identity`) | `BANK_ACCOUNT_ENCRYPTION_KEY: ${BANK_ACCOUNT_ENCRYPTION_KEY:-}` | Để trống thì chính identity báo thiếu rồi dừng |
@@ -132,6 +135,7 @@ services/identity/
 | `test/internal-users.infra-spec.ts` | infra | API nội bộ: đúng 4 trường, khớp `identity-internal.v1.yaml` (200, 400, 404), bản mã hỏng → 500 |
 | `test/admin-users.infra-spec.ts` | infra | Route 8: quyền, thứ tự, phân trang, lọc role, ≤ 2 truy vấn, `EXPLAIN` dùng index |
 | `test/auth.infra-spec.ts`, `seed-admin.infra-spec.ts`, `messaging.infra-spec.ts` | infra | Đã có |
+| `test/seed-users.infra-spec.ts` | infra | T2.4: 8 người đúng id/vai trò, mật khẩu argon2id đăng nhập được, 8 event khớp contract, chạy lại không đổi gì, có sẵn một phần, 5 lần đồng thời, 3 kiểu xung đột (email khác id, khác vai trò, id khác email) |
 | `test/contracts-helper.e2e-spec.ts`, `test/helpers/contracts.ts` | e2e | Chép từ template: `expectEventMatchesContract`, `expectResponseMatchesOpenApi` |
 | `test/setup-infra-env.ts` | cấu hình | Khóa cố định chỉ cho test |
 
@@ -155,6 +159,8 @@ services/identity/
 | `createUuidParamPipe` thay `new ParseUUIDPipe()` | `ParseUUIDPipe` trần trả `BAD_REQUEST`; cả bốn hợp đồng nội bộ khai `VALIDATION_FAILED` + "<tên> phải là UUID". Từ C19 (2026-11-19) áp cho mọi route, công khai và nội bộ; luật ESLint chặn pipe trần | Giữ hai cách: route công khai `BAD_REQUEST`, nội bộ `VALIDATION_FAILED` (client phải xử lý hai mã) | C19 ở `van-de-can-quyet-dinh.md` mục D, `RE.SERVICE_TEMPLATE` v2.0 |
 | `PageQueryDto` ở template, chép sang identity | listing, rental, payment, notification đều cần; ngưỡng 20/50 ở một nơi | Viết riêng ở identity | ADR-0014 |
 | `BANK_ACCOUNT_ENCRYPTION_KEY` bắt buộc ở `identity.env.ts` nhưng compose dùng `${…:-}` | Thiếu thì identity tự báo rõ rồi dừng; `:?` sẽ làm hỏng cả `infra:up` của người chưa thêm biến | `:?` trong compose | `API_Spec §5` |
+| `seedUsers` gặp email hoặc id đã dùng cho dòng khác thì báo lỗi, không sửa | Không tự đổi dữ liệu của người khác; lỗi nêu dòng xung đột để người chạy tự xử lý (xóa dòng hoặc reset DB dev) | Ghi đè, bỏ qua im lặng | A duyệt 2026-11-20 |
+| `seedUsers` không ghi `status`, `email_verified_at` | Hai cột thuộc T2.5. Sau T2.5 tài khoản seed vẫn `ACTIVE` nhờ `DEFAULT` | Ghi sớm (cột chưa có) | `tech-debt.md` #16 |
 | Không có route đổi vai trò | Vai trò cố định từ lúc tạo; muốn vai trò khác thì email mới | Route 9 | A chốt 2026-11-18 |
 
 ## 5. Câu hỏi vấn đáp
@@ -173,6 +179,7 @@ services/identity/
 | Vì sao danh sách người dùng có khóa phụ `id`? | Nhiều người có thể cùng `created_at`; thiếu khóa phụ thì phân trang lặp hoặc sót dòng | `admin-users.infra-spec.ts` |
 | Vì sao test dùng `EXPLAIN` với `enable_seqscan=off`? | Bảng test chỉ vài dòng nên planner chọn quét tuần tự; tắt `seqscan` để chứng minh index **dùng được** và khớp thứ tự (không Sort) | `admin-users.infra-spec.ts` |
 | `id` sai trong đường dẫn trả gì, vì sao không dùng `ParseUUIDPipe` trần? | `400 VALIDATION_FAILED`, message "id phải là UUID", `details` theo trường, ở mọi route. `ParseUUIDPipe` trần trả `BAD_REQUEST`, lệch hợp đồng nội bộ; A chốt một mã cho một lỗi (C19), ESLint `no-restricted-imports` chặn pipe trần | C19, `api-convention.md §3` |
+| Chạy `seed:users` hai lần có sao không? | Không: id cố định, lần hai `created 0, existing 8`, không đổi mật khẩu, không thêm event | `seed-users.infra-spec.ts` |
 | Contract-first nghĩa là gì ở đây? | `identity-internal.v1.yaml` viết trước; test `expectResponseMatchesOpenApi` kiểm body **thật** khớp, bắt cả trường thừa | ADR-0012 |
 
 ## 6. Hạn chế đã biết
@@ -185,4 +192,5 @@ services/identity/
 | Người dùng không còn trong DB nhưng token còn hạn → `PUT` lỗi khóa ngoại → 500 | Hiện chưa có API xóa người dùng nên chưa xảy ra | Map lỗi `23503` sang `IDENTITY_USER_NOT_FOUND` khi có xóa/khóa (T2.5); ghi `tech-debt.md` |
 | `findAndCount` có thể trả `total` tính từ trang đầu khi trang chưa đầy | Không sai; đồng thời có người đăng ký giữa hai truy vấn thì `total` lệch tạm thời | Chấp nhận |
 | `expectResponseMatchesOpenApi` chép logic `rewriteRefs` của `check-openapi.mjs` | Hai nơi phải sửa cùng lúc nếu đổi cách nạp schema | Script ESM không import được từ test TS; gộp khi có chỗ đặt chung (ghi `tech-debt.md`) |
+| Sau T2.5, tài khoản seed có `email_verified_at = NULL` | Mở khóa tài khoản seed sẽ về `PENDING_VERIFICATION` | T2.5 cập nhật seed set hai cột kèm test (`tech-debt.md` #16) |
 | DB dev có user `t21-*` do smoke test | Không ảnh hưởng | Xóa khi dọn dev DB |

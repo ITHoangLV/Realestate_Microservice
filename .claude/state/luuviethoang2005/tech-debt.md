@@ -1,6 +1,6 @@
 ---
 dev: luuviethoang2005
-updated: 2026-11-19 (thêm #9–#15; #12 resolved)
+updated: 2026-11-20 (thêm #16)
 ---
 
 ## Nợ kỹ thuật
@@ -24,5 +24,6 @@ updated: 2026-11-19 (thêm #9–#15; #12 resolved)
 | 13 | Ba file infra-spec của T2.1 (`bank-account`, `internal-users`, `admin-users`) lặp dựng app, tạo schema Postgres, `newUser`, đếm truy vấn | Thấp | `services/identity/test/*.infra-spec.ts` | S | open | Gom vào `test/helpers/` khi có dịp; giống mục 8 |
 | 14 | Ảnh đã lấy `upload-url` (route 7) nhưng client không gọi xác nhận (route 8) nằm lại trên S3, không có `listing_images` trỏ tới | Thấp | `services/listing/src/listing/services/listing-image.service.ts`, bucket `listing-images` | M | open | A chốt 2026-11-19: ghi nợ, không dọn. Ảnh không hợp lệ thì route 8 tự `deleteObject`. Hướng: job quét object không có dòng `listing_images` quá N giờ, hoặc lifecycle rule của bucket. Ghi ở "Hạn chế" của báo cáo |
 | 15 | `listing_db` có bảng `outbox_events`, `processed_events` (migration `CreateMessagingTables` chép từ template) nhưng listing không phát hay nghe sự kiện | Thấp | `services/listing/src/database/migrations/1730000000001-create-messaging-tables.ts` | S | accepted | A đồng ý 2026-11-19 (Q5): giữ nguyên bản chép theo ADR-0014, `RABBITMQ_URL` không đặt nên `MessagingModule` không nạp. Bỏ khi template tách migration messaging thành tùy chọn |
+| 16 | `seed:users` (T2.4) không ghi `status`, `email_verified_at` vì hai cột thuộc T2.5; sau T2.5 tài khoản seed chỉ `ACTIVE` nhờ `DEFAULT`, `email_verified_at` còn `NULL` | Thấp | `services/identity/src/identity/seed/seed-users.ts` | S | open | A chốt 2026-11-20: khi làm T2.5 cập nhật seed set `status='ACTIVE'`, `email_verified_at=now()` kèm test (infra-spec seed-users). Nếu bỏ sót, mở khóa tài khoản seed sẽ về `PENDING_VERIFICATION` (API_Spec RE.IDENTITY, mục mở khóa) |
 
 Trước Phase 7, A đọc gộp `state/*/tech-debt.md` để đưa vào mục "Hạn chế" của báo cáo.

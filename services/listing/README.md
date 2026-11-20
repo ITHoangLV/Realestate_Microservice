@@ -54,7 +54,12 @@ pnpm --filter @realestate/listing migration:run          # lần đầu, và khi
 pnpm --filter @realestate/listing test                   # unit
 pnpm --filter @realestate/listing test:e2e               # e2e trong tiến trình (không cần hạ tầng)
 pnpm --filter @realestate/listing test:infra             # Postgres + S3 thật
+pnpm --filter @realestate/listing seed:listings          # 30 tin Hà Nội cho dev (T2.4), chạy lại an toàn
 ```
+
+### Seed tin đăng (T2.4)
+
+30 tin có tọa độ thật ở Hà Nội, id cố định `c0000000-0000-4000-8000-0000000000NN` (NN = `01`…`30`), chủ là 3 chủ trọ seed của identity (`a0000000-…-000000000001`…`3`). Chạy `pnpm --filter @realestate/identity seed:users` trước để chủ trọ đăng nhập được; listing không đọc `identity_db` nên seed tin vẫn chạy dù chưa nạp người dùng. Chạy lại không đổi gì và không ghi đè tin đã sửa. Cơ cấu, bảng id: `project-knowledge/guides/RE_Docker_Local_Guide.md §5`. Không có ảnh (tải qua API).
 
 Trong Docker: `docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev --profile apps up -d --build listing`
 (chạy migration từ host trước). Listing không publish cổng ra host, gọi qua gateway `8080`.
