@@ -1,25 +1,49 @@
 # @realestate/listing
 
-Listing-service: sản phẩm của chủ trọ (thêm, sửa, ẩn, xóa mềm), duyệt của quản trị viên, ảnh tin đăng. Cổng **3002**, DB `listing_db` (PostGIS), bucket S3 `listing-images`.
+Listing-service: sản phẩm của chủ trọ (thêm, sửa, ẩn, xóa mềm), duyệt của quản trị viên, ảnh tin đăng, tìm kiếm PostGIS, giữ chỗ cho rental. Cổng **3002**, DB `listing_db` (PostGIS), bucket S3 `listing-images`.
 Dựng từ `services/_template-nest` nên dùng chung log JSON, correlation ID, định dạng lỗi, health check (đọc README của template cho các phần đó). Sản phẩm và tin đăng là một bản ghi (ADR-0010). Listing **không** phát, không nghe sự kiện, không gọi service khác.
 
 Thiết kế: `project-knowledge/design/LISTING/RE.LISTING/`. Giải thích code: `project-knowledge/guides/RE_Listing_Code_Walkthrough.md`.
 
-## Chức năng (T2.2)
+## Chức năng (T2.2, T2.3)
 
-| Route (`/api/v1`)                             | Quyền     | Mô tả                                                                                 |
-| --------------------------------------------- | --------- | ------------------------------------------------------------------------------------- |
-| `POST /listings`                              | LANDLORD  | Thêm sản phẩm: `PENDING_REVIEW`, `AVAILABLE`                                          |
-| `GET /listings/mine`                          | LANDLORD  | Sản phẩm của tôi (phân trang)                                                         |
-| `GET /listings/:id`                           | công khai | Chi tiết tin đã duyệt, chưa xóa (tin `HIDDEN` vẫn xem được)                           |
-| `PATCH /listings/:id`                         | chủ tin   | Sửa; sửa nội dung hiển thị thì về `PENDING_REVIEW`                                    |
-| `POST /listings/:id/hide`, `/unhide`          | chủ tin   | `AVAILABLE ↔ HIDDEN`                                                                  |
-| `DELETE /listings/:id`                        | chủ tin   | Xóa mềm; `409` khi tin đang `HELD`/`DEPOSITED`                                        |
-| `POST /listings/:id/images/upload-url`        | chủ tin   | Presigned PUT, service đặt key                                                        |
-| `POST /listings/:id/images`                   | chủ tin   | Xác nhận ảnh (`HeadObject`: ≤ 5 MB, jpeg/png/webp, ≤ 10 ảnh); gọi lại cùng key: `200` |
-| `POST /admin/listings/:id/approve`, `/reject` | ADMIN     | Duyệt, từ chối (lý do bắt buộc)                                                       |
+| Route (`/api/v1`)                             | Quyền     | Mô tả                                                                                                                            |
+| --------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /listings`                               | công khai | Tìm kiếm (T2.3): chỉ tin đã duyệt, chưa xóa, không `HIDDEN`; lọc giá, diện tích, quận, tiện ích, còn trống; bán kính; phân trang |
+| `POST /listings`                              | LANDLORD  | Thêm sản phẩm: `PENDING_REVIEW`, `AVAILABLE`                                                                                     |
+| `GET /listings/mine`                          | LANDLORD  | Sản phẩm của tôi (phân trang)                                                                                                    |
+| `GET /listings/:id`                           | công khai | Chi tiết tin đã duyệt, chưa xóa (tin `HIDDEN` vẫn xem được)                                                                      |
+| `PATCH /listings/:id`                         | chủ tin   | Sửa; sửa nội dung hiển thị thì về `PENDING_REVIEW`                                                                               |
+| `POST /listings/:id/hide`, `/unhide`          | chủ tin   | `AVAILABLE ↔ HIDDEN`                                                                                                             |
+| `DELETE /listings/:id`                        | chủ tin   | Xóa mềm; `409` khi tin đang `HELD`/`DEPOSITED`                                                                                   |
+| `POST /listings/:id/images/upload-url`        | chủ tin   | Presigned PUT, service đặt key                                                                                                   |
+| `POST /listings/:id/images`                   | chủ tin   | Xác nhận ảnh (`HeadObject`: ≤ 5 MB, jpeg/png/webp, ≤ 10 ảnh); gọi lại cùng key: `200`                                            |
+| `POST /admin/listings/:id/approve`, `/reject` | ADMIN     | Duyệt, từ chối (lý do bắt buộc)                                                                                                  |
 
-Tìm kiếm (`GET /listings`) và `/internal/*` (giữ chỗ, đổi trạng thái) làm ở T2.3.
+### Tìm kiếm `GET /api/v1/listings`
+
+| Query                        | Ý nghĩa                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `minPrice`, `maxPrice`       | Giá thuê (VND, số nguyên ≥ 0), gồm hai đầu; `min > max` → `400`                                               |
+| `minArea`, `maxArea`         | Diện tích (m²), gồm hai đầu                                                                                   |
+| `district`                   | Quận, so khớp **đúng chuỗi** (có dấu, phân biệt hoa thường)                                                   |
+| `amenities`                  | CSV (`WIFI,PARKING`) hoặc lặp tham số; tin phải có **mọi** mã, mã lạ → `400`                                  |
+| `available=true`             | Chỉ tin `AVAILABLE` (mặc định trả cả `HELD`, `DEPOSITED`, `RENTED`; luôn loại `HIDDEN`)                       |
+| `lat` + `lng` (+ `radiusKm`) | `lat`, `lng` đi cùng nhau; có `radiusKm` (0 < r ≤ 50) thì lọc `ST_DWithin`; không có thì chỉ tính `distanceM` |
+| `sort`                       | `newest` (mặc định), `price_asc`, `price_desc`, `distance` (cần `lat`, `lng`)                                 |
+| `page`, `pageSize`           | 1 và 20, tối đa 50                                                                                            |
+
+Response: `ListingSummaryDto` (có `coverImageUrl`, `distanceM` khi có `lat/lng`; không có `description`, `images[]`). Ví dụ: `GET /api/v1/listings?lat=21.0054&lng=105.8431&radiusKm=2&sort=distance`.
+
+### API nội bộ `/internal/listings/*` (chỉ rental gọi, gateway trả `404` từ ngoài)
+
+Không có prefix `/api/v1`, không có trong Swagger. Hợp đồng: `contracts/openapi/listing-internal.v1.yaml`.
+
+| Route                               | Mô tả                                                                                                                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /internal/listings/:id`        | Bản chụp `{ id, ownerId, title, depositAmountVnd, status, approvalStatus }`; `404` nếu không có hoặc đã xóa                                                                          |
+| `POST /internal/listings/:id/holds` | Giữ chỗ nguyên tử `{ depositId, heldUntil }`: `200`, `409 LISTING_NOT_AVAILABLE`; gọi lại cùng đơn `200`; `HELD` quá hạn thì giữ được                                                |
+| `PUT /internal/listings/:id/status` | Đổi theo đơn `{ depositId, status }`: `HELD→AVAILABLE/DEPOSITED`, `DEPOSITED→RENTED/AVAILABLE`; idempotent; sai cặp hoặc tin của đơn khác `409 LISTING_INVALID_STATUS` kèm `details` |
 
 ## Chạy
 

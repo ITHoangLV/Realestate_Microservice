@@ -1,18 +1,20 @@
 # Giải thích code — Listing (`services/listing`)
 
-> Đọc khi: cần hiểu code listing để sửa tiếp (T2.3 thêm tìm kiếm, giữ chỗ), review, hoặc chuẩn bị vấn đáp.
+> Đọc khi: cần hiểu code listing để sửa tiếp (thêm bộ lọc, đổi trạng thái giữ chỗ), review, hoặc chuẩn bị vấn đáp.
 
 | | |
 |---|---|
 | **Chủ sở hữu / Cập nhật** | hoang.lv — 2026-11-20 |
 | **Thành phần** | `services/listing/` (cổng 3002, `listing_db` PostGIS, bucket `listing-images`) |
-| **Task** | T2.2 (`implementation/PHASE-2.md`). T2.3 thêm tìm kiếm PostGIS, `/internal/*`, giữ chỗ |
-| **Thiết kế** | `design/LISTING/RE.LISTING/` v1.2, ADR-0010; `design/SHARED/RE.SERVICE_TEMPLATE/` v2.1 |
-| **Commit / PR** | chưa có (nhánh `feature/T2.2-listing-crud`) |
+| **Task** | T2.2 (CRUD, duyệt, ảnh) và T2.3 (tìm kiếm PostGIS, `/internal/*`, giữ chỗ) — `implementation/PHASE-2.md` |
+| **Thiết kế** | `design/LISTING/RE.LISTING/` v1.4, ADR-0010; `design/SHARED/RE.SERVICE_TEMPLATE/` v2.1 |
+| **Commit / PR** | T2.2: PR #19. T2.3: chưa có (nhánh `feature/T2.3-listing-search-holds`) |
 
 ## 1. Luồng chung
 
 Chủ trọ gọi gateway (8080) với JWT. Gateway kiểm chữ ký và vai trò thô theo `routes.ts`, rồi chuyển cho listing. Listing kiểm lại JWT bằng khóa công khai (`JwtAuthGuard`, `@Roles`), kiểm **chủ sở hữu** bằng `sub` (không bao giờ từ body, BR-03), rồi ghi bằng **một câu SQL có điều kiện**. Ảnh đi thẳng từ trình duyệt lên S3 bằng presigned PUT; listing chỉ cấp URL và kiểm lại bằng `HeadObject`. Sản phẩm và tin đăng là một bản ghi `listings` (ADR-0010). Listing không phát và không nghe sự kiện, không gọi service khác.
+
+Hai luồng thêm ở T2.3. **Tìm kiếm** (`GET /listings`, công khai): `SearchListingsQuery` kiểm tham số, `buildSearchSql` dựng hai câu `count` và `data` dùng chung một `WHERE`, `ST_DWithin` trên `geography` dùng index GiST, ảnh bìa lấy bằng `LEFT JOIN LATERAL` trong cùng câu `data` (2 truy vấn, không tăng theo số tin). **API nội bộ** (`/internal/listings/*`, chỉ rental gọi qua mạng Docker, gateway trả 404 từ ngoài): bản chụp, giữ chỗ, đổi trạng thái theo đơn; quyết định "còn trống hay không" nằm ở một câu `UPDATE ... WHERE` (BR-05, BR-06).
 
 ```mermaid
 sequenceDiagram
@@ -34,6 +36,24 @@ sequenceDiagram
     C->>L: GET /listings/:id (công khai, chỉ tin APPROVED)
 ```
 
+Giữ chỗ khi hai người cùng đặt cọc (T2.3, `Processing_Flow §3`):
+
+```mermaid
+sequenceDiagram
+    participant R1 as rental (đơn A)
+    participant R2 as rental (đơn B)
+    participant L as listing
+    participant DB as listing_db
+    R1->>L: POST /internal/listings/x/holds { depositId: A, heldUntil }
+    R2->>L: POST /internal/listings/x/holds { depositId: B, heldUntil }
+    L->>DB: UPDATE ... SET status='HELD' WHERE status='AVAILABLE' OR (HELD AND held_until < now())
+    DB-->>L: A: 1 dòng
+    DB-->>L: B: 0 dòng (chờ khóa dòng, đánh giá lại WHERE)
+    L-->>R1: 200 HELD
+    L->>DB: B: SELECT lại (1 truy vấn) để chọn 404 / 200 / 409
+    L-->>R2: 409 LISTING_NOT_AVAILABLE
+```
+
 ## 2. Cây thư mục
 
 ```text
@@ -42,15 +62,16 @@ services/listing/
 │  ├─ app.module.ts, app.setup.ts, main.ts, swagger.setup.ts   # chép từ template, app.module nạp ListingModule
 │  ├─ common/ config/ health/ database/ storage/ messaging/ redis/   # chép nguyên từ template (ADR-0014)
 │  ├─ config/ (env.validation, env.bootstrap, feature-flags)    # thêm LISTING_IMAGE_*, isListingEnabled()
-│  ├─ database/migrations/1733000000000-create-listings.ts
+│  ├─ database/migrations/ 1733000000000-create-listings.ts, 1733100000000-add-listing-search-indexes.ts
 │  └─ listing/
 │     ├─ listing.module.ts
 │     ├─ config/listing.env.ts (+ spec)
-│     ├─ controllers/ listings, listings.admin
-│     ├─ services/ listing-command, listing-review, listing-image, listing-query, listing.presenter,
-│     │            listing-edit.rules, listing-image.rules, listing.sql
-│     ├─ dto/ entities/ errors/
-├─ test/ (template + listing-crud.infra-spec.ts)
+│     ├─ controllers/ listings, listings.admin, listings.internal
+│     ├─ services/ listing-command, listing-review, listing-image, listing-query, listing-hold,
+│     │            listing.presenter, listing-edit.rules, listing-image.rules, listing-hold.rules,
+│     │            listing-search.sql, listing.sql
+│     ├─ dto/ (search-listings.query, listing-summary.dto, internal-listing.dto, ...) entities/ errors/
+├─ test/ (template + listing-crud, listing-search, listing-internal .infra-spec.ts + helpers/listing-fixtures.ts)
 ├─ Dockerfile, package.json, .env.example
 ```
 
@@ -71,18 +92,29 @@ Phần chép nguyên từ `_template-nest` (`common/`, `health/`, `redis/`, `mes
 | `src/listing/errors/listing.errors.ts` | 8 mã `LISTING_*` và hàm dựng `AppException` | Các service | Khớp `API_Spec §4` |
 | `src/listing/dto/*.dto.ts`, `list-mine.query.ts`, `trim.ts` | Validate body, query, hình dạng response | Controller | `UpdateListingDto = PartialType(Create)`, `lat`/`lng` đi cùng nhau |
 | `src/listing/services/listing.sql.ts` | `listingColumns(alias)`, `pointSql`, `rowsOf`, `isUniqueViolation` | Mọi service | `rowsOf`: TypeORM trả `[dòng, số dòng]` cho `UPDATE ... RETURNING` |
-| `src/listing/services/listing.presenter.ts` | `ListingRow` → `ListingDto`, một truy vấn ảnh cho cả trang, presign GET | Command, Review, Query, Image | Không truy vấn trong vòng lặp |
+| `src/listing/services/listing.presenter.ts` | `ListingRow` → `ListingDto`, một truy vấn ảnh cho cả trang, presign GET; T2.3: `presentSummaries` (`SearchRow` → `ListingSummaryDto`, không truy vấn, chỉ ký URL ảnh bìa) | Command, Review, Query, Image | Không truy vấn trong vòng lặp |
 | `src/listing/services/listing-edit.rules.ts` | Hàm thuần: `classifyEdit`, `resubmits` (bảng duyệt lại §1.1) | `ListingCommandService` | Có spec |
 | `src/listing/services/listing-image.rules.ts` | Hàm thuần: `buildImageKey`, `isKeyOfListing`, `checkUploadedImage` | `ListingImageService` | Có spec |
 | `src/listing/services/listing-command.service.ts` | `create`, `update`, `hide`, `unhide`, `softDelete` | `ListingsController` | `UPDATE ... WHERE <trạng thái mong đợi>`; 0 dòng thì đọc lại chọn 404/403/409 |
 | `src/listing/services/listing-review.service.ts` | `approve`, `reject` | `ListingsAdminController` | `WHERE approval_status = 'PENDING_REVIEW'` |
 | `src/listing/services/listing-image.service.ts` | `createUploadUrl`, `confirm` | `ListingsController` | `HeadObject` ngoài transaction; khóa dòng rồi mới đếm |
-| `src/listing/services/listing-query.service.ts` | `findPublic` (route 12), `findMine` (route 6) | `ListingsController` | T2.3 thêm `search`, `snapshot` |
-| `src/listing/controllers/listings.controller.ts` | Route 1–8, 12 và `mine` | | `mine` khai báo trước `:id`; `confirmImage` đặt `201` hoặc `200` bằng `@Res({ passthrough })` |
+| `src/listing/services/listing-query.service.ts` | `findPublic` (route 12), `findMine` (route 6); T2.3: `search` (route 11), `snapshot` (API nội bộ a) | `ListingsController`, `ListingsInternalController` | `search`: đếm trước, `total = 0` thì bỏ truy vấn data (1 truy vấn). `snapshot` không lọc `approval_status` (rental tự xử lý), chỉ loại tin đã xóa |
+| `src/database/migrations/1733100000000-add-listing-search-indexes.ts` | T2.3: GIN `ix_listings_amenities`, `ix_listings_created (created_at DESC, id DESC) WHERE deleted_at IS NULL`, `ix_listings_area` | `pnpm migration:run` | Không sửa migration T2.2 đã merge. NFR §1: MUST có index cho cột lọc, sắp xếp |
+| `src/listing/dto/search-listings.query.ts` | Query route 11 (kế thừa `PageQueryDto`): ép kiểu, CSV `amenities`, kiểm chéo `lat`/`lng`/`radiusKm`/`sort=distance`, `minX ≤ maxX` | `ListingsController.search` | `lat`/`lng` chỉ dùng `@ValidateIf` (không `@IsOptional`: hai decorator này AND với nhau nên thiếu một trong hai sẽ không báo lỗi). Có spec 37 ca |
+| `src/listing/dto/listing-summary.dto.ts` | `ListingSummaryDto`: bản gọn cho trang kết quả (`coverImageUrl`, `distanceM`), không `description`, `images[]`, `approvalStatus` | `ListingPresenter.presentSummaries` | `API_Spec §1.4` v1.4 |
+| `src/listing/dto/internal-listing.dto.ts` | Body `HoldListingDto`, `ChangeStatusDto` và kiểu response của 3 API nội bộ | `ListingsInternalController` | `heldUntil` bắt buộc có múi giờ, không kiểm "tương lai" (chốt 2026-11-20) |
+| `src/listing/services/listing-search.sql.ts` | Hàm thuần `buildSearchSql(query)` → `{ countSql, countParams, dataSql, dataParams }` | `ListingQueryService.search` | Mọi giá trị là tham số `$n`; count và data cùng `WHERE`; mỗi câu chỉ có tham số nó dùng (pg báo lỗi nếu thừa). Có spec 21 ca |
+| `src/listing/services/listing-hold.rules.ts` | Hàm thuần: `STATUS_TRANSITIONS` (4 cặp §2.2), `sourcesFor`, `decideWhenNoMatch` (`IDEMPOTENT` / `CONFLICT`) | `ListingHoldService` | Có spec 30 ca |
+| `src/listing/services/listing-hold.service.ts` | `hold` (§2.1) và `changeStatus` (§2.2): mỗi cái một `UPDATE ... WHERE`, 0 dòng thì đọc lại đúng một lần | `ListingsInternalController` | Không transaction nhiều câu, không khóa ứng dụng, không gọi service khác |
+| `src/listing/controllers/listings.controller.ts` | Route 1–8, 11, 12 và `mine` | | `mine` khai báo trước `:id`; `confirmImage` đặt `201` hoặc `200` bằng `@Res({ passthrough })`; route 11 là `@Public()` |
+| `src/listing/controllers/listings.internal.controller.ts` | `GET :id`, `POST :id/holds`, `PUT :id/status` dưới `/internal/listings` | rental (S1) | `@Public()` + `@ApiExcludeController()`: tin mạng Docker (`security-policy §6`), không lộ ở Swagger, không có prefix `/api/v1` |
 | `src/listing/controllers/listings.admin.controller.ts` | Route 9–10, `@Roles('ADMIN')` | | |
 | `src/listing/listing.module.ts` | Ghép controller, service | `app.module.ts` | |
 | `test/setup-infra-env.ts` | Dùng `listing_db`, schema test, `search_path` có `public` | `jest-infra.json` | Cần `public` để thấy kiểu `geography` |
 | `test/listing-crud.infra-spec.ts` | 38 ca với Postgres + S3 thật: test 1, 2, 3, 12–17, số truy vấn | `pnpm test:infra` | |
+| `test/listing-search.infra-spec.ts` | Test 4, 18, 19, số truy vấn: 9 tin tọa độ thật ở Hà Nội, khoảng cách đối chứng bằng haversine (độc lập với PostGIS), kiểm 4 index có trong catalog, `EXPLAIN` dùng `ix_listings_location` trên ~5.000 tin ngẫu nhiên đã `ANALYZE` | `pnpm test:infra` | Seed thật là T2.4 nên dùng fixture; T2.4 chạy lại `EXPLAIN` trên seed |
+| `test/listing-internal.infra-spec.ts` | Test 5–11, 20, 21: kể cả 50 lời giữ chỗ đồng thời (đúng một `200`, `version = 1`), mọi response khớp `listing-internal.v1.yaml` | `pnpm test:infra` | Đã thử đột biến: bỏ điều kiện `held_until < now()` thì 4 ca fail, test 7 nhận 50 lần `200` |
+| `test/helpers/listing-fixtures.ts` | `insertListing` (dựng tin bằng SQL, đặt được `status`, `held_*`), `haversineM` | Hai infra-spec mới | API không cho đặt các trường này |
 | `.env.example`, `Dockerfile` | Cấu hình dev, ảnh Docker | | |
 | `infra/compose/docker-compose.yml` (khối `listing`) | Service `re-listing`, không publish cổng | gateway gọi `http://listing:3002` | Chạy kèm `--profile dev` (cần `s3`, `postgres`) |
 
@@ -98,7 +130,15 @@ Phần chép nguyên từ `_template-nest` (`common/`, `health/`, `redis/`, `mes
 | Ảnh lấy URL mà không xác nhận không được dọn | Ghi nợ, phạm vi đồ án | Job quét S3 | `tech-debt.md` #14 |
 | Xác nhận lại cùng key → `200` kèm ảnh đã có | Idempotent, kể cả đua hai lời gọi (bắt `23505`) | `409` | A chốt 2026-11-19 |
 | Key ảnh do service sinh, route 8 kiểm dạng `listings/{id}/{uuid}.{ext}` | Client không đặt key, không dùng key của tin khác hay `..` | Tin client | `security-policy §5` |
-| Dùng SQL thuần, entity chỉ khai báo cột | PostGIS (`ST_Y`, `ST_SetSRID`), `RETURNING`, `FOR UPDATE OF` | QueryBuilder, repository | T2.3 tiếp tục `ST_DWithin` |
+| Dùng SQL thuần, entity chỉ khai báo cột | PostGIS (`ST_Y`, `ST_SetSRID`), `RETURNING`, `FOR UPDATE OF` | QueryBuilder, repository | T2.3 dùng tiếp cho `ST_DWithin`, `ST_Distance` |
+| Bộ dựng SQL tìm kiếm là hàm thuần, count và data chung một `WHERE` | `total` luôn khớp tập trả về; test không cần DB cho phần dựng câu; giá trị chỉ ở tham số (chống injection), chỉ cột và hướng sắp xếp lấy từ bảng cố định | Nối chuỗi ở service; QueryBuilder | `RE.LISTING §1.3`, `non-functional-standards §1` |
+| Ảnh bìa bằng `LEFT JOIN LATERAL ... LIMIT 1` trong câu data | Số truy vấn cố định (2), không truy vấn ảnh theo từng tin hay thêm truy vấn ảnh cho trang | Dùng `presenter.present` (thêm 1 truy vấn, trả `images[]` không cần ở trang kết quả) | `Processing_Flow §5` |
+| `lat`/`lng` không `radiusKm`: không lọc bán kính, vẫn có `distanceM` | Cho `sort=distance` mà không giới hạn vùng (A chốt 2026-11-20) | Bắt buộc `radiusKm` | `API_Spec §1.3` |
+| `district` so khớp đúng chuỗi (có dấu, phân biệt hoa thường) | Dùng được `ix_listings_search`; client lấy giá trị từ chính dữ liệu trả về | `LIKE`, `unaccent` | `API_Spec §1.3` |
+| Giữ chỗ là một `UPDATE ... WHERE status = 'AVAILABLE' OR (HELD AND held_until < now())` | Postgres khóa dòng: lệnh thứ hai chờ rồi đánh giá lại `WHERE`. Chỗ giữ của đơn không tạo được tự hết hạn (A9). Đơn bị gọi lại cùng `depositId` thì 0 dòng, đọc lại thấy cùng đơn → `200` | `SELECT FOR UPDATE` rồi ghi; khóa Redis ở listing | BR-05, BR-06, `Processing_Flow §3` |
+| Đổi trạng thái: một `UPDATE ... status = ANY(nguồn hợp lệ)` cho mỗi đích | Tập nguồn của đích lấy từ bảng `STATUS_TRANSITIONS`, một truy vấn thay vì thử từng cặp | Mỗi cặp một `UPDATE` | `API_Spec §2.2` |
+| Đích `AVAILABLE` mà tin đã `AVAILABLE` → `200` với mọi `depositId` | Về `AVAILABLE` xóa `held_by_deposit_id` nên không còn kiểm "cùng đơn"; rental retry bù trừ vẫn phải nhận `200`. Tin của đơn khác → `409 LISTING_INVALID_STATUS` kèm `details`. Hệ quả cho rental ghi ở `van-de-can-quyet-dinh.md` C20 | Bắt buộc cùng `depositId` (rental retry sẽ `409`) | A chốt 2026-11-20 |
+| `/internal/*` là `@Public()` | Tin mạng Docker; gateway chặn từ ngoài (smoke: `404`) | Xác thực service-to-service | `security-policy §6` |
 | `rowsOf` bọc mọi `UPDATE ... RETURNING` | TypeORM + Postgres trả `[dòng, số]` cho UPDATE/DELETE, mảng dòng cho SELECT/INSERT | Đoán kiểu ở từng chỗ | Lỗi 500 phát hiện ở infra test |
 | Bản chép template còn `src/messaging`, migration messaging | ADR-0014: không sửa riêng bản chép | Xóa phần thừa | `tech-debt.md` #15 |
 
@@ -111,7 +151,13 @@ Phần chép nguyên từ `_template-nest` (`common/`, `health/`, `redis/`, `mes
 | Ảnh quá 5 MB bị chặn ở đâu? | Presigned PUT không giới hạn kích thước, nên `HeadObject` sau khi tải; quá cỡ thì `400` và xóa object | `gotchas.md`, test 12 |
 | Sửa gì thì tin phải duyệt lại? | Nội dung hiển thị hoặc thêm ảnh: `APPROVED → PENDING_REVIEW`; tin `REJECTED` sửa gì cũng nộp lại; giá, cọc, diện tích, tiện ích thì giữ `APPROVED` | `API_Spec §1.1`, `listing-edit.rules.spec.ts` |
 | Hai quản trị viên duyệt cùng lúc? | Một người thắng bằng `WHERE approval_status = 'PENDING_REVIEW'`, người kia `409 LISTING_ALREADY_REVIEWED` | Test 3 |
-| Tin `HIDDEN` có xem được không? | Chi tiết công khai vẫn trả; chỉ tìm kiếm (T2.3) loại tin ẩn | `API_Spec §1.4` |
+| Tin `HIDDEN` có xem được không? | Chi tiết công khai vẫn trả; tìm kiếm loại tin ẩn | `API_Spec §1.4` |
+| Hai người cùng đặt cọc một phòng thì sao? | Hai lời giữ chỗ chạy `UPDATE ... WHERE status = 'AVAILABLE'`; Postgres khóa dòng, bên chậm thấy `HELD` nên 0 dòng → `409 LISTING_NOT_AVAILABLE`. Test 7: 50 lời đồng thời trên Postgres thật, đúng một `200` | `Processing_Flow §3`, test 7 (T07) |
+| Rental gọi giữ chỗ nhưng không nhận được trả lời thì chỗ bị kẹt? | Không: tin `HELD` quá `held_until` được coi là trống, đơn mới giữ được (test 9) | A9, `API_Spec §2.1` |
+| Tìm trong bán kính 2 km hoạt động thế nào? | `ST_DWithin(location::geography, điểm, 2000)` trên `geography` (mét); dùng index GiST `ix_listings_location`. Plan thật: `Bitmap Index Scan on ix_listings_location` (≈5.000 dòng) | `API_Spec §1.3`, test 4 (T05) |
+| Vì sao test dùng haversine mà không tin `ST_Distance`? | Đối chứng độc lập: không dùng PostGIS để tự kiểm PostGIS (sai số cầu so với spheroid < 0,5%, test cho ±1%) | `listing-search.infra-spec.ts` |
+| Hỏi `radiusKm` mà không có tọa độ thì sao? | `400 VALIDATION_FAILED`: `lat` và `lng` phải đi cùng nhau và đi kèm `radiusKm` hoặc `sort=distance` | `API_Spec §1.3`, test 19 |
+| Rental gọi lại bước nhả chỗ thì sao? | Idempotent: đã `AVAILABLE` → `200`. Tin đã giao cho đơn khác → `409`; rental coi là kết cục cuối (đề xuất, chờ C chốt ở T3.3) | `API_Spec §2.2`, C20 |
 | Vì sao listing không có `clients/` hay outbox? | Không gọi và không phát sự kiện; rental gọi listing, không ngược lại | `architecture.md §7`, ADR-0004 |
 
 ## 6. Hạn chế đã biết
@@ -120,6 +166,11 @@ Phần chép nguyên từ `_template-nest` (`common/`, `health/`, `redis/`, `mes
 |---|---|---|
 | Ảnh lấy upload-url nhưng không xác nhận nằm lại trên S3 | Tốn dung lượng | Job dọn hoặc lifecycle rule (`tech-debt.md` #14) |
 | `listing_db` có bảng `outbox_events`, `processed_events` không dùng | Không ảnh hưởng | `tech-debt.md` #15 |
-| Chưa có tìm kiếm, giữ chỗ, `/internal/*` | Rental chưa gọi được listing | T2.3 |
+| `/internal/*` tin mạng Docker, không xác thực | Container nào trong mạng cũng gọi được giữ chỗ | `security-policy §6`; hướng: xác thực service-to-service hoặc mTLS |
+| `EXPLAIN` chỉ chứng minh GiST trên dữ liệu đủ lớn (~5.000 dòng) | Seed ~30 dòng planner có thể quét tuần tự | T2.4 chạy lại trên seed và ghi đúng plan nhận được |
+| Tìm kiếm phân trang bằng `OFFSET` | Trang rất sâu chậm dần (chặn `pageSize ≤ 50`, dữ liệu đồ án nhỏ) | Phân trang theo con trỏ nếu cần |
+| `district` đúng chuỗi, không bỏ dấu | Gõ "Hai Ba Trung" không ra "Hai Bà Trưng" | `unaccent` + index biểu thức nếu cần |
+| Tìm kiếm không cache | Mỗi lần gọi chạm DB | Không cần ở phạm vi đồ án |
+| Hai infra-spec mới lặp phần dựng app, schema, đếm truy vấn của `listing-crud.infra-spec.ts` | Khó bảo trì | Gom vào `test/helpers/` (cùng loại tech-debt #13) |
 | `address`, `district`, `city` bắt buộc và `description` ≤ 5000 chỉ kiểm ở API (A chốt 2026-11-20, `RE.LISTING` v1.3) | DDL vẫn cho phép `NULL`; dữ liệu chèn thẳng vào DB có thể thiếu | Thêm `NOT NULL` bằng migration nếu cần (đổi bảng, MAJOR) |
 | Ảnh quá giới hạn 10 khi xác nhận, ảnh hợp lệ nằm lại trên S3 | Như trên | Cùng tech-debt #14 |
