@@ -1,7 +1,7 @@
 ---
 task: T2.2 listing: khung, CRUD sản phẩm, duyệt, ảnh
 created: 2026-11-19
-status: in_progress
+status: done
 phase: implementation/PHASE-2.md#T2.2
 branch: feature/T2.2-listing-crud (tách từ origin/develop b0e66f1, đã có C19)
 ---
