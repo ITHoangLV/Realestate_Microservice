@@ -41,7 +41,7 @@
 - [x] T2.1 identity: tài khoản nhận tiền, API nội bộ — A (2026-11-19, PR #16, `b88817a`; đổi vai trò bỏ 2026-11-18)
 - [x] T2.2 listing: khung, CRUD sản phẩm, duyệt, ảnh — A (2026-11-20, PR #19, `e024605`; A tự giao lại từ B)
 - [x] T2.3 listing: tìm kiếm PostGIS, API nội bộ giữ chỗ — A (2026-11-20, PR #21, `0cbd2ea`; A tự giao lại từ B)
-- [ ] T2.4 listing: seed dữ liệu — B
+- [x] T2.4 listing: seed dữ liệu — A (2026-11-20, PR #23, `db0cfc4`; A tự giao lại từ B)
 - [ ] T2.5 identity: OTP, quên mật khẩu, Google, khóa tài khoản, số điện thoại — A
 
 ## Phase 3 — rental, payment
