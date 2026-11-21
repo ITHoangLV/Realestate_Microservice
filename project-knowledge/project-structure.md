@@ -76,7 +76,7 @@ Realestate_Microservice/
 │  │     ├─ domain/deposit-state.ts
 │  │     └─ entities/ dto/ errors/ config/
 │  │
-│  ├─ payment/                        + cổng 3004, payment_db + S3 (RE.PAYMENT, RE.PAYOUT)
+│  ├─ payment/                        ✓ T3.1 (khung, payment order, payOS); + T3.4 webhook, T3.6 payout. Cổng 3004, payment_db + S3 (RE.PAYMENT, RE.PAYOUT)
 │  │  └─ src/payment/
 │  │     ├─ controllers/ payos-webhook, payment-orders.internal, refund-requests.internal,
 │  │     │               withdrawals, payouts.admin, transactions

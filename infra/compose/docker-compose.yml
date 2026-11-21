@@ -337,6 +337,37 @@ services:
         condition: service_healthy
     networks: [realestate-net]
 
+  # payment: payment order, payOS (T3.1). Webhook payOS, RabbitMQ, ví, S3 chung tu bat o T3.4, T3.6.
+  payment:
+    <<: *restart
+    build:
+      context: ../..
+      dockerfile: services/payment/Dockerfile
+    container_name: re-payment
+    profiles: [apps]
+    environment:
+      SERVICE_NAME: payment
+      PORT: '3004'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      HTTP_TIMEOUT_MS: ${HTTP_TIMEOUT_MS:-3000}
+      DATABASE_URL: postgres://${PAYMENT_DB_USER:?thieu PAYMENT_DB_USER}:${PAYMENT_DB_PASSWORD:?thieu PAYMENT_DB_PASSWORD}@postgres:5432/${PAYMENT_DB_NAME:?thieu PAYMENT_DB_NAME}
+      # Khoa payOS that chi nam trong .env (khong commit). De trong thi chinh payment bao thieu va dung
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost:3000/payment/return}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost:3000/payment/cancel}
+      PAYOS_TIMEOUT_MS: ${PAYOS_TIMEOUT_MS:-2500}
+      # payment chi KIEM token (khoa cong khai), khong ky
+      JWT_PUBLIC_KEY_PATH: /run/secrets/jwt_public_key
+      JWT_ISSUER: ${JWT_ISSUER:?thieu JWT_ISSUER}
+    secrets: [jwt_public_key]
+    # Khong co `ports:`: chi goi duoc trong mang realestate-net (rental goi /internal/*, webhook qua api-gateway)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [realestate-net]
+
   # api-gateway: diem vao duy nhat cho client. Khong dung DB, Redis, RabbitMQ, S3.
   api-gateway:
     <<: *restart

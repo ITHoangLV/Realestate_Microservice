@@ -1,26 +1,23 @@
 ---
-task: T2.5 identity: xác minh OTP, quên mật khẩu, Google, khóa tài khoản, số điện thoại
-updated: 2026-11-20 17:40
+task: T3.1 payment: khung, payment order, payOS
+updated: 2026-11-21
 percent: 100
 ---
 
 ## Đang làm
-- Bước hiện tại: xong; commit, push, mở PR (A merge, quyết định 2026-11-21)
-- Tóm tắt: review lại phát hiện hai lỗi `500` (`PATCH /users/me` `fullName: null`; Google với tài khoản đã liên kết `sub` khác). Đã sửa thiết kế v2.4 trước, test RED rồi GREEN ở unit; infra-spec 21a, 23a đã viết nhưng chưa chạy
+- Bước hiện tại: xong; commit trên `feature/T3.1-payment-order`, chờ push và PR (A merge)
+- Tóm tắt: service payment từ template, migration đủ bảng payment + ví, `PayosClient`, `PaymentOrderService`, API nội bộ; test 7–10 pass với Postgres thật và SDK payOS thật trỏ vào payOS giả
 
 ## Đã xong (phiên này)
-- Thiết kế `RE.IDENTITY` v2.3, CHANGELOG; `van-de-can-quyet-dinh.md` C21
-- Cấu hình, migration, entity, `UserDto`, seed #16
-- MailService, OTP, quên/đặt lại mật khẩu, Google, khóa/mở khóa, PATCH me
-- identity unit 354, e2e 97, infra 200; gateway unit 239 + e2e 137; template unit 101 + e2e 111 PASS; lint, format, build, contracts sạch
-- Smoke qua gateway 8080 + Mailpit đạt
+- `RE.PAYMENT` v1.2 (§8: C22, C23), `architecture.md §5` (phiên bản SDK, cách tắt retry)
+- payment unit 150/150, e2e 97/97, infra: `payment-orders` 23/23, `messaging` 8/8; `storage` 5/6 (môi trường của Claude không có S3 thật, bản giả moto không kiểm chữ ký presigned; template chưa sửa gì cũng 5/6)
+- `pnpm lint`, `format:check`, `build`, `contracts:check` sạch; `migration:run` + `node dist/main.js`: `/health` `db: up`, API nội bộ trả đúng mã lỗi; thiếu biến thì dừng, in rõ biến
+- Compose (`payment`, profile `apps`), `.env.example` gốc và service, README, walkthrough mới, `CLAUDE.md §2.5`, `project-structure.md`
 
 ## Còn lại
-- A merge PR T2.5; sau merge tick `implementation/progress.md`
-- Postgres trên máy A: lần `test:infra` 2026-11-20 17:48 bị `Connection terminated unexpectedly`, Postgres từng tắt không sạch lúc 17:02; chưa tái hiện nên chưa kết luận (xem `current-task.md` R3b)
-- Chưa làm, chờ A quyết: `refresh` kiểm `status = LOCKED` (phòng khi bước thu hồi của khóa lỗi 503)
-- A xem `git diff` → commit, push, PR vào `develop` (PR chạm `_template-nest` nên A duyệt)
-- Sau merge: tick `implementation/progress.md` T2.5
+- Push, mở PR vào `develop` (A merge); sau merge tick `implementation/progress.md` T3.1
+- A chạy `test:infra` của payment trên máy (S3 thật cho `storage.infra-spec`) và `compose up --build payment` (Claude không kéo được image từ Docker Hub)
+- C22, C23 chờ A chốt
 
 ## Blockers
 _không có_

@@ -45,7 +45,7 @@ jobs:
       fail-fast: false
       matrix:
         # Thêm service mới vào đây khi tạo từ template (listing, rental, payment, notification)
-        service: [template-nest, identity, api-gateway, listing]
+        service: [template-nest, identity, api-gateway, listing, payment]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

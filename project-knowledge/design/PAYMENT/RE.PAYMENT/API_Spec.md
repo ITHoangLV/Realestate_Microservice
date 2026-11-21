@@ -7,7 +7,7 @@
 | **Quy tắc** | BR-04, BR-07, BR-08, BR-09, BR-10 |
 | **Quyết định** | ADR-0009 |
 | **CSDL** | `payment_db` / `payment_user`: `payment_orders`, `payos_webhook_events`, `late_payments` (ví: `RE.PAYOUT`) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-16 — v1.1 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-21 — v1.2 |
 
 ## 1. API công khai
 
@@ -153,3 +153,8 @@ CREATE TABLE late_payments (
 3. Tạo link payOS lỗi: order giữ `PENDING` không link; job của rental xử lý.
 4. `PAYOS_TIMEOUT_MS = 2500`; `returnUrl`, `cancelUrl` ở §5.
 5. Không làm job đối soát chủ động với payOS; dựa vào payOS gửi lại webhook. Ghi ở mục hạn chế của báo cáo.
+
+## 8. Điểm `[cần xác nhận]`
+
+1. **[cần xác nhận] `GET` khi `PENDING` chưa có link (§2c).** Thiết kế ghi "hỏi payOS" nhưng không nói dùng kết quả làm gì; tra cứu của SDK payOS không trả `checkoutUrl`. T3.1 chỉ đọc DB. Sổ: `implementation/van-de-can-quyet-dinh.md` C22.
+2. **[cần xác nhận] Gọi lại tạo order khi `PENDING` chưa có link (§2a).** T3.1 trả `503 PAYMENT_PROVIDER_UNAVAILABLE`, không gọi lại payOS. Đề xuất tra payOS theo `orderCode` rồi mới tạo lại. Sổ: C23.
