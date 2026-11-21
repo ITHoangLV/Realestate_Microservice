@@ -82,7 +82,7 @@ Listing dừng thì không đặt cọc được: cái giá của một lời g�
 | Lưu trữ | PostgreSQL 16 + PostGIS 3.5, TypeORM, migration (ADR-0013) |
 | Dữ liệu tạm | Redis 7.4 |
 | Sự kiện | RabbitMQ 3.13, amqplib |
-| Thanh toán | payOS (link, VietQR, webhook), SDK `@payos/node` — chốt 2026-11-16; phiên bản và cách tắt retry của SDK chốt ở T3.1 |
+| Thanh toán | payOS (link, VietQR, webhook), SDK `@payos/node` — chốt 2026-11-16; T3.1 (2026-11-21) ghim `2.0.5`, tắt retry khi tạo link bằng `maxRetries: 0` cho từng lệnh (hủy giữ retry mặc định 2), timeout `PAYOS_TIMEOUT_MS` |
 | Xác thực | JWT RS256, argon2id |
 | Lưu tệp | Silo, API S3, AWS SDK (ADR-0007) |
 | Thời gian thực | Socket.IO: `@nestjs/websockets`, `@nestjs/platform-socket.io` — chốt 2026-11-16 |
