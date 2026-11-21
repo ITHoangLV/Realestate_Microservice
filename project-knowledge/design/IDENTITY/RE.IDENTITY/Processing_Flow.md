@@ -4,7 +4,7 @@
 |---|---|
 | **Chức năng** | Đăng ký và xác minh OTP, đăng nhập (mật khẩu, Google), quên mật khẩu, làm mới, đăng xuất, khóa tài khoản, cung cấp tài khoản nhận tiền |
 | **Tham chiếu** | `API_Spec.md`, `Component_Class_Design.md`, `services/identity/README.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v2.2 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v2.4 |
 
 ## 1. Đăng ký
 
@@ -66,9 +66,9 @@ sequenceDiagram
     participant M as SMTP (Mailpit)
     C->>I: POST /auth/register
     I->>DB: BEGIN, INSERT users (PENDING_VERIFICATION), outbox identity.registered, COMMIT
-    I->>R: SET identity:otp:<userId> {otpHash, attempts=0} EX 300, SET cooldown EX 60
-    I->>M: email OTP
-    I-->>C: 201
+    I-->>C: 201 (không chờ phần dưới)
+    I--)R: SET identity:otp:<userId> {otpHash, attempts=0} EX 300, SET cooldown EX 60
+    I--)M: email OTP (lỗi chỉ log warn)
     C->>I: POST /auth/verify-otp {email, otp}
     I->>DB: SELECT user theo lower(email), status = PENDING_VERIFICATION
     I->>R: HGETALL otp, so khớp, sai thì HINCRBY attempts (lần 5 thì DEL)
@@ -78,11 +78,11 @@ sequenceDiagram
     I-->>C: 200 cặp token
 ```
 
-SMTP lỗi sau commit: `201` vẫn trả, người dùng gửi lại. Số truy vấn DB: đăng ký 2, xác minh 2.
+Gửi OTP không chờ (v2.3): `201` trả ngay sau commit; SMTP hoặc Redis lỗi chỉ ghi log `warn`, người dùng gửi lại. Số truy vấn DB: đăng ký 2, xác minh 2.
 
 ## 3b. Quên mật khẩu
 
-1. `forgot-password`: tìm user (1 truy vấn); có và không `LOCKED` → `SET identity:pwreset:<sha256(token)> userId EX 900`, gửi email link. Luôn `202`.
+1. `forgot-password`: tìm user (1 truy vấn); có và không `LOCKED` → `SET identity:pwreset:<sha256(token)> userId EX 900`, gửi email link (không chờ, v2.3). Luôn `202`.
 2. `reset-password`: `GETDEL` token (dùng một lần, nguyên tử) → `UPDATE users SET password_hash` → `revokeAllForUser`. Token sai → `400`.
 
 ## 3c. Đăng nhập Google
@@ -106,7 +106,7 @@ sequenceDiagram
     I-->>C: 200 cặp token (hoặc 400 IDENTITY_ROLE_REQUIRED, 403 LOCKED)
 ```
 
-Google không phản hồi khi tải JWKS: `503 DEPENDENCY_UNAVAILABLE`; khóa JWKS được cache theo `Cache-Control`.
+Google không phản hồi khi tải JWKS: `503 DEPENDENCY_UNAVAILABLE`; khóa JWKS được cache theo `Cache-Control`. `GOOGLE_CLIENT_ID` không đặt: cũng `503 DEPENDENCY_UNAVAILABLE`, trước khi kiểm token (v2.3). Email đã có tài khoản nhưng tài khoản đó đã liên kết với một `sub` Google khác: `401 IDENTITY_GOOGLE_TOKEN_INVALID`, không liên kết (`API_Spec §1.8` dòng 4a, v2.4).
 
 ## 3d. Khóa tài khoản
 
