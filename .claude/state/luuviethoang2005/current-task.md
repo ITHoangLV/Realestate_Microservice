@@ -1,135 +1,109 @@
 ---
-task: T2.4 listing: seed dữ liệu
-created: 2026-11-20
+task: T3.1 payment: khung, payment order, payOS
+created: 2026-11-21
 status: done
-phase: implementation/PHASE-2.md#T2.4
-branch: feature/T2.4-listing-seed (tách từ `develop` sau PR #22, working tree sạch lúc nhận task)
+phase: implementation/PHASE-3.md#T3.1
+branch: feature/T3.1-payment-order (từ `develop` tại `d253f01`; T2.5 chưa merge, T3.1 không phụ thuộc T2.5)
 ---
 
 ## Mô tả
 
-Script nạp dữ liệu dev: 30 tin có tọa độ thật ở Hà Nội (`listing_db`), 3 chủ trọ + 5 người thuê ở `ACTIVE` (`identity_db`, bỏ qua OTP), id cố định cho Postman/k6, chạy lại an toàn. Chạy lại `EXPLAIN` bán kính 2 km trên seed thật và dán plan. Người làm: A (tự giao lại từ B). Hạn M1 — 2026-11-20, ước ~3 giờ.
+Tạo `services/payment` từ `_template-nest` (cổng 3004, `payment_db`), migration theo `RE.PAYMENT/API_Spec.md §6` và `RE.PAYOUT/API_Spec.md §7`, `PayosClient` (timeout, không retry tạo link), `PaymentOrderService` (tạo, hủy, tra cứu) và controller nội bộ `/internal/payment-orders`. Người làm: A (Claude làm khi A vắng, quyết định 2026-11-21 trong `decisions-log.md`). Hạn M2 — 2026-12-04, ước ~10 giờ.
 
 ## Thiết kế liên quan
 
-`design/LISTING/RE.LISTING/` v1.4 (`API_Spec §6` DDL, `§7` mục 15; `Component_Class_Design §1` có thư mục `seed/`), `design/IDENTITY/RE.IDENTITY/` (`seed/`, `users`; T2.5 thêm cột `status` mặc định `ACTIVE` nên seed viết bây giờ vẫn `ACTIVE` sau T2.5). Không đổi `contracts/`, không migration, không dependency mới.
+`design/PAYMENT/RE.PAYMENT/` v1.1 (`API_Spec §2, §4, §5, §6, §7`, `Component_Class_Design §1, §2, §4 test 7–10`, `Processing_Flow §1, §3, §4`), `RE.PAYOUT/API_Spec.md §7` (DDL ví), ADR-0009, `contracts/openapi/payment-internal.v1.yaml` (đối chiếu, **không đổi**), `standards/reliability-standard.md` (payOS: tạo link không retry, tra cứu/hủy có retry, timeout 2.500 ms).
 
 ## Definition of Done
 
-- [x] `guides/RE_Docker_Local_Guide.md §5` liệt kê đúng id seed (người dùng, tin) và lệnh chạy
-- [x] `EXPLAIN` bán kính 2 km (`ST_DWithin(location, ST_MakePoint(105.84, 21.00)::geography, 2000)`) chạy trên seed thật, plan thật trên seed 30 dòng: `Bitmap Heap Scan on listings` ← `Bitmap Index Scan on ix_listings_location` (không phải `Seq Scan`); test 4 / T2.3 (~5.000 dòng) vẫn là bằng chứng chính
-- [x] Chạy lại seed lần 2 không đổi dữ liệu, không lỗi (test hạ tầng)
-- [x] Test của seed pass (dán output): unit `test`, `test:infra` của identity và listing
-- [x] `pnpm lint`, `pnpm format:check`, `pnpm build`, `pnpm contracts:check` không lỗi
-- [x] Lệnh "Kiểm chứng" của task chạy đúng (dán output): seed vào DB thật rồi `GET /api/v1/listings?lat=21.00&lng=105.84&radiusKm=2` qua compose `apps` (nếu chạy được)
-- [x] `guides/RE_Listing_Code_Walkthrough.md` và `RE_Identity_Code_Walkthrough.md` cập nhật (không tạo file mới); README `services/listing`, `services/identity` thêm lệnh seed
+- [x] Test 7–10 ở `RE.PAYMENT/Component_Class_Design.md §4` pass (`test` + `test:infra`, 2026-11-21)
+- [x] Response `/internal/payment-orders*` khớp `payment-internal.v1.yaml` (mọi status trong infra-spec)
+- [x] `pnpm --filter @realestate/payment test` 150/150, `test:e2e` 97/97, `test:infra` 36/37: `payment-orders` 23/23, `messaging` 8/8, `storage` 5/6 do môi trường (không có S3 thật; template chưa sửa cũng 5/6) — **A chạy lại `storage` với Silo**
+- [x] `pnpm lint`, `format:check`, `build`, `contracts:check` sạch
+- [x] Số truy vấn trong ngưỡng ghi 6: tạo 3, gọi lại 1, hủy 2, tra cứu 1 (đếm bằng log SQL trong infra-spec)
+- [x] Walkthrough `guides/RE_Payment_Code_Walkthrough.md` (mới), dòng ở `project-knowledge/CLAUDE.md §2.5`, README payment, compose, `.env.example`
 
 ## Các bước thực hiện (tổng quan)
 
 - [x] 1. Đọc context, đối chiếu thiết kế
-- [x] 2. Quét tái sử dụng + kế hoạch chi tiết (chờ duyệt)
-- [x] 3. Code + test theo TDD (playbook `tdd` bật, `warn`): identity `seed:users`, listing `seed:listings`
-- [x] 4. Chạy test, seed vào DB thật, `EXPLAIN`, xác nhận PASS
-- [x] 5. Viết/cập nhật walkthrough, `code-review` 5 chiều, chuẩn bị PR
+- [x] 2. Quét tái sử dụng + kế hoạch chi tiết (Claude tự duyệt 2026-11-21 theo quyền A trao)
+- [x] 3. Dựng service từ template (`service-scaffold`), dọn module mẫu, build/test xanh
+- [x] 4. Migration + entity (`payment_orders` + bảng ví, yêu cầu hoàn, rút, chứng từ, nhật ký)
+- [x] 5. TDD: `PayosClient` → `PaymentOrderService` (tạo, hủy, tra cứu) → controller nội bộ
+- [x] 6. Test hạ tầng 7–10, hợp đồng, đếm truy vấn
+- [x] 7. Compose, `.env.example`, README, walkthrough, `code-review`, commit, PR
 
 ## Tái sử dụng
 
-Quét trên source hiện tại (`services/_template-nest/src`, `services/identity/src`, `services/listing/src`):
+Quét trên source hiện tại (`services/_template-nest/src`, `services/listing/src`, `services/identity/src`):
 
 | Nhu cầu | Quyết định | Chỗ có sẵn |
 |---|---|---|
-| Băm mật khẩu argon2id | DÙNG LẠI | `identity/src/identity/services/password.service.ts` (`PasswordService`, nhận làm tham số như `seedAdmin`) |
-| Sự kiện `identity.registered` + outbox | DÙNG LẠI | `src/messaging/domain-event.ts` (`buildDomainEvent`); mẫu `seedAdmin` ghi `outbox_events` cùng transaction |
-| Khung script CLI (nạp `.env`, kiểm biến, `DataSource` riêng, không khởi động Nest) | DÙNG LẠI mẫu | `identity/src/scripts/seed-admin.ts`; chép cấu trúc, không tách hàm chung (chỉ 2 chỗ dùng, mỗi service một bản) |
-| Hằng loại BĐS, trạng thái, duyệt, tiện ích | DÙNG LẠI | `listing/src/listing/entities/listing.enums.ts` (`PROPERTY_TYPES`, `AMENITIES`, …) dùng để gõ kiểu dữ liệu seed và kiểm trong test |
-| Test hạ tầng (schema riêng, `readRootEnv`) | DÙNG LẠI | `listing/test/helpers/infra.ts`; mẫu `identity/test/seed-admin.infra-spec.ts` |
-| `seedUsers` + dữ liệu 8 người dùng (identity) | VIẾT MỚI | không có bản tương đương; `seedAdmin` chỉ tạo ADMIN và từ chối email đã có vai trò khác |
-| `seedListings` + dữ liệu 30 tin (listing) | VIẾT MỚI | không có |
-| 3 UUID chủ trọ ở cả hai service | VIẾT MỚI, **lặp có chủ đích** | listing không được import code identity (ranh giới service); hai bản ghi chú trỏ nhau, bảng id ở Docker guide §5 là nguồn đối chiếu |
+| Khung service (config, logging, envelope, lỗi, health, DB, outbox, InternalHttp) | DÙNG LẠI (chép nguyên) | `services/_template-nest` |
+| Mẫu cờ bật module + kiểm biến bắt buộc lúc khởi động | DÙNG LẠI (cùng cách) | `listing/config/listing.env.ts`, `feature-flags.ts` `isListingEnabled`, `env.bootstrap.ts` |
+| `AppException`, `createUuidParamPipe`, `@Public`, `ApiExcludeController` cho `/internal/*` | DÙNG LẠI | `src/common/*`, mẫu `listings.internal.controller.ts` |
+| Nhận biết `23505` theo tên ràng buộc | DÙNG LẠI cách làm (hàm nhỏ cục bộ) | identity `unique-violation.ts`, listing `listing.sql.ts`: là service khác, **không import**; payment viết hàm riêng 1 dòng trong `payment/errors` |
+| Kiểm response theo OpenAPI, test hạ tầng, `createTestApp` | DÙNG LẠI | template `test/helpers/contracts.ts`, `infra.ts`, `create-test-app.ts` |
+| `PayosClient` (bọc `@payos/node`) | VIẾT MỚI | Không có; SDK đã chốt ở `architecture.md §5` |
+| `PaymentOrderService`, entity, DTO, lỗi `PAYMENT_*` | VIẾT MỚI | Nghiệp vụ riêng payment |
 
-Không chạm `_template-nest`. Không có thành phần dùng chung mới (seed là code riêng của từng service).
+Không có thành phần dùng chung mới cho nhiều service; không chạm `_template-nest`.
 
 ## Kế hoạch chi tiết
 
-**A đã duyệt 2026-11-20 kèm chỉnh sửa** (xem mục "Chỉnh sửa khi duyệt"; các mục 1–8 bên dưới vẫn đúng trừ chỗ bị chỉnh sửa ghi đè). Ghi chú: TDD bật → mỗi hành vi viết test thấy FAIL trước, rồi mới code.
+> **Claude tự duyệt 2026-11-21** (A trao quyền, `decisions-log.md`). TDD bật (`warn`).
 
-### Chỉnh sửa khi duyệt (ghi đè phần bên dưới)
+### A. Điểm chưa rõ trong thiết kế (ghi `van-de-can-quyet-dinh.md` C22, C23; không chặn phần còn lại)
 
-1. `seed:users` **không** ghi `status`, `email_verified_at` (cột chưa có, thuộc T2.5, cũng do A làm). Ghi tech-debt #16: khi làm T2.5 cập nhật seed set hai cột này kèm test.
-2. Email trùng nhưng khác id (hoặc khác vai trò) → báo lỗi rõ ràng (`SeedUsersError`), không đổi gì.
-3. `SEED_USER_PASSWORD` ≥ 12 ký tự (không phải 8).
-4. Thêm 2–3 tin `APPROVED` + `AVAILABLE` ở 2,1–3 km quanh (21.00, 105.84); trong 2 km có ít nhất 1 tin `PENDING_REVIEW` và 1 tin `HIDDEN`.
-5. Kiểm `cọc ≤ giá` chỉ là kiểm dữ liệu seed trong test, **không** gắn `[cần xác nhận]` vào thiết kế và không thêm vào tài liệu thiết kế.
+| # | Chỗ | Cách làm trong T3.1 |
+|---|---|---|
+| C22 | `API_Spec §2c`: `GET` "hỏi payOS nếu `PENDING` mà chưa có link" — không nói làm gì với kết quả; SDK payOS tra cứu không trả `checkoutUrl` | **Chưa làm phần hỏi payOS**: `GET` chỉ đọc DB (đúng mô tả "Chỉ đọc" của hợp đồng). Chờ A chốt |
+| C23 | `API_Spec §2a`: gọi lại khi order `PENDING` **chưa có** link (lần đầu payOS lỗi) — bảng chỉ có dòng "`PENDING` có link → 200" | Trả `503 PAYMENT_PROVIDER_UNAVAILABLE`, không gọi lại payOS (theo `§7.3`: "order giữ `PENDING` không link; job của rental xử lý"); đề xuất cho A: tra payOS theo `orderCode`, chưa có thì tạo lại |
 
-### Quyết định ban đầu (đã duyệt, trừ chỗ chỉnh sửa ở trên)
+Chi tiết cài đặt (không đổi luật, ghi walkthrough): hủy order chưa có link thì **không** gọi payOS (link chưa từng được tạo thành công, và link payOS tự hết hạn đúng `expiresAt`); `description` gửi payOS là `DC<orderCode>` (payOS giới hạn 25 ký tự), `listingTitle` vào `items[0].name`.
 
-1. **Phạm vi chạm identity:** T2.4 ghi "listing" nhưng 8 tài khoản nằm ở `identity_db` (listing không được ghi). Đề xuất thêm `pnpm --filter @realestate/identity seed:users`. Nếu không, chủ trọ seed không đăng nhập được và `owner_id` của tin trỏ vào người không tồn tại.
-2. **Id cố định** (UUID hợp lệ, dễ đọc): chủ trọ `a0000000-0000-4000-8000-00000000000{1..3}`, người thuê `b0000000-0000-4000-8000-00000000000{1..5}`, tin `c0000000-0000-4000-8000-0000000000{01..30}`. Email `landlord1..3@seed.realestate.local`, `tenant1..5@seed.realestate.local`.
-3. **Mật khẩu:** biến tạm `SEED_USER_PASSWORD` (≥ 8 ký tự, bằng mức đăng ký), không ghi vào `.env` (`security-policy.md §1`); mọi tài khoản seed dùng chung.
-4. **Cơ cấu 30 tin:** 24 `AVAILABLE` + `APPROVED` (đủ cho tìm kiếm, k6, đặt cọc); 3 `PENDING_REVIEW` (demo màn duyệt của ADMIN); 1 `REJECTED` (kèm `reject_reason`); 1 `HIDDEN`; 1 `RENTED`. Không tạo `HELD`/`DEPOSITED` (cần `held_by_deposit_id` của đơn có thật). Ít nhất 10 tin `APPROVED`+`AVAILABLE` trong 2 km quanh (21.00, 105.84), phần còn lại rải ở các quận khác (Cầu Giấy, Tây Hồ, Hà Đông, Nam Từ Liêm…).
-5. **Ảnh:** không seed `listing_images` (cần đối tượng thật trên S3). Route 11 đã `LEFT JOIN LATERAL` nên tin không ảnh trả `coverImage` rỗng. Ảnh upload qua API khi demo.
-6. **Sự kiện:** `seedUsers` ghi `identity.registered` vào outbox cho tài khoản **mới tạo** (như `seedAdmin`); chạy lại không ghi thêm.
-7. `reviewed_by` để `NULL` cho tin `APPROVED`/`REJECTED` (id ADMIN seed là ngẫu nhiên, không cố định); `reviewed_at = now()`.
-8. Seed **không ghi đè** dòng đã có (`ON CONFLICT (id) DO NOTHING`), để không phá dữ liệu demo đã sửa; email đã có nhưng id/vai trò khác seed → báo lỗi, không tự đổi.
+### B. File
 
-### File tạo
-
-| File | Nội dung |
+| File | Việc |
 |---|---|
-| `services/identity/src/identity/seed/seed-users.data.ts` | 3 `LANDLORD` + 5 `TENANT` cố định (id, email, họ tên) |
-| `services/identity/src/identity/seed/seed-users.ts` | `seedUsers(dataSource, { password }, passwords)`: một transaction, `INSERT ... ON CONFLICT DO NOTHING`, đối chiếu id/vai trò khi trùng email, outbox cho người mới; trả `{ created, existing }` |
-| `services/identity/src/identity/seed/seed-users.spec.ts` | Unit: dữ liệu (id/email duy nhất, 3+5, vai trò), kiểm mật khẩu, không chạm DB khi đầu vào sai |
-| `services/identity/test/seed-users.infra-spec.ts` | Hạ tầng: lần 1 tạo 8 + 8 event khớp hợp đồng (`expectEventMatchesContract`), lần 2 không đổi gì, email trùng khác id → lỗi, đăng nhập được bằng mật khẩu seed |
-| `services/identity/src/scripts/seed-users.ts` | CLI (mẫu `seed-admin.ts`); `package.json` thêm `seed:users` |
-| `services/listing/src/listing/seed/seed-listings.data.ts` | 30 tin: id, chủ trọ, tiêu đề, loại, giá, cọc, diện tích, địa chỉ, quận, lat/lng thật, tiện ích, trạng thái |
-| `services/listing/src/listing/seed/seed-listings.ts` | `seedListings(dataSource)`: một transaction, `INSERT ... ON CONFLICT (id) DO NOTHING`, `ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography`; trả `{ created, existing }` |
-| `services/listing/src/listing/seed/seed-listings.spec.ts` | Unit: đúng 30 tin, id duy nhất, enum hợp lệ (`listing.enums.ts`), tọa độ trong khung Hà Nội, `0 < cọc ≤ giá` (chỉ kiểm dữ liệu seed), chủ trọ thuộc 3 id, cơ cấu trạng thái, ≥ 10 tin trong 2 km |
-| `services/listing/test/seed-listings.infra-spec.ts` | Hạ tầng (schema riêng, Postgres thật): chạy 2 lần → 30 dòng, lần 2 `created = 0`; route 11 tìm 2 km trả đúng tập mong đợi, chỉ `APPROVED` |
-| `services/listing/src/scripts/seed-listings.ts` | CLI; `package.json` thêm `seed:listings` |
+| `services/payment/**` | Chép `services/_template-nest` (bỏ `node_modules`, `dist`, `.env`, `openapi.json`); đổi `name`, `description`, `SERVICE_NAME=payment`, `PORT=3004`, `Dockerfile`; xóa module mẫu (`src/example/`, entity + migration mẫu, `test/example.e2e-spec.ts`) |
+| `package.json` (payment), `pnpm-lock.yaml` | `@payos/node@2.0.5` ghim chính xác (2.0.6 mới 9 ngày) |
+| `src/config/env.validation.ts` (+spec) | `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` (tùy chọn ở schema chung), `PAYOS_RETURN_URL`, `PAYOS_CANCEL_URL`, `PAYOS_TIMEOUT_MS` (2500) |
+| `src/payment/config/payment.env.ts` (+spec), `src/config/env.bootstrap.ts`, `feature-flags.ts` | Bắt buộc `DATABASE_URL`, `PAYOS_*` ba khóa, `JWT_ISSUER`, khóa công khai JWT; `isPaymentEnabled = isDatabaseEnabled()` |
+| `src/database/migrations/1734000000000-create-payment-tables.ts` | DDL `RE.PAYMENT §6` + `RE.PAYOUT §7` (+ một dòng `admin_wallet` id 1); có `down` |
+| `src/payment/entities/payment-order.entity.ts` | Bảng `payment_orders` |
+| `src/payment/clients/payos.client.ts` (+spec) | `createLink` (`maxRetries: 0`), `cancelLink` (retry mặc định của SDK tắt, dùng `maxRetries: 2`), timeout `PAYOS_TIMEOUT_MS`; lỗi mạng/timeout/5xx → `503 PAYMENT_PROVIDER_UNAVAILABLE`; không log khóa, không chép lỗi gốc |
+| `src/payment/services/payment-order.service.ts` (+spec) | `create`, `cancel`, `get` theo `API_Spec §2` |
+| `src/payment/controllers/payment-orders.internal.controller.ts` | `POST /internal/payment-orders` (201/200), `GET /internal/payment-orders/:depositId`, `POST …/:depositId/cancel` (200); `@Public` + `@ApiExcludeController` như listing |
+| `src/payment/dto/payment-order.dto.ts` (+spec) | Body tạo order (khớp `CreateOrderRequest`, `additionalProperties: false`), view |
+| `src/payment/errors/payment.errors.ts` | 5 mã của `API_Spec §4` |
+| `src/payment/payment.module.ts`, `src/app.module.ts` | Nối module |
+| `test/setup-infra-env.ts`, `test/payment-orders.infra-spec.ts` | `payment_db`; test 7–10, hợp đồng, đếm truy vấn |
+| `infra/compose/docker-compose.yml`, `.env.example` gốc, `services/payment/.env.example` | Service `payment` profile `apps`; biến `PAYOS_*` |
+| `services/payment/README.md`, `guides/RE_Payment_Code_Walkthrough.md`, `project-knowledge/CLAUDE.md §2.5`, `project-structure.md` | Tài liệu |
 
-### File sửa
+Gateway: không đổi (route webhook đã có, xử lý ở T3.4). `contracts/`: không đổi.
 
-`services/identity/package.json`, `services/listing/package.json` (script); `project-knowledge/guides/RE_Docker_Local_Guide.md §5` (bảng id + lệnh, thay `[cần xác nhận]`); `guides/RE_Listing_Code_Walkthrough.md`, `RE_Identity_Code_Walkthrough.md`; `services/listing/README.md`, `services/identity/README.md`; `implementation/van-de-can-quyet-dinh.md` mục D (một dòng chốt cơ cấu seed); nếu A đồng ý quyết định 1: `RE.IDENTITY/Component_Class_Design.md` thêm `seed-users` (kèm `CHANGELOG.md`, tăng phiên bản).
+### C. Test
 
-### Không đổi
-
-`contracts/` (không API, không sự kiện mới; event `identity.registered` đã có), migration, gateway, compose, `_template-nest`, dependency.
-
-### Test (tầng)
-
-| Test | Tầng |
+| Tầng | Test |
 |---|---|
-| Dữ liệu và đầu vào `seedUsers`, `seedListings` | `test` (unit) |
-| Idempotent, xung đột email, event khớp hợp đồng, đăng nhập bằng tài khoản seed | `test:infra` (identity) |
-| Idempotent, tìm kiếm 2 km trên seed | `test:infra` (listing) |
+| `test` | `payos.client` (tham số gửi SDK, `maxRetries: 0` khi tạo, map lỗi → 503, không lộ khóa), `payment-order.service` (bảng §2a, §2b với SDK giả: thứ tự gọi, `expiresAt` ≤ now, trạng thái), DTO, `payment.env`, `env.validation` |
+| `test:infra` | **7** tạo hai lần cùng `depositId` → một order, một lần gọi payOS; **8** payOS timeout → `503`, order có trong DB trước khi gọi; **9** hủy `PENDING` → payOS `cancel` gọi trước `UPDATE`; **10** hủy khi webhook vừa thắng (`PAID`) → `409`. Thêm: hai lần tạo đồng thời, hợp đồng OpenAPI mọi response, đếm truy vấn. payOS thay bằng bản giả qua `overrides` (không gọi payOS thật) |
+| `test:e2e` | Các e2e chung của template giữ nguyên |
 
-### Số truy vấn, ngưỡng NFR
+### D. Số truy vấn (ngưỡng ghi 6)
 
-Không thêm endpoint. Seed là lệnh chạy tay, mỗi tin một `INSERT` trong một transaction (30 + 8 câu, bỏ qua ngưỡng số truy vấn của request). Không vượt ngưỡng nào.
-
-### Kiểm chứng cuối
-
-```powershell
-pnpm --filter @realestate/identity test ; pnpm --filter @realestate/identity test:infra
-pnpm --filter @realestate/listing test ; pnpm --filter @realestate/listing test:infra
-pnpm lint ; pnpm format:check ; pnpm build ; pnpm contracts:check
-$env:SEED_USER_PASSWORD='<≥8 ký tự>'; pnpm --filter @realestate/identity seed:users     # 2 lần
-pnpm --filter @realestate/listing seed:listings                                           # 2 lần
-# EXPLAIN bán kính 2 km trên listing_db thật, dán plan nhận được
-```
+| Endpoint | Truy vấn |
+|---|---|
+| tạo (mới) | 3: SELECT theo `depositId`, INSERT (`nextval` trong câu), UPDATE link |
+| tạo (đã có) | 1 |
+| hủy | 2: SELECT, UPDATE (+1 SELECT khi UPDATE 0 dòng) |
+| tra cứu | 1 |
 
 ## Blockers / Ghi chú
 
-- Phụ thuộc T2.3 và T2.1: đã tick (PR #21, PR #16). Không có blocker.
-- `progress.md` ghi T2.4 là B; `PHASE-2.md` cho A tự giao lại. Sửa dòng ở `progress.md` lúc tick sau merge, như T2.3.
-- T2.5 thêm `status DEFAULT 'ACTIVE'`, `email_verified_at`: A chốt 2026-11-20 là nợ kỹ thuật #16 (cập nhật `seed-users` set hai cột kèm test khi làm T2.5).
+- `code-review` 5 chiều (2026-11-21): không CRITICAL, không MAJOR. Security: `/internal/*` `@Public` như listing (hạn chế đã biết), không log khóa, log SDK tắt. Performance: 3/1/2/1 truy vấn, `deposit_id`, `payos_order_code` có UNIQUE (index). Correctness: không transaction bao payOS; `bigint` qua `bigintToNumber`; đua hủy/webhook bằng `UPDATE ... WHERE status='PENDING'`. Style: đúng `project-structure.md`, controller mỏng, env và 5 mã lỗi khai đủ. Reuse: không import chéo service. MINOR: SDK payOS tự đọc `PAYOS_BASE_URL` nếu có (test dùng), ghi walkthrough.
+- TDD: DTO spec và infra-spec viết sau code (tech-debt #20).
 
-## Kết quả kiểm chứng (2026-11-20)
-
-- identity: unit 211, e2e 97, infra 107 PASS (thêm `seed-users` 10 unit + 8 infra). listing: unit 371, e2e 97, infra 118 PASS (thêm `seed-listings` 15 unit + 9 infra).
-- `pnpm lint`, `format:check`, `build`, `contracts:check` (4 spec OK) không lỗi.
-- Seed vào DB dev thật, mỗi lệnh chạy hai lần: `seed:users` tạo 8 rồi 0 (có sẵn 8); `seed:listings` tạo 30 rồi 0 (có sẵn 30).
-- `EXPLAIN` bán kính 2 km trên `listing_db` thật (30 dòng, sau `ANALYZE`): `Bitmap Heap Scan on listings` ← `Bitmap Index Scan on ix_listings_location`, `rows=15`, `Execution Time: 6.556 ms`.
-- Smoke qua gateway 8080: `GET /api/v1/listings?lat=21.00&lng=105.84&radiusKm=2&sort=distance` trả 12 tin (11 `AVAILABLE` + tin 13 `RENTED`), tăng dần 245 m → 1935 m; `/internal/listings/...` từ ngoài `404`.
-- code-review 5 chiều: không CRITICAL, không MAJOR. Đã sửa 2 MINOR (infra-spec dùng lại `haversineM` của `test/helpers`, `seed-users` dùng lại `PASSWORD_MAX_LENGTH` của `seed-admin`).
-- Việc còn lại: commit, PR, tick `progress.md` sau merge (sửa người làm B → A).
+- T2.5 (`feature/T2.5-identity-otp-account`) đã commit, chưa push: GitHub chưa liên kết với Claude (2026-11-21). Đã nhắn A.
