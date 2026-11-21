@@ -8,7 +8,7 @@ export type IdentityProvider = 'google';
  * Một user có thể có nhiều dòng (Google, sau này Facebook...). Đăng nhập bằng email + mật khẩu
  * KHÔNG nằm ở đây mà dùng users.password_hash.
  *
- * Bảng này tạo sẵn để thêm Google sau không phải đổi cấu trúc users; hiện chưa có code nào ghi vào.
+ * Hiện chỉ `GoogleAuthService` ghi vào đây (liên kết khi đăng nhập Google lần đầu).
  */
 @Entity({ name: 'user_identities' })
 export class UserIdentity {

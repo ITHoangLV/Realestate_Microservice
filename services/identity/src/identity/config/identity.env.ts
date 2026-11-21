@@ -29,6 +29,9 @@ export const identityRequiredSchema = Joi.object({
         return helpers.error('any.invalid');
       }
     }),
+  // Gửi email OTP, đặt lại mật khẩu. SMTP_USER, SMTP_PASSWORD, GOOGLE_CLIENT_ID tùy chọn.
+  SMTP_HOST: Joi.string().required(),
+  MAIL_FROM: Joi.string().required(),
   // Khóa công khai để chính identity kiểm tra token ở GET /me
   JWT_PUBLIC_KEY: Joi.string(),
   JWT_PUBLIC_KEY_PATH: Joi.string(),

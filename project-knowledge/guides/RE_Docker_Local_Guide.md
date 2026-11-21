@@ -21,7 +21,7 @@ pnpm install
 Copy-Item .env.example .env       # không commit .env
 pnpm keys:generate                # secrets/jwt-private.pem, jwt-public.pem
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # dán kết quả vào BANK_ACCOUNT_ENCRYPTION_KEY trong .env (một lần; identity cần khi chạy profile apps)
-pnpm infra:up                     # profile dev: Postgres+PostGIS, Redis, RabbitMQ, Silo
+pnpm infra:up                     # profile dev: Postgres+PostGIS, Redis, RabbitMQ, Silo, Mailpit
 pnpm infra:check                  # OK/FAIL từng thành phần
 pnpm contracts:check
 ```
@@ -32,7 +32,7 @@ pnpm contracts:check
 
 | Profile | Gồm | Lệnh |
 |---|---|---|
-| `dev` | Postgres, Redis, RabbitMQ, S3 | `pnpm infra:up` |
+| `dev` | Postgres, Redis, RabbitMQ, S3, Mailpit (SMTP giả) | `pnpm infra:up` |
 | `demo` | `dev` + Elasticsearch, Kibana (`http://127.0.0.1:5601`) | `pnpm infra:demo` |
 | `apps` | `identity`, `api-gateway` (thêm dần listing, rental, payment, notification) | Lệnh compose đầy đủ bên dưới; không có script `pnpm` riêng (chốt 2026-11-17) |
 
@@ -73,7 +73,7 @@ curl.exe -i http://localhost:8080/internal/users/x    # 404 GATEWAY_ROUTE_NOT_FO
 | Redis | `localhost:6379` | `redis:6379` |
 | RabbitMQ | `localhost:5672`, UI `15672` | `rabbitmq:5672` |
 | S3 (Silo) | `localhost:9000`, console `9001` | `s3:9000`; `S3_PUBLIC_ENDPOINT=http://localhost:9000` |
-| Mailpit (thêm ở T2.5) | SMTP `localhost:1025`, giao diện `8025` | `mailpit:1025`; xem email OTP, đặt lại mật khẩu |
+| Mailpit | SMTP `localhost:1025`, giao diện `http://localhost:8025` | `mailpit:1025`; xem email OTP, đặt lại mật khẩu |
 
 Hạ tầng chỉ publish ra `127.0.0.1`.
 
@@ -142,7 +142,10 @@ Build từ gốc repo: `docker build -f services/<service>/Dockerfile -t realest
 | `503 AUTH_NOT_CONFIGURED` | Thiếu `JWT_PUBLIC_KEY_PATH` |
 | `up` profile `apps` báo thiếu file secret | Chưa chạy `pnpm keys:generate` |
 | Gateway trả `503 UPSTREAM_UNAVAILABLE` | Service đích chưa chạy hoặc chưa `healthy` (`docker compose ... ps`) |
-| Đăng ký lỗi 500 ngay sau `up` | Chưa chạy `migration:run` của identity |
+| Đăng ký lỗi 500 ngay sau `up` | Chưa chạy `migration:run` của identity (T2.5 thêm cột `users.status`, `phone`...) |
+| Đăng ký xong không thấy email OTP | Mailpit chạy chưa (`docker ps` có `re-mailpit`); thư gửi nền nên có thể trễ vài trăm ms; xem log identity có dòng `Gửi email thất bại` (lỗi `warn`) |
+| `POST /auth/google` trả 503 | `GOOGLE_CLIENT_ID` trống (đúng thiết kế khi chưa cấu hình Google) |
+| Identity dừng khi `pnpm dev` báo thiếu `SMTP_HOST`, `MAIL_FROM` | `services/identity/.env` cũ chưa có hai biến này: chép từ `services/identity/.env.example` |
 | `DEPENDENCY_UNAVAILABLE` | `pnpm infra:check`; trên laptop dùng cổng 5433 |
 | Consumer không nhận | Queue có binding chưa (`definitions.json`), `RABBITMQ_URL` có `%2F` |
 | Presigned URL không mở được | `S3_PUBLIC_ENDPOINT` |

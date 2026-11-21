@@ -152,10 +152,18 @@ describe('Danh sách người dùng cho quản trị viên với hạ tầng th�
       expect(res.body.meta).toMatchObject({ page: 1, pageSize: 20, total: 6, totalPages: 1 });
     });
 
-    it('mỗi phần tử đúng 5 trường của UserDto, không có mật khẩu hay băm', async () => {
+    it('mỗi phần tử đúng 7 trường của UserDto (API_Spec §1.12), không có mật khẩu hay băm', async () => {
       const res = await list();
       for (const u of res.body.data) {
-        expect(Object.keys(u).sort()).toEqual(['createdAt', 'email', 'fullName', 'id', 'role']);
+        expect(Object.keys(u).sort()).toEqual([
+          'createdAt',
+          'email',
+          'fullName',
+          'id',
+          'phone',
+          'role',
+          'status',
+        ]);
       }
       expect(JSON.stringify(res.body)).not.toMatch(/password|argon2|hash/i);
     });

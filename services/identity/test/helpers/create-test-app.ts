@@ -22,7 +22,7 @@ export interface TestApp {
 export async function createTestApp(
   controllers: Type[] = [],
   providers: Provider[] = [],
-  options: { swagger?: boolean } = {},
+  options: { swagger?: boolean; overrides?: Array<{ token: unknown; value: unknown }> } = {},
 ): Promise<TestApp> {
   const logs: string[] = [];
   const stream = {
@@ -33,14 +33,18 @@ export async function createTestApp(
     },
   };
 
-  const moduleRef = await Test.createTestingModule({
+  let builder = Test.createTestingModule({
     imports: [AppModule],
     controllers,
     providers,
   })
     .overrideProvider(LOG_STREAM)
-    .useValue(stream)
-    .compile();
+    .useValue(stream);
+  // Thay provider (ví dụ bộ kiểm ID token Google giả) trước khi compile
+  for (const { token, value } of options.overrides ?? []) {
+    builder = builder.overrideProvider(token).useValue(value);
+  }
+  const moduleRef = await builder.compile();
 
   const app = moduleRef.createNestApplication({ logger: false });
   configureApp(app);

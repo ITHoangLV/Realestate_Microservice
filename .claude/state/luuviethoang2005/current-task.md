@@ -1,135 +1,205 @@
 ---
-task: T2.4 listing: seed dữ liệu
+task: T2.5 identity: xác minh OTP, quên mật khẩu, Google, khóa tài khoản, số điện thoại
 created: 2026-11-20
 status: done
-phase: implementation/PHASE-2.md#T2.4
-branch: feature/T2.4-listing-seed (tách từ `develop` sau PR #22, working tree sạch lúc nhận task)
+phase: implementation/PHASE-2.md#T2.5
+branch: feature/T2.5-identity-otp-account (từ `develop` tại `d253f01`, working tree sạch lúc nhận task)
 ---
 
 ## Mô tả
 
-Script nạp dữ liệu dev: 30 tin có tọa độ thật ở Hà Nội (`listing_db`), 3 chủ trọ + 5 người thuê ở `ACTIVE` (`identity_db`, bỏ qua OTP), id cố định cho Postman/k6, chạy lại an toàn. Chạy lại `EXPLAIN` bán kính 2 km trên seed thật và dán plan. Người làm: A (tự giao lại từ B). Hạn M1 — 2026-11-20, ước ~3 giờ.
+Hoàn thiện identity theo B10, B9, C2: đăng ký sinh tài khoản `PENDING_VERIFICATION` và gửi OTP qua SMTP (Mailpit khi dev); `verify-otp`, `resend-otp`; quên và đặt lại mật khẩu; đăng nhập Google; khóa, mở khóa; `PATCH /users/me`; `phone` duy nhất. Người làm: A. Hạn M2 — 2026-12-04, ước ~12 giờ.
 
 ## Thiết kế liên quan
 
-`design/LISTING/RE.LISTING/` v1.4 (`API_Spec §6` DDL, `§7` mục 15; `Component_Class_Design §1` có thư mục `seed/`), `design/IDENTITY/RE.IDENTITY/` (`seed/`, `users`; T2.5 thêm cột `status` mặc định `ACTIVE` nên seed viết bây giờ vẫn `ACTIVE` sau T2.5). Không đổi `contracts/`, không migration, không dependency mới.
+`design/IDENTITY/RE.IDENTITY/` v2.2: `API_Spec §1.1–1.11, §4, §5, §6`, `Processing_Flow §3a–3d`, `Component_Class_Design §1–3, §5 (test 13–23, 22a)`. `contracts/`: **không đổi** (`identity.registered` giữ nguyên payload, không có `status`; route công khai không nằm trong `contracts/openapi`).
 
 ## Definition of Done
 
-- [x] `guides/RE_Docker_Local_Guide.md §5` liệt kê đúng id seed (người dùng, tin) và lệnh chạy
-- [x] `EXPLAIN` bán kính 2 km (`ST_DWithin(location, ST_MakePoint(105.84, 21.00)::geography, 2000)`) chạy trên seed thật, plan thật trên seed 30 dòng: `Bitmap Heap Scan on listings` ← `Bitmap Index Scan on ix_listings_location` (không phải `Seq Scan`); test 4 / T2.3 (~5.000 dòng) vẫn là bằng chứng chính
-- [x] Chạy lại seed lần 2 không đổi dữ liệu, không lỗi (test hạ tầng)
-- [x] Test của seed pass (dán output): unit `test`, `test:infra` của identity và listing
-- [x] `pnpm lint`, `pnpm format:check`, `pnpm build`, `pnpm contracts:check` không lỗi
-- [x] Lệnh "Kiểm chứng" của task chạy đúng (dán output): seed vào DB thật rồi `GET /api/v1/listings?lat=21.00&lng=105.84&radiusKm=2` qua compose `apps` (nếu chạy được)
-- [x] `guides/RE_Listing_Code_Walkthrough.md` và `RE_Identity_Code_Walkthrough.md` cập nhật (không tạo file mới); README `services/listing`, `services/identity` thêm lệnh seed
+- [x] Test 13–23 (gồm 22a), 12b, 24 ở `RE.IDENTITY/Component_Class_Design.md §5` pass: `otp.infra-spec` (13–17), `password-reset.infra-spec` (18, 19), `google.infra-spec` + `google-disabled.infra-spec` (20, 21, 24), `account.infra-spec` (22, 22a, 23)
+- [x] identity `test` 357, `test:e2e` 97, `test:infra` 201 PASS (2026-11-21, sau sửa R1, R2; trước đó 354/97/200 ngày 2026-11-20)
+- [x] Đăng ký qua gateway 8080, Mailpit nhận đúng 1 thư OTP từ `no-reply@realestate.local`; verify-otp 200; login 200; log identity không chứa OTP, email, phone
+- [x] Đủ ba nhóm: SMTP/Mailpit + biến môi trường; migration `users`; service mới + route 10–16
+- [x] Tech-debt #16 xử lý: `seed:users`, `seed:admin` ghi `status='ACTIVE'`, `email_verified_at=now()` kèm test
+- [x] Số truy vấn đếm bằng log SQL trong infra-spec: register 2, verify-otp 2, forgot 1, reset 1, google mới 5 / đã liên kết 2 / liên kết 3–4, lock 2, unlock 2, PATCH me 2 (ngưỡng ghi 6)
+- [x] `pnpm lint`, `format:check`, `build`, `contracts:check` sạch; gateway unit 239 + e2e 137 PASS
+- [x] `openapi.json` của identity sinh lại (file bị `.gitignore`, không commit)
+- [x] `guides/RE_Identity_Code_Walkthrough.md` cập nhật (không tạo file mới), README identity, `RE_Docker_Local_Guide.md` (Mailpit), `.env.example` cả hai chỗ
 
 ## Các bước thực hiện (tổng quan)
 
 - [x] 1. Đọc context, đối chiếu thiết kế
-- [x] 2. Quét tái sử dụng + kế hoạch chi tiết (chờ duyệt)
-- [x] 3. Code + test theo TDD (playbook `tdd` bật, `warn`): identity `seed:users`, listing `seed:listings`
-- [x] 4. Chạy test, seed vào DB thật, `EXPLAIN`, xác nhận PASS
-- [x] 5. Viết/cập nhật walkthrough, `code-review` 5 chiều, chuẩn bị PR
+- [x] 2. Quét tái sử dụng + kế hoạch chi tiết (A duyệt 2026-11-20, kèm chỉnh sửa)
+- [x] 3. Cấu hình: Mailpit, biến `SMTP_*`/`OTP_*`/`PASSWORD_RESET_*`/`GOOGLE_CLIENT_ID`, dependency (cần A cho phép `pnpm add`)
+- [x] 4. Migration + entity + seed (có migration) — kèm TDD
+- [x] 5. Code + test theo TDD (playbook `tdd` bật, `warn`): MailService → OTP + register/login → quên mật khẩu → Google → khóa/mở khóa + PATCH me
+- [x] 6. Chạy test, kiểm chứng qua gateway + Mailpit, đếm truy vấn
+- [ ] 7. Walkthrough, tài liệu, `code-review` 5 chiều, chuẩn bị PR
 
 ## Tái sử dụng
 
-Quét trên source hiện tại (`services/_template-nest/src`, `services/identity/src`, `services/listing/src`):
+Quét trên source hiện tại (`services/_template-nest/src`, `services/identity/src`, `services/listing/src`, `services/api-gateway/src`):
 
 | Nhu cầu | Quyết định | Chỗ có sẵn |
 |---|---|---|
-| Băm mật khẩu argon2id | DÙNG LẠI | `identity/src/identity/services/password.service.ts` (`PasswordService`, nhận làm tham số như `seedAdmin`) |
-| Sự kiện `identity.registered` + outbox | DÙNG LẠI | `src/messaging/domain-event.ts` (`buildDomainEvent`); mẫu `seedAdmin` ghi `outbox_events` cùng transaction |
-| Khung script CLI (nạp `.env`, kiểm biến, `DataSource` riêng, không khởi động Nest) | DÙNG LẠI mẫu | `identity/src/scripts/seed-admin.ts`; chép cấu trúc, không tách hàm chung (chỉ 2 chỗ dùng, mỗi service một bản) |
-| Hằng loại BĐS, trạng thái, duyệt, tiện ích | DÙNG LẠI | `listing/src/listing/entities/listing.enums.ts` (`PROPERTY_TYPES`, `AMENITIES`, …) dùng để gõ kiểu dữ liệu seed và kiểm trong test |
-| Test hạ tầng (schema riêng, `readRootEnv`) | DÙNG LẠI | `listing/test/helpers/infra.ts`; mẫu `identity/test/seed-admin.infra-spec.ts` |
-| `seedUsers` + dữ liệu 8 người dùng (identity) | VIẾT MỚI | không có bản tương đương; `seedAdmin` chỉ tạo ADMIN và từ chối email đã có vai trò khác |
-| `seedListings` + dữ liệu 30 tin (listing) | VIẾT MỚI | không có |
-| 3 UUID chủ trọ ở cả hai service | VIẾT MỚI, **lặp có chủ đích** | listing không được import code identity (ranh giới service); hai bản ghi chú trỏ nhau, bảng id ở Docker guide §5 là nguồn đối chiếu |
+| Băm, so sánh mật khẩu; dummy verify chống đo độ trễ | DÙNG LẠI | `identity/services/password.service.ts` |
+| Cấp phiên (họ refresh token + cặp token) | DÙNG LẠI | `AuthService.issueSession` (verify-otp, Google gọi lại) |
+| Thu hồi mọi phiên của user | DÙNG LẠI | `RefreshTokenStore.revokeAllForUser` (reset mật khẩu, khóa) |
+| Ghi `identity.registered` cùng transaction | DÙNG LẠI | `OutboxService.add(manager, ...)` (đăng ký, Google tạo mới) |
+| Chuẩn hóa email, trim | DÙNG LẠI | `normalizeEmail`, `trim` trong `dto/register.dto.ts` |
+| sha256 hex của token (token đặt lại) | DÙNG LẠI | `hashToken` trong `stores/redis-refresh-token.store.ts` (export sẵn) |
+| Redis client | DÙNG LẠI | `RedisService.client` (đã có health check); tiền tố key dùng lại `REFRESH_TOKEN_REDIS_PREFIX` (`identity:`), khớp tên key ở `Component_Class_Design §3` |
+| Lỗi 503/504 khi Redis, DB, SMTP lỗi kết nối | DÙNG LẠI | `all-exceptions.filter.ts` map sẵn sang `DEPENDENCY_UNAVAILABLE`/`TIMEOUT` |
+| `AppException`, `@Public`, `@Roles('ADMIN')`, `@CurrentUser('sub')`, `createUuidParamPipe`, `ApiEnvelope`, `Paginated` | DÙNG LẠI | `src/common/*` của identity |
+| Test hạ tầng: schema riêng, `readRootEnv`, `createTestApp`, `expectEventMatchesContract` | DÙNG LẠI | `test/helpers/*`, mẫu `test/auth.infra-spec.ts`, `test/admin-users.infra-spec.ts` |
+| `isUniqueViolation` | **MỞ RỘNG** (cục bộ) | Hiện là hàm riêng trong `auth.service.ts` (không export) và chỉ biết mã `23505`. T2.5 cần phân biệt `UQ_users_email_lower` với `UQ_users_phone` theo tên constraint → thêm hàm `uniqueViolationConstraint(err): string \| undefined` cạnh nó (`identity/errors/` hoặc file nhỏ trong `services/`), **không** chạm `_template-nest` (không phải phần kỹ thuật chung của template). Listing có `isUniqueViolation` riêng ở `listing.sql.ts`: là service khác, không import |
+| `MailService` (nodemailer, mẫu email) | VIẾT MỚI | Không có gì tương đương (template không có SMTP). Là code nghiệp vụ riêng của identity, không đưa vào `_template-nest` |
+| `EmailVerificationService`, `PasswordResetService`, `GoogleAuthService` | VIẾT MỚI | Không có |
+| Khóa, mở khóa trong `UserAdminService`; `ProfileController`; `UserStatus` enum | VIẾT MỚI | Mở rộng class có sẵn / thêm hằng cạnh `USER_ROLES` |
+| Verifier ID token Google | VIẾT MỚI (interface + provider) | `GoogleIdTokenVerifier` bọc `google-auth-library`, token DI để test thay bằng bản giả |
 
-Không chạm `_template-nest`. Không có thành phần dùng chung mới (seed là code riêng của từng service).
+Không có thành phần dùng chung mới cho nhiều service; không chạm `_template-nest`.
 
 ## Kế hoạch chi tiết
 
-**A đã duyệt 2026-11-20 kèm chỉnh sửa** (xem mục "Chỉnh sửa khi duyệt"; các mục 1–8 bên dưới vẫn đúng trừ chỗ bị chỉnh sửa ghi đè). Ghi chú: TDD bật → mỗi hành vi viết test thấy FAIL trước, rồi mới code.
+> **Trạng thái: A ĐÃ DUYỆT 2026-11-20 kèm chỉnh sửa dưới đây (ghi đè bảng Q1–Q6 bên dưới).** TDD bật (`warn`): mỗi hành vi viết test thấy FAIL rồi mới code.
+>
+> **Chỉnh sửa khi duyệt:**
+> 1. `pnpm add nodemailer@10.3.1 google-auth-library@11.3.4`, ghim chính xác; **không** cài `@types/nodemailer` (nodemailer 10 kèm kiểu).
+> 2. `UserDto` thêm `status`, `phone`; đã sửa `API_Spec`, `Component_Class_Design`, `Processing_Flow`, `CHANGELOG` v2.3 **trước** code.
+> 3. `GOOGLE_CLIENT_ID` tùy chọn; trống → log `warn` lúc khởi động; route 14 `503 DEPENDENCY_UNAVAILABLE` **trước** khi kiểm token.
+> 4. Backfill `email_verified_at = created_at` cho `ACTIVE` (đã ghi DDL `API_Spec §6`); `seed:admin` cũng ghi `status`, `email_verified_at`.
+> 5. Gửi mail **không `await`**, `.catch` log `warn`, **áp dụng cả `register`**. Test Mailpit hỏi lại vài lần. Đã ghi `van-de-can-quyet-dinh.md` C21 (cooldown `resend-otp` theo `lower(email)`), **không sửa trong T2.5**.
+> 6. Bỏ bước gateway.
+>
+> Hệ quả với kế hoạch: `register` không chờ mail nên test 13 phải đợi Mailpit; `EmailVerificationService.issue` chạy nền sau commit (lỗi Redis chỉ log), nhưng vẫn kiểm Redis sống **trước khi ghi DB** (`503`).
 
-### Chỉnh sửa khi duyệt (ghi đè phần bên dưới)
+### A. Điểm cần A quyết trước khi code
 
-1. `seed:users` **không** ghi `status`, `email_verified_at` (cột chưa có, thuộc T2.5, cũng do A làm). Ghi tech-debt #16: khi làm T2.5 cập nhật seed set hai cột này kèm test.
-2. Email trùng nhưng khác id (hoặc khác vai trò) → báo lỗi rõ ràng (`SeedUsersError`), không đổi gì.
-3. `SEED_USER_PASSWORD` ≥ 12 ký tự (không phải 8).
-4. Thêm 2–3 tin `APPROVED` + `AVAILABLE` ở 2,1–3 km quanh (21.00, 105.84); trong 2 km có ít nhất 1 tin `PENDING_REVIEW` và 1 tin `HIDDEN`.
-5. Kiểm `cọc ≤ giá` chỉ là kiểm dữ liệu seed trong test, **không** gắn `[cần xác nhận]` vào thiết kế và không thêm vào tài liệu thiết kế.
+| # | Vấn đề | Đề xuất của tôi |
+|---|---|---|
+| Q1 | **Dependency mới.** `nodemailer` và `google-auth-library` đã chốt ở `architecture.md §5`, nhưng `pnpm add` cần A cho phép (§6 `permissions.ask`); thêm `@types/nodemailer` (dev) | Cho phép `pnpm add --filter @realestate/identity` các gói trên, **ghim phiên bản chính xác**, ưu tiên bản ≥ 2 tuần tuổi (nodemailer `10.6.0` mới 5 ngày → dùng `10.3.1`; `google-auth-library` chốt khi cài) |
+| Q2 | **Hình dạng `UserDto`.** `API_Spec §1.11` nói T2.5 thêm `status`; thiết kế **không ghi** route 15 (`PATCH /users/me`) trả gì và `phone` có nằm trong `UserDto` không | Thêm `status` và `phone` (null khi chưa khai) vào `UserDto`, dùng chung cho `/auth/me`, `PATCH /users/me`, danh sách quản trị. Nếu A đồng ý: sửa `API_Spec` + `CHANGELOG.md` v2.3 **trước** code |
+| Q3 | **`GOOGLE_CLIENT_ID` trống** (thiết kế chỉ ghi "bắt buộc khi bật đăng nhập Google") | Biến tùy chọn; trống → route 14 trả `503 DEPENDENCY_UNAVAILABLE` (dùng mã chung có sẵn, không thêm mã mới), service vẫn khởi động. Thay vì bắt buộc, vì dev, CI, Postman không cần Google |
+| Q4 | **Backfill `email_verified_at`.** Migration thêm cột `NULL` cho tài khoản có sẵn (mặc định `ACTIVE`): sau khi bị khóa rồi mở khóa sẽ về `PENDING_VERIFICATION` (cùng hiểm họa tech-debt #16) | Trong migration: `UPDATE users SET email_verified_at = created_at WHERE status = 'ACTIVE'`. Dữ liệu thôi, không đổi luật |
+| Q5 | **Chống dò email bằng độ trễ.** `resend-otp`, `forgot-password` luôn `202` nhưng gửi mail chỉ khi có tài khoản → độ trễ lộ ra | Hai route này **không `await`** việc gửi mail (`void send().catch(log warn)`); `register` thì `await` (cần `201` sau khi mail đã giao cho SMTP để test, UX) với timeout SMTP 5 giây |
+| Q6 | **Bước 7 (cập nhật gateway) không còn việc.** `routes.ts` dòng `/api/v1/auth/*` (public), `/users/me/*` (khớp cả `/users/me`), `/admin/users/*` đã phủ route 10–16; `route-resolver.spec.ts` đã có `verify-otp`, `PATCH /users/me`, `lock`, `unlock` | Không sửa gateway; chạy lại test gateway làm bằng chứng. `RE.GATEWAY §3` dòng 1–3 đã đúng. Báo A nếu muốn khác |
 
-### Quyết định ban đầu (đã duyệt, trừ chỗ chỉnh sửa ở trên)
+Mặc định của tôi nếu A không nói gì: theo đề xuất ở cột phải, và **dừng** nếu A không cho phép Q1.
 
-1. **Phạm vi chạm identity:** T2.4 ghi "listing" nhưng 8 tài khoản nằm ở `identity_db` (listing không được ghi). Đề xuất thêm `pnpm --filter @realestate/identity seed:users`. Nếu không, chủ trọ seed không đăng nhập được và `owner_id` của tin trỏ vào người không tồn tại.
-2. **Id cố định** (UUID hợp lệ, dễ đọc): chủ trọ `a0000000-0000-4000-8000-00000000000{1..3}`, người thuê `b0000000-0000-4000-8000-00000000000{1..5}`, tin `c0000000-0000-4000-8000-0000000000{01..30}`. Email `landlord1..3@seed.realestate.local`, `tenant1..5@seed.realestate.local`.
-3. **Mật khẩu:** biến tạm `SEED_USER_PASSWORD` (≥ 8 ký tự, bằng mức đăng ký), không ghi vào `.env` (`security-policy.md §1`); mọi tài khoản seed dùng chung.
-4. **Cơ cấu 30 tin:** 24 `AVAILABLE` + `APPROVED` (đủ cho tìm kiếm, k6, đặt cọc); 3 `PENDING_REVIEW` (demo màn duyệt của ADMIN); 1 `REJECTED` (kèm `reject_reason`); 1 `HIDDEN`; 1 `RENTED`. Không tạo `HELD`/`DEPOSITED` (cần `held_by_deposit_id` của đơn có thật). Ít nhất 10 tin `APPROVED`+`AVAILABLE` trong 2 km quanh (21.00, 105.84), phần còn lại rải ở các quận khác (Cầu Giấy, Tây Hồ, Hà Đông, Nam Từ Liêm…).
-5. **Ảnh:** không seed `listing_images` (cần đối tượng thật trên S3). Route 11 đã `LEFT JOIN LATERAL` nên tin không ảnh trả `coverImage` rỗng. Ảnh upload qua API khi demo.
-6. **Sự kiện:** `seedUsers` ghi `identity.registered` vào outbox cho tài khoản **mới tạo** (như `seedAdmin`); chạy lại không ghi thêm.
-7. `reviewed_by` để `NULL` cho tin `APPROVED`/`REJECTED` (id ADMIN seed là ngẫu nhiên, không cố định); `reviewed_at = now()`.
-8. Seed **không ghi đè** dòng đã có (`ON CONFLICT (id) DO NOTHING`), để không phá dữ liệu demo đã sửa; email đã có nhưng id/vai trò khác seed → báo lỗi, không tự đổi.
+### B. File sẽ tạo / sửa
 
-### File tạo
+**Hạ tầng, cấu hình (không cần test riêng)**
 
-| File | Nội dung |
+| File | Việc |
 |---|---|
-| `services/identity/src/identity/seed/seed-users.data.ts` | 3 `LANDLORD` + 5 `TENANT` cố định (id, email, họ tên) |
-| `services/identity/src/identity/seed/seed-users.ts` | `seedUsers(dataSource, { password }, passwords)`: một transaction, `INSERT ... ON CONFLICT DO NOTHING`, đối chiếu id/vai trò khi trùng email, outbox cho người mới; trả `{ created, existing }` |
-| `services/identity/src/identity/seed/seed-users.spec.ts` | Unit: dữ liệu (id/email duy nhất, 3+5, vai trò), kiểm mật khẩu, không chạm DB khi đầu vào sai |
-| `services/identity/test/seed-users.infra-spec.ts` | Hạ tầng: lần 1 tạo 8 + 8 event khớp hợp đồng (`expectEventMatchesContract`), lần 2 không đổi gì, email trùng khác id → lỗi, đăng nhập được bằng mật khẩu seed |
-| `services/identity/src/scripts/seed-users.ts` | CLI (mẫu `seed-admin.ts`); `package.json` thêm `seed:users` |
-| `services/listing/src/listing/seed/seed-listings.data.ts` | 30 tin: id, chủ trọ, tiêu đề, loại, giá, cọc, diện tích, địa chỉ, quận, lat/lng thật, tiện ích, trạng thái |
-| `services/listing/src/listing/seed/seed-listings.ts` | `seedListings(dataSource)`: một transaction, `INSERT ... ON CONFLICT (id) DO NOTHING`, `ST_SetSRID(ST_MakePoint(lng, lat), 4326)::geography`; trả `{ created, existing }` |
-| `services/listing/src/listing/seed/seed-listings.spec.ts` | Unit: đúng 30 tin, id duy nhất, enum hợp lệ (`listing.enums.ts`), tọa độ trong khung Hà Nội, `0 < cọc ≤ giá` (chỉ kiểm dữ liệu seed), chủ trọ thuộc 3 id, cơ cấu trạng thái, ≥ 10 tin trong 2 km |
-| `services/listing/test/seed-listings.infra-spec.ts` | Hạ tầng (schema riêng, Postgres thật): chạy 2 lần → 30 dòng, lần 2 `created = 0`; route 11 tìm 2 km trả đúng tập mong đợi, chỉ `APPROVED` |
-| `services/listing/src/scripts/seed-listings.ts` | CLI; `package.json` thêm `seed:listings` |
+| `infra/compose/docker-compose.yml` | Thêm `mailpit` (image ghim phiên bản, profile `dev` và `demo`, cổng `127.0.0.1:1025`, `127.0.0.1:8025`); `identity` thêm `SMTP_*`, `MAIL_FROM`, `OTP_*`, `PASSWORD_RESET_*`, `GOOGLE_CLIENT_ID`, `depends_on: mailpit` |
+| `.env.example` (gốc), `services/identity/.env.example` | Thêm biến mới, giá trị dev vô hại, `GOOGLE_CLIENT_ID` để trống |
+| `services/identity/src/config/env.validation.ts` (+ `env.validation.spec.ts`) | `EnvVars` và `envSchema`: `SMTP_HOST/PORT/USER/PASSWORD`, `MAIL_FROM`, `OTP_TTL_SECONDS` (300), `OTP_MAX_ATTEMPTS` (5), `OTP_RESEND_COOLDOWN_SECONDS` (60), `PASSWORD_RESET_TTL_SECONDS` (900), `PASSWORD_RESET_URL`, `GOOGLE_CLIENT_ID?` |
+| `services/identity/src/identity/config/identity.env.ts` (+ spec) | `SMTP_HOST`, `MAIL_FROM` bắt buộc cho identity (thiếu → in danh sách rồi dừng) |
+| `services/identity/package.json`, `pnpm-lock.yaml` | Sau khi A cho phép Q1 |
 
-### File sửa
+**Dữ liệu**
 
-`services/identity/package.json`, `services/listing/package.json` (script); `project-knowledge/guides/RE_Docker_Local_Guide.md §5` (bảng id + lệnh, thay `[cần xác nhận]`); `guides/RE_Listing_Code_Walkthrough.md`, `RE_Identity_Code_Walkthrough.md`; `services/listing/README.md`, `services/identity/README.md`; `implementation/van-de-can-quyet-dinh.md` mục D (một dòng chốt cơ cấu seed); nếu A đồng ý quyết định 1: `RE.IDENTITY/Component_Class_Design.md` thêm `seed-users` (kèm `CHANGELOG.md`, tăng phiên bản).
-
-### Không đổi
-
-`contracts/` (không API, không sự kiện mới; event `identity.registered` đã có), migration, gateway, compose, `_template-nest`, dependency.
-
-### Test (tầng)
-
-| Test | Tầng |
+| File | Việc |
 |---|---|
-| Dữ liệu và đầu vào `seedUsers`, `seedListings` | `test` (unit) |
-| Idempotent, xung đột email, event khớp hợp đồng, đăng nhập bằng tài khoản seed | `test:infra` (identity) |
-| Idempotent, tìm kiếm 2 km trên seed | `test:infra` (listing) |
+| `src/database/migrations/1732000000002-add-user-account-columns.ts` | `phone`, `status` (CHECK), `email_verified_at`, `locked_at`, `locked_by`, `lock_reason`, `UQ_users_phone`; backfill Q4. Không sửa migration đã merge. Có `down` |
+| `src/identity/entities/user.entity.ts` | Thêm `USER_STATUSES`, `UserStatus`, các cột mới |
+| `src/identity/seed/seed-users.ts`, `seed-admin.ts` (+ spec, infra-spec) | Ghi `status='ACTIVE'`, `email_verified_at=now()` (tech-debt #16); chạy lại vẫn không đổi dữ liệu có sẵn |
 
-### Số truy vấn, ngưỡng NFR
+**Nghiệp vụ (mỗi file `.service.ts` có `.spec.ts` cạnh nó)**
 
-Không thêm endpoint. Seed là lệnh chạy tay, mỗi tin một `INSERT` trong một transaction (30 + 8 câu, bỏ qua ngưỡng số truy vấn của request). Không vượt ngưỡng nào.
+| File | Việc |
+|---|---|
+| `services/mail.service.ts` | nodemailer, timeout 5 giây; `sendOtp`, `sendPasswordReset`; **không log** OTP, link, token |
+| `services/email-verification.service.ts` | `issue` (OTP 6 số `crypto.randomInt`, lưu Redis `{otpHash, attempts}` TTL, cooldown), `verify` (tăng `attempts` bằng `HINCRBY` nguyên tử **trước** khi so → hai request song song không né được giới hạn; so `timingSafeEqual`; lần thứ 5 sai xóa mã), `resend` |
+| `services/password-reset.service.ts` | `request` (luôn xong êm; user có và không `LOCKED` mới sinh token 32 byte, lưu `sha256`), `reset` (`GETDEL`, cập nhật `password_hash`, `revokeAllForUser`) |
+| `services/google-auth.service.ts`, `services/google-id-token.verifier.ts` | Verifier bọc `OAuth2Client.verifyIdToken` (provider `GOOGLE_ID_TOKEN_VERIFIER` để test thay); luồng 8 bước ở `API_Spec §1.8`; Google không tải được JWKS → `503` |
+| `services/auth.service.ts` (+ spec) | `register` ghi `status`, `phone`, bắt `23505` theo tên constraint (`email` → `409 IDENTITY_EMAIL_TAKEN`, `phone` → `409 IDENTITY_PHONE_TAKEN`), kiểm Redis sống **trước khi ghi DB**, sau commit gọi `EmailVerificationService.issue` + gửi mail (lỗi mail: `201`, log `warn`); `login` kiểm trạng thái **sau** mật khẩu; `verifyOtp` = `verify` + `issueSession`. AuthService phụ thuộc `EmailVerificationService` (không vòng) |
+| `services/user-admin.service.ts` (+ spec) | `lock(adminId, userId, reason)`, `unlock(userId)`: một câu `UPDATE ... WHERE status <> 'LOCKED'`, idempotent, rồi `revokeAllForUser`; mở khóa về `ACTIVE` nếu `email_verified_at` có, ngược lại `PENDING_VERIFICATION` (một `UPDATE ... CASE`) |
+| `services/profile.service.ts` hoặc thêm vào `AuthService` | `PATCH /users/me`: `fullName`, `phone` (`null` xóa), `409 IDENTITY_PHONE_TAKEN`. Đặt theo `Component_Class_Design §1` (`profile.controller.ts`); chốt chỗ đặt logic khi viết (nghiêng về `UserProfileService` nhỏ để `AuthService` không phình) |
 
-### Kiểm chứng cuối
+**API (controller + DTO, kiểm bằng infra/e2e)**
 
-```powershell
-pnpm --filter @realestate/identity test ; pnpm --filter @realestate/identity test:infra
-pnpm --filter @realestate/listing test ; pnpm --filter @realestate/listing test:infra
-pnpm lint ; pnpm format:check ; pnpm build ; pnpm contracts:check
-$env:SEED_USER_PASSWORD='<≥8 ký tự>'; pnpm --filter @realestate/identity seed:users     # 2 lần
-pnpm --filter @realestate/listing seed:listings                                           # 2 lần
-# EXPLAIN bán kính 2 km trên listing_db thật, dán plan nhận được
-```
+| File | Việc |
+|---|---|
+| `controllers/auth.controller.ts` | `verify-otp` (200), `resend-otp` (202), `forgot-password` (202), `reset-password` (204), `google` (200); đều `@Public()` |
+| `controllers/profile.controller.ts` | `PATCH /users/me` |
+| `controllers/users.admin.controller.ts` | `POST :id/lock` (body `{reason}`), `POST :id/unlock`; `@Roles('ADMIN')`, `:id` qua `createUuidParamPipe` |
+| `dto/`: `verify-otp.dto`, `email-only.dto` (resend, forgot), `reset-password.dto`, `google-login.dto`, `update-profile.dto`, `lock-user.dto`; sửa `register.dto` (`phone?` `^0\d{9}$`), `user.dto` (Q2) | Có spec cho DTO có quy tắc (phone, reason ≤ 500, mật khẩu mới theo `register.dto`) |
+| `errors/identity.errors.ts` | Thêm đúng 9 mã trong catalog `API_Spec §4` (`PHONE_TAKEN`, `EMAIL_NOT_VERIFIED`, `ACCOUNT_LOCKED`, `OTP_INVALID`, `OTP_RESEND_TOO_SOON`, `RESET_TOKEN_INVALID`, `GOOGLE_TOKEN_INVALID`, `ROLE_REQUIRED`, `CANNOT_LOCK_SELF`) + `USER_NOT_FOUND`; không thêm mã khác |
+| `identity.module.ts` | Đăng ký provider, controller mới |
+
+**Tài liệu**
+
+`guides/RE_Identity_Code_Walkthrough.md` (cập nhật), `guides/RE_Docker_Local_Guide.md` (Mailpit), `services/identity/README.md`, `services/identity/openapi.json` (sinh lại), `RE.IDENTITY/CHANGELOG.md` + `API_Spec.md` nếu Q2 được duyệt (v2.3), tech-debt #16 → resolved.
+
+### C. Test (bám `Component_Class_Design §5`; hạ tầng thật gồm Postgres, Redis, Mailpit)
+
+| Tầng | Test |
+|---|---|
+| `test` (unit) | `mail.service`, `email-verification.service` (hash OTP, hết hạn, 5 lần, cooldown, song song), `password-reset.service`, `google-auth.service` (8 nhánh với verifier giả), `user-admin.service` (lock/unlock, tự khóa, idempotent), `auth.service` (thứ tự kiểm login, bắt constraint), DTO, `env.validation`/`identity.env` |
+| `test:infra` | **13** đăng ký → `PENDING_VERIFICATION`, Mailpit nhận **một** email OTP; **14** login chưa xác minh/bị khóa `403`, sai mật khẩu `401`; **15** OTP đúng → `ACTIVE` + token; **16** sai 5 lần, mã đúng sau đó `400`; **17** resend < 60 giây → `429`; **18** forgot email lạ `202`, không email; **19** reset: lần 1 `204` + refresh cũ `401`, lần 2 `400`; **20, 21** Google (verifier giả); **22** khóa: refresh cũ `401`, login `403`, khóa lần hai `200`; **22a** mở khóa về đúng trạng thái; **23** `phone` trùng `409`. Thêm: `UQ_users_phone` thật, hai `verify-otp` song song, `identity.registered` khớp contract, seed #16. Các test cũ (`auth.infra-spec`, `admin-users`, `bank-account`, `internal-users`) phải **sửa**: đăng ký xong phải qua OTP (helper đọc OTP từ Mailpit `GET :8025/api/v1/messages`) hoặc dựng user `ACTIVE` bằng SQL |
+| `test:e2e` | Không đổi hành vi hạ tầng; chạy lại, sửa nếu `UserDto` đổi (Q2) |
+| gateway | `pnpm --filter @realestate/api-gateway test` chạy lại, không sửa (Q6) |
+
+### D. Số truy vấn DB dự kiến (đếm bằng log SQL trước khi xong)
+
+| Endpoint | Truy vấn | Ngưỡng |
+|---|---|---|
+| register | 2 (INSERT users + outbox, một transaction) | ≤ 6 |
+| login | 1 | ≤ 6 |
+| verify-otp | 2 (SELECT user, UPDATE) | ≤ 6 |
+| resend-otp, forgot-password | 1 | ≤ 6 |
+| reset-password | 1 (UPDATE; userId lấy từ token Redis) | ≤ 6 |
+| google (tài khoản mới) | 5 (SELECT identity, SELECT email, INSERT users, INSERT identity, INSERT outbox) | ≤ 6 |
+| google (liên kết) | 3 | ≤ 6 |
+| lock / unlock | 1–2 (UPDATE, SELECT khi 0 dòng để phân biệt `404` với "đã khóa") | ≤ 6 |
+| PATCH /users/me | 1–2 | ≤ 6 |
+
+Không vòng lặp truy vấn. Không giữ transaction khi gọi SMTP, Google, Redis. Không đạt ngưỡng nào → dừng, báo A.
+
+### E. Thứ tự làm (mỗi bước: RED → GREEN → REFACTOR, `progress-tracker` sau mỗi bước)
+
+1. Q1–Q6 được A trả lời; (Q2 duyệt) sửa tài liệu thiết kế + CHANGELOG trước code.
+2. Cấu hình, Mailpit, dependency (`env.validation`).
+3. Migration, entity, seed (#16), `UserDto`.
+4. `MailService`.
+5. `EmailVerificationService` + `register`/`login`/`verify-otp`/`resend-otp`; sửa test cũ.
+6. `PasswordResetService`.
+7. `GoogleAuthService`.
+8. Khóa/mở khóa, `PATCH /users/me`.
+9. Kiểm chứng: toàn bộ test, lint, format, build, contracts, gateway, compose `apps` + Mailpit, đếm truy vấn.
+10. Walkthrough, tài liệu, `code-review`, báo A xem diff, rồi commit/PR (không tự commit).
+
+## Sửa sau review (2026-11-20)
+
+> A duyệt 2026-11-20 (trả lời "ok" cho đề xuất sửa). Chỉ sửa hai lỗi dưới; **không** thêm kiểm `LOCKED` ở `refresh` (đổi hành vi code đã merge, chờ A quyết riêng).
+
+| # | Lỗi | File sửa | Test (RED trước) |
+|---|---|---|---|
+| R1 | `PATCH /users/me` `{"fullName": null}` lọt `@IsOptional()`, ghi `full_name = NULL` vào cột `NOT NULL` → `500 INTERNAL_ERROR` | `dto/update-profile.dto.ts`: `fullName` dùng `@ValidateIf(v !== undefined)` thay `@IsOptional()` (`phone` giữ `@IsOptional()`, `null` vẫn là xóa số) | `dto/account-dtos.spec.ts`, `test/account.infra-spec.ts` (test 23a) |
+| R2 | Google: email đã có tài khoản liên kết với `sub` Google khác → `UQ_user_identities_user_provider`, thử lại một lần vẫn trùng → ném lỗi gốc → `500` | `services/google-auth.service.ts` (`resolveUser`): lần thử lại vẫn trùng `UQ_user_identities_user_provider` → `401 IDENTITY_GOOGLE_TOKEN_INVALID`. Chỉ ở lần thử lại, vì đua cùng `sub` có thể báo chỉ mục này ở lần đầu | `services/google-auth.service.spec.ts`, `test/google.infra-spec.ts` (test 21a) |
+
+Thiết kế sửa trước code: `API_Spec §1.8` (dòng 4a), `§1.10` (`fullName: null`), `Processing_Flow §3c`, `Component_Class_Design §5` (21a, 23a), `CHANGELOG` v2.4. Không mã lỗi mới, không đổi `contracts/`. Số truy vấn: R2 nhánh lỗi tối đa 6 (SELECT liên kết, SELECT email, INSERT lỗi, lặp lại 3) = ngưỡng ghi 6, chỉ ở nhánh lỗi hiếm; R1 không đổi (lỗi 400 trước DB).
+
+- [x] R0. Thiết kế v2.4 (`API_Spec`, `Processing_Flow`, `Component_Class_Design`, `CHANGELOG`)
+- [x] R1. `fullName: null` → 400: RED (`account-dtos.spec` 1 fail) → GREEN
+- [x] R2. Google `sub` khác → 401: RED (`google-auth.service.spec` nhận `23505`) → GREEN
+- [x] R3a. Unit 357 (354 + 3 mới): 350 PASS; 7 fail chỉ ở `env.bootstrap.spec` do bản sao Linux (ts-node con báo `fileExists` undefined; đã fail y hệt TRƯỚC khi sửa, không liên quan). `tsc --noEmit` (gồm `test/`), `nest build`, eslint, prettier các file đã sửa: sạch. Walkthrough cập nhật
+- [x] R3b. (2026-11-21) Chạy trong workspace đám mây của Claude (Postgres 16.x không PostGIS, Redis, RabbitMQ 3.12.1 + `definitions.json`, Mailpit v1.32.0; vì Postgres trên máy A ngắt kết nối, xem dưới): identity `test` 357/357, `test:e2e` 97/97, `test:infra` 201/201; template unit 101 + e2e 111; gateway unit 239 + e2e 137; `pnpm lint`, `format:check`, `contracts:check` (4 spec OK), `build` sạch. Infra RED khi bỏ sửa: 23a nhận `500`, 21a nhận `500`. Lượt chạy đầu có 1 fail chập chờn ở `password-reset.infra-spec` (test 18 chờ 1 thư, thư OTP đăng ký tới trước thư đặt lại) → sửa chờ 2 thư như các test khác cùng file, chạy lại 3 lần + cả bộ đều xanh. Yêu cầu ban đầu: `pnpm --filter @realestate/identity test`, `test:e2e`, `test:infra` (test 21a, 23a mới chưa chạy với Postgres/Redis thật); `pnpm lint`, `format:check`, `contracts:check`. PASS hết mới trả `status: done`
+  - 17:50 A chạy `test:infra`: 176 fail / 25 pass / 201. Mọi suite chạm Postgres lỗi `Connection terminated unexpectedly` ngay từ test đầu (kể cả suite không đổi: `seed-admin`, `admin-users`); hai suite chỉ dùng Redis (`otp.store`, `refresh-token.store`) PASS; `afterAll` vỡ theo (`redis` undefined, hook 30 giây). Đang ở `debug` Bước 1 (thu thập trạng thái `re-postgres`, log, cổng 5433), **chưa kết luận nguyên nhân**
+  - Thu thập lần 1 (17:52): `re-postgres` Up 48 phút (healthy), `127.0.0.1:5433->5432`. Log: hoạt động bình thường tới 10:01:58 UTC (17:01, lỗi 23505 do test cố ý); 10:03:58 UTC khởi động lại sau khi **tắt không sạch** ("not properly shut down; automatic recovery"), 10:04:00 sẵn sàng. Sau đó **không có dòng log nào** dù lần `test:infra` ~17:48 (10:48 UTC) lẽ ra sinh lỗi 23505 cố ý → truy vấn của test có vẻ không tới tiến trình Postgres này. Còn thiếu: `pg_isready`, `netstat :5433`, probe node, chạy một suite
 
 ## Blockers / Ghi chú
 
-- Phụ thuộc T2.3 và T2.1: đã tick (PR #21, PR #16). Không có blocker.
-- `progress.md` ghi T2.4 là B; `PHASE-2.md` cho A tự giao lại. Sửa dòng ở `progress.md` lúc tick sau merge, như T2.3.
-- T2.5 thêm `status DEFAULT 'ACTIVE'`, `email_verified_at`: A chốt 2026-11-20 là nợ kỹ thuật #16 (cập nhật `seed-users` set hai cột kèm test khi làm T2.5).
+- **Hoàn tất 2026-11-20.** Chưa commit: chờ A xem `git diff` (CLAUDE.md §6: `git commit` cần xác nhận).
+- `code-review` 5 chiều: không CRITICAL. Một MAJOR (Reuse) đã sửa: `test/helpers/create-test-app.ts` thêm `overrides` ở identity thì phải sửa `_template-nest` trước (ADR-0014) → đã chép cùng bản vào template (template test 101, e2e 111 PASS). PR chạm `services/_template-nest/` nên A duyệt. Một MINOR đã sửa (assertion vô nghĩa ở `password-reset.infra-spec`).
+- Lệch với kế hoạch đã duyệt: (1) thêm `services/profile.service.ts`, `google-id-token.verifier.ts`, `user-email.query.ts`, `unique-violation.ts`, `stores/otp.store.ts` + `redis-otp.store.ts` (đã ghi `Component_Class_Design` v2.3 các file đầu; ba file sau là chi tiết cài đặt, ghi ở walkthrough); (2) `GOOGLE_CLIENT_ID` trống test ở file riêng (ConfigModule chốt env lúc import).
+- Việc A cần làm trên máy: `services/identity/.env` (không commit) cần thêm `SMTP_HOST=localhost`, `MAIL_FROM=no-reply@realestate.local` (chép từ `.env.example`) thì `pnpm dev`/`openapi:export` mới chạy; compose `apps` không cần. DB dev đã chạy migration `1732000000002`; có vài user `smoke*@example.com` do kiểm chứng.
+- Nợ kỹ thuật mới: #17 (C21), #18 (test flaky), #19 (infra test viết sau code); #16 resolved.
 
-## Kết quả kiểm chứng (2026-11-20)
-
-- identity: unit 211, e2e 97, infra 107 PASS (thêm `seed-users` 10 unit + 8 infra). listing: unit 371, e2e 97, infra 118 PASS (thêm `seed-listings` 15 unit + 9 infra).
-- `pnpm lint`, `format:check`, `build`, `contracts:check` (4 spec OK) không lỗi.
-- Seed vào DB dev thật, mỗi lệnh chạy hai lần: `seed:users` tạo 8 rồi 0 (có sẵn 8); `seed:listings` tạo 30 rồi 0 (có sẵn 30).
-- `EXPLAIN` bán kính 2 km trên `listing_db` thật (30 dòng, sau `ANALYZE`): `Bitmap Heap Scan on listings` ← `Bitmap Index Scan on ix_listings_location`, `rows=15`, `Execution Time: 6.556 ms`.
-- Smoke qua gateway 8080: `GET /api/v1/listings?lat=21.00&lng=105.84&radiusKm=2&sort=distance` trả 12 tin (11 `AVAILABLE` + tin 13 `RENTED`), tăng dần 245 m → 1935 m; `/internal/listings/...` từ ngoài `404`.
-- code-review 5 chiều: không CRITICAL, không MAJOR. Đã sửa 2 MINOR (infra-spec dùng lại `haversineM` của `test/helpers`, `seed-users` dùng lại `PASSWORD_MAX_LENGTH` của `seed-admin`).
-- Việc còn lại: commit, PR, tick `progress.md` sau merge (sửa người làm B → A).
+- Chờ A duyệt kế hoạch và trả lời Q1–Q6 (Q1 chặn bước 2).
+- Không chạm: `contracts/`, listing, gateway (Q6). (`_template-nest/test/helpers/create-test-app.ts` **có** sửa sau `code-review`, ADR-0014, A duyệt ở PR.)
+- Ngoài phạm vi: tech-debt #10 (map `23503`) chỉ có nghĩa khi có API xóa người dùng; T2.5 không xóa người dùng nên giữ `open`.
+- Không phụ thuộc chặn: T2.1 đã xong (`revokeAllForUser`); `van-de-can-quyet-dinh.md` không còn `[cần xác nhận]` mở cho identity T2.5.

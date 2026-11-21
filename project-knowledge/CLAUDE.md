@@ -186,7 +186,7 @@
 | `guides/RE_Contracts_Code_Walkthrough.md` | Hiểu `contracts/` (4 API nội bộ, 17 sự kiện), topology RabbitMQ, lệnh `contracts:check`; vấn đáp contract-first |
 | `guides/RE_Gateway_Code_Walkthrough.md` | Hiểu `services/api-gateway` (bảng định tuyến, kiểm JWT mức tuyến, rate limit, proxy giữ body thô, `/ws`); thêm route hoặc đổi mức truy cập; vấn đáp gateway |
 | `guides/RE_Listing_Code_Walkthrough.md` | Hiểu `services/listing` (CRUD sản phẩm bằng `UPDATE ... WHERE`, duyệt, ảnh presigned PUT + `HeadObject`, quy tắc duyệt lại khi sửa, khóa dòng khi đếm ảnh, tìm kiếm PostGIS `ST_DWithin` + bộ dựng SQL, API nội bộ giữ chỗ nguyên tử và đổi trạng thái theo đơn, seed 30 tin Hà Nội); thêm bộ lọc hoặc sửa luật giữ chỗ; vấn đáp listing |
-| `guides/RE_Identity_Code_Walkthrough.md` | Hiểu `services/identity` (đăng nhập, refresh token xoay vòng và `revokeAllForUser`, tài khoản nhận tiền mã hóa AES-GCM, API nội bộ cho payment, danh sách người dùng, seed 3 chủ trọ và 5 người thuê); thêm tính năng ở T2.5; vấn đáp identity |
+| `guides/RE_Identity_Code_Walkthrough.md` | Hiểu `services/identity` (đăng ký + xác minh OTP qua Mailpit, đăng nhập theo trạng thái, quên mật khẩu, Google, khóa tài khoản, `PATCH /users/me`, refresh token xoay vòng và `revokeAllForUser`, tài khoản nhận tiền mã hóa AES-GCM, API nội bộ cho payment, danh sách người dùng, seed 3 chủ trọ và 5 người thuê); vấn đáp identity |
 
 ### 2.6 Kế hoạch triển khai
 

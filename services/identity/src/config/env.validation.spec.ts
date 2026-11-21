@@ -98,6 +98,62 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...base, S3_BUCKETS: 'Anh_Phong' })).toThrow(/'Anh_Phong'/);
   });
 
+  describe('biến của T2.5 (SMTP, OTP, đặt lại mật khẩu, Google)', () => {
+    it('áp mặc định theo API_Spec §5', () => {
+      expect(validateEnv({ SERVICE_NAME: 'identity' })).toMatchObject({
+        SMTP_PORT: 1025,
+        OTP_TTL_SECONDS: 300,
+        OTP_MAX_ATTEMPTS: 5,
+        OTP_RESEND_COOLDOWN_SECONDS: 60,
+        PASSWORD_RESET_TTL_SECONDS: 900,
+        PASSWORD_RESET_URL: 'http://localhost:3000/reset-password',
+      });
+    });
+
+    it('SMTP_HOST, SMTP_USER, SMTP_PASSWORD, MAIL_FROM, GOOGLE_CLIENT_ID để trống = không đặt', () => {
+      const env = validateEnv({
+        SERVICE_NAME: 'identity',
+        SMTP_HOST: '',
+        SMTP_USER: '',
+        SMTP_PASSWORD: '',
+        MAIL_FROM: '',
+        GOOGLE_CLIENT_ID: '',
+      });
+      expect(env.SMTP_HOST).toBeUndefined();
+      expect(env.SMTP_USER).toBeUndefined();
+      expect(env.SMTP_PASSWORD).toBeUndefined();
+      expect(env.MAIL_FROM).toBeUndefined();
+      expect(env.GOOGLE_CLIENT_ID).toBeUndefined();
+    });
+
+    it('chấp nhận giá trị hợp lệ và từ chối số ngoài khoảng', () => {
+      expect(
+        validateEnv({
+          SERVICE_NAME: 'identity',
+          SMTP_PORT: '587',
+          OTP_MAX_ATTEMPTS: '3',
+          GOOGLE_CLIENT_ID: 'abc.apps.googleusercontent.com',
+        }),
+      ).toMatchObject({
+        SMTP_PORT: 587,
+        OTP_MAX_ATTEMPTS: 3,
+        GOOGLE_CLIENT_ID: 'abc.apps.googleusercontent.com',
+      });
+      for (const bad of [
+        { SMTP_PORT: '0' },
+        { OTP_TTL_SECONDS: '5' },
+        { OTP_MAX_ATTEMPTS: '0' },
+        { OTP_RESEND_COOLDOWN_SECONDS: '-1' },
+        { PASSWORD_RESET_TTL_SECONDS: '10' },
+        { PASSWORD_RESET_URL: 'khong-phai-url' },
+      ]) {
+        expect(() => validateEnv({ SERVICE_NAME: 'identity', ...bad })).toThrow(
+          new RegExp(Object.keys(bad)[0]),
+        );
+      }
+    });
+  });
+
   it('JWT_SECRET phải đủ dài (>= 16 ký tự)', () => {
     expect(() => validateEnv({ SERVICE_NAME: 'x', JWT_SECRET: 'ngan' })).toThrow(/JWT_SECRET/);
     expect(

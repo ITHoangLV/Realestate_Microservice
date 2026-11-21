@@ -36,6 +36,15 @@ describe('Luồng xác thực với hạ tầng thật', () => {
   let t: TestApp;
   let pg: Client;
   let redis: Redis;
+  /** Đăng ký rồi đặt ACTIVE bằng SQL: đăng nhập cần tài khoản đã xác minh (luồng OTP thật ở account.infra-spec.ts). */
+  const registerActive = async (app: TestApp, body: { email: string }) => {
+    const res = await register(app, body);
+    await pg.query(
+      `UPDATE users SET status = 'ACTIVE', email_verified_at = now() WHERE lower(email) = lower($1)`,
+      [body.email],
+    );
+    return res;
+  };
   const uniqueEmail = () => `user-${randomUUID().slice(0, 8)}@example.com`;
   const newUser = (over: Record<string, unknown> = {}) => ({
     email: uniqueEmail(),
@@ -230,7 +239,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
   describe('login, me', () => {
     it('đúng mật khẩu -> access token RS256 kiểm tra được bằng khóa công khai, /me trả đúng user', async () => {
       const body = newUser({ role: 'LANDLORD' });
-      const user = (await register(t, body)).body.data;
+      const user = (await registerActive(t, body)).body.data;
 
       const res = await login(t, body.email.toUpperCase());
       expect(res.status).toBe(200);
@@ -255,7 +264,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
 
     it('sai mật khẩu và email không tồn tại trả Y HỆT nhau (không lộ email nào đã đăng ký)', async () => {
       const body = newUser();
-      await register(t, body);
+      await registerActive(t, body);
       const wrongPassword = await login(t, body.email, 'Sai-mat-khau-1');
       const unknownEmail = await login(t, uniqueEmail());
       expect(wrongPassword.status).toBe(401);
@@ -294,7 +303,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
   describe('refresh, logout', () => {
     const session = async () => {
       const body = newUser();
-      await register(t, body);
+      await registerActive(t, body);
       return (await login(t, body.email)).body.data as {
         accessToken: string;
         refreshToken: string;
@@ -326,7 +335,7 @@ describe('Luồng xác thực với hạ tầng thật', () => {
 
     it('hai lần đăng nhập là hai họ độc lập: khóa họ này không ảnh hưởng họ kia', async () => {
       const body = newUser();
-      await register(t, body);
+      await registerActive(t, body);
       const a = (await login(t, body.email)).body.data;
       const b = (await login(t, body.email)).body.data;
       await t.http().post('/api/v1/auth/logout').send({ refreshToken: a.refreshToken });

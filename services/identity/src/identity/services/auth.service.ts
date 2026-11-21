@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PinoLogger } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
-import { DataSource, QueryFailedError, Raw, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { AppException } from '../../common/errors/app.exception';
 import { ErrorCode } from '../../common/errors/error-codes';
 import { OutboxService } from '../../messaging/outbox.service';
@@ -10,19 +10,26 @@ import { AuthTokensDto } from '../dto/auth-tokens.dto';
 import { LoginDto } from '../dto/login.dto';
 import { RegisterDto } from '../dto/register.dto';
 import { UserDto } from '../dto/user.dto';
+import { VerifyOtpDto } from '../dto/verify-otp.dto';
 import { User } from '../entities/user.entity';
-import { emailTaken, invalidCredentials, invalidRefreshToken } from '../errors/identity.errors';
+import {
+  accountLocked,
+  emailNotVerified,
+  emailTaken,
+  invalidCredentials,
+  invalidRefreshToken,
+  phoneTaken,
+} from '../errors/identity.errors';
+import { EmailVerificationService } from './email-verification.service';
 import { PasswordService } from './password.service';
 import { REFRESH_TOKEN_STORE } from '../stores/refresh-token.store';
 import type { RefreshTokenStore } from '../stores/refresh-token.store';
 import { TokenService } from './token.service';
+import { findUserByEmail } from './user-email.query';
+import { uniqueViolationConstraint } from './unique-violation';
 
-/** Mã lỗi PostgreSQL cho vi phạm ràng buộc duy nhất (unique_violation). */
-const PG_UNIQUE_VIOLATION = '23505';
-
-const isUniqueViolation = (err: unknown): boolean =>
-  err instanceof QueryFailedError &&
-  (err.driverError as { code?: string } | undefined)?.code === PG_UNIQUE_VIOLATION;
+/** Tên ràng buộc duy nhất của số điện thoại (migration `AddUserAccountColumns`). */
+const PHONE_CONSTRAINT = 'UQ_users_phone';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +40,7 @@ export class AuthService {
     private readonly tokens: TokenService,
     @Inject(REFRESH_TOKEN_STORE) private readonly refreshTokens: RefreshTokenStore,
     private readonly outbox: OutboxService,
+    private readonly emailVerification: EmailVerificationService,
     private readonly logger: PinoLogger,
   ) {
     this.logger.setContext(AuthService.name);
@@ -45,11 +53,17 @@ export class AuthService {
    * event identity.registered vào outbox CÙNG transaction -> commit. Nhờ vậy user có trong DB
    * thì event chắc chắn sẽ được gửi, và rollback thì cả hai cùng mất.
    *
-   * Trùng email được phát hiện bằng chính ràng buộc unique của DB (lỗi 23505), KHÔNG bằng SELECT
-   * kiểm tra trước, vì hai request đăng ký cùng lúc đều thấy "chưa có" rồi cùng insert.
+   * Trùng email, trùng số điện thoại được phát hiện bằng chính ràng buộc unique của DB (lỗi 23505, phân biệt
+   * theo tên ràng buộc), KHÔNG bằng SELECT kiểm tra trước, vì hai request đăng ký cùng lúc đều thấy "chưa có"
+   * rồi cùng insert.
+   *
+   * Tài khoản mới ở `PENDING_VERIFICATION`; sau commit sinh OTP và gửi email KHÔNG CHỜ (lỗi chỉ log `warn`,
+   * `201` vẫn trả, người dùng bấm gửi lại). Redis được kiểm TRƯỚC khi ghi DB: Redis dừng thì `503` và không
+   * có tài khoản nào được tạo mà không thể nhận mã.
    */
   async register(dto: RegisterDto): Promise<UserDto> {
     const passwordHash = await this.passwords.hash(dto.password);
+    await this.emailVerification.ensureAvailable();
     try {
       const user = await this.dataSource.transaction(async (manager) => {
         const created = await manager.save(User, {
@@ -57,6 +71,8 @@ export class AuthService {
           passwordHash,
           fullName: dto.fullName,
           role: dto.role,
+          status: 'PENDING_VERIFICATION',
+          phone: dto.phone ?? null,
         });
         await this.outbox.add(manager, 'identity.registered', {
           userId: created.id,
@@ -67,11 +83,32 @@ export class AuthService {
         return created;
       });
       this.logger.info({ userId: user.id, role: user.role }, 'Đăng ký tài khoản mới');
+      // Không chờ, và không log email/lỗi gốc (có thể chứa địa chỉ)
+      this.emailVerification.issue(user.id, user.email).catch((err: unknown) => {
+        this.logger.warn(
+          { userId: user.id, errName: (err as { name?: string } | null)?.name },
+          'Không sinh được OTP sau khi đăng ký, người dùng cần gửi lại',
+        );
+      });
       return UserDto.from(user);
     } catch (err) {
-      if (isUniqueViolation(err)) throw emailTaken();
+      const constraint = uniqueViolationConstraint(err);
+      if (constraint !== undefined) {
+        throw constraint === PHONE_CONSTRAINT ? phoneTaken() : emailTaken();
+      }
       throw err;
     }
+  }
+
+  /** Nhập OTP (route 10): đúng thì tài khoản `ACTIVE` và cấp phiên luôn. */
+  async verifyOtp(dto: VerifyOtpDto): Promise<AuthTokensDto> {
+    const user = await this.emailVerification.verify(dto.email, dto.otp);
+    return this.issueSession(user);
+  }
+
+  /** Gửi lại OTP (route 11). Luôn im lặng với email lạ (xem `EmailVerificationService.resend`). */
+  resendOtp(email: string): Promise<void> {
+    return this.emailVerification.resend(email);
   }
 
   /**
@@ -89,6 +126,9 @@ export class AuthService {
     if (!(await this.passwords.verify(user.passwordHash, dto.password))) {
       throw invalidCredentials();
     }
+    // Kiểm trạng thái SAU mật khẩu: người không biết mật khẩu không dò được trạng thái tài khoản
+    if (user.status === 'PENDING_VERIFICATION') throw emailNotVerified();
+    if (user.status === 'LOCKED') throw accountLocked();
     return this.issueSession(user);
   }
 
@@ -154,10 +194,7 @@ export class AuthService {
     return { accessToken, refreshToken, tokenType: 'Bearer', expiresIn };
   }
 
-  /** So khớp theo lower(email) để dùng đúng index UQ_users_email_lower. */
   private findByEmail(email: string): Promise<User | null> {
-    return this.users.findOne({
-      where: { email: Raw((alias) => `lower(${alias}) = :email`, { email: email.toLowerCase() }) },
-    });
+    return findUserByEmail(this.users, email);
   }
 }

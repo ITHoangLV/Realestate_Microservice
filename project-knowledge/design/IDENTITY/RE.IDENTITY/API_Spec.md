@@ -6,7 +6,7 @@
 | **Service** | `identity` (cổng 3001) |
 | **Quy tắc** | BR-01, BR-02; quy tắc phụ Bảng 2.6 |
 | **CSDL** | `identity_db` / `identity_user`; Redis (refresh token, OTP, token đặt lại mật khẩu); SMTP (Mailpit khi dev) |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v2.2 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v2.4 |
 
 ## 1. API công khai
 
@@ -50,7 +50,7 @@ Thứ tự kiểm tra:
 | 3 | Vi phạm `UQ_users_phone` | `409 IDENTITY_PHONE_TAKEN` |
 | 4 | Hợp lệ | `INSERT users` (`status = PENDING_VERIFICATION`) + outbox `identity.registered` cùng transaction; sau commit sinh OTP (Redis) và gửi email → `201` |
 
-Gửi email lỗi sau commit: vẫn `201`, log `warn`; người dùng bấm gửi lại (route 11). Redis dừng: `503 DEPENDENCY_UNAVAILABLE` trước khi ghi DB.
+Redis dừng: `503 DEPENDENCY_UNAVAILABLE` trước khi ghi DB. Sau commit, sinh OTP và gửi email **không chờ** (chốt 2026-11-20, v2.3): `201` trả ngay, việc gửi chạy nền và lỗi (SMTP, Redis) chỉ ghi log `warn` (không kèm OTP, địa chỉ nhận, link); người dùng bấm gửi lại (route 11). Lý do: thời gian phản hồi không phụ thuộc SMTP và không lộ gì qua độ trễ. Hệ quả: nhận `201` chưa chắc đã có email (client hiện thông báo "kiểm tra hộp thư, chưa thấy thì gửi lại").
 
 ### 1.2 `POST /auth/login`
 
@@ -102,11 +102,11 @@ Route 10, body `{ email, otp }`:
 | 3 | Sai mã: tăng số lần sai; lần thứ 5 xóa OTP | `400 IDENTITY_OTP_INVALID` |
 | 4 | Đúng | Xóa OTP; `UPDATE users SET status='ACTIVE', email_verified_at=now() WHERE id AND status='PENDING_VERIFICATION'`; cấp phiên → `200` cặp token |
 
-Route 11, body `{ email }`: còn trong 60 giây kể từ lần gửi trước → `429 IDENTITY_OTP_RESEND_TOO_SOON`; email không tồn tại hoặc đã xác minh → `202` không gửi; còn lại sinh OTP mới (thay mã cũ, đặt lại số lần sai) và gửi → `202`.
+Route 11, body `{ email }`: còn trong 60 giây kể từ lần gửi trước → `429 IDENTITY_OTP_RESEND_TOO_SOON`; email không tồn tại hoặc đã xác minh → `202` không gửi; còn lại sinh OTP mới (thay mã cũ, đặt lại số lần sai) và gửi → `202`. Gửi email không chờ, lỗi chỉ ghi log `warn` (chốt 2026-11-20, v2.3). Cooldown hiện lưu theo `userId` nên `429` chỉ có với email có tài khoản: còn lộ email, đề xuất chuyển sang `lower(email)` ở `implementation/van-de-can-quyet-dinh.md` C21 (chưa sửa).
 
 ### 1.7 Quên mật khẩu (route 12, 13) — Bảng 2.6
 
-Route 12, body `{ email }`: luôn `202`. Có tài khoản không bị khóa → sinh token ngẫu nhiên 32 byte, lưu Redis `sha256(token)` → `userId` TTL `PASSWORD_RESET_TTL_SECONDS`, gửi email link `PASSWORD_RESET_URL?token=<token>` (trang Next.js).
+Route 12, body `{ email }`: luôn `202`. Có tài khoản không bị khóa → sinh token ngẫu nhiên 32 byte, lưu Redis `sha256(token)` → `userId` TTL `PASSWORD_RESET_TTL_SECONDS`, gửi email link `PASSWORD_RESET_URL?token=<token>` (trang Next.js). Gửi email không chờ, lỗi chỉ ghi log `warn` (chốt 2026-11-20, v2.3), để độ trễ không cho biết email có tài khoản hay không.
 
 Route 13, body `{ token, newPassword }`:
 
@@ -122,10 +122,12 @@ Frontend lấy ID token bằng Google Sign-In rồi gọi route 14. Body `{ idTo
 
 | # | Điều kiện | Kết quả |
 |---|---|---|
+| 0 | `GOOGLE_CLIENT_ID` không đặt (chốt 2026-11-20, v2.3) | `503 DEPENDENCY_UNAVAILABLE`, **trước** khi kiểm token; service vẫn khởi động, log `warn` một lần lúc khởi động |
 | 1 | ID token sai chữ ký, sai `aud` (`GOOGLE_CLIENT_ID`), hết hạn | `401 IDENTITY_GOOGLE_TOKEN_INVALID` |
 | 2 | Token không có email hoặc `email_verified = false` | `401 IDENTITY_GOOGLE_TOKEN_INVALID` (Bảng 2.6: bắt buộc có email) |
 | 3 | Đã có `user_identities (google, sub)` | Lấy user đó |
 | 4 | Chưa có liên kết nhưng email đã có tài khoản | Tự liên kết: `INSERT user_identities`; vai trò giữ nguyên. Tài khoản còn `PENDING_VERIFICATION` → `ACTIVE` và **xóa `password_hash`** (mật khẩu do người chưa chứng minh sở hữu email đặt; chủ email đặt lại qua route 12) |
+| 4a | Chưa có liên kết theo `sub`, nhưng tài khoản của email đã liên kết với **một tài khoản Google khác** (`UQ_user_identities_user_provider`; ví dụ tài khoản Google bị xóa rồi tạo lại cùng email) | `401 IDENTITY_GOOGLE_TOKEN_INVALID`; không thêm liên kết, không đổi tài khoản. Phát hiện bằng ràng buộc của DB ở lần thử lại (lần đầu có thể là đua cùng `sub`) (chốt 2026-11-20, v2.4) |
 | 5 | Chưa có tài khoản, thiếu `role` hoặc `role` khác `TENANT`/`LANDLORD` | `400 IDENTITY_ROLE_REQUIRED` (client hiện bước chọn vai trò rồi gọi lại) |
 | 6 | Chưa có tài khoản, có `role` | Transaction: `INSERT users` (`password_hash = null`, `status = ACTIVE`, `email_verified_at = now()`) + `user_identities` + outbox `identity.registered` |
 | 7 | `status = LOCKED` | `403 IDENTITY_ACCOUNT_LOCKED` |
@@ -149,7 +151,7 @@ Mở khóa: về trạng thái trước khi khóa: `email_verified_at` có → `
 
 ### 1.10 `PATCH /users/me` (route 15)
 
-Body `{ fullName?, phone? }`. `phone` trùng người khác → `409 IDENTITY_PHONE_TAKEN`; `phone: null` xóa số.
+Body `{ fullName?, phone? }`. `fullName` 1–200 ký tự sau khi cắt khoảng trắng; `phone` theo `^0\d{9}$`. `phone` trùng người khác → `409 IDENTITY_PHONE_TAKEN`; `phone: null` xóa số; trường vắng mặt thì giữ nguyên; `fullName: null` → `400 VALIDATION_FAILED` (chỉ `phone` nhận `null`, v2.4). Body không có trường nào → `400 VALIDATION_FAILED`. `200` trả `UserDto` (§1.12).
 
 ### 1.11 `GET /admin/users` (route 8)
 
@@ -161,7 +163,23 @@ Chỉ `ADMIN` (`@Roles('ADMIN')`; gateway cũng chặn thô `/api/v1/admin/*`). 
 | `pageSize` | số nguyên | 1–50, mặc định 20; vượt → `400 VALIDATION_FAILED` |
 | `role` | string, không bắt buộc | `TENANT`, `LANDLORD`, `ADMIN`; giá trị khác → `400` |
 
-Sắp theo `created_at DESC, id DESC`. `data` là mảng `UserDto` (`id, email, fullName, role, createdAt`); T2.5 thêm `status`. `meta` có `page`, `pageSize`, `total`, `totalPages` (khung `Paginated` của template). Dùng `findAndCount`: **tối đa 2 truy vấn** (lấy trang + đếm; ngưỡng danh sách là 4, `non-functional-standards.md §1`). TypeORM bỏ truy vấn đếm khi trang đầu chưa đầy (`OFFSET 0`, ít dòng hơn `pageSize`) vì `total` chính là số dòng nhận được, nên trường hợp đó chỉ 1 truy vấn; `total` vẫn đúng. Chỉ chọn năm cột của `UserDto`, không bao giờ đọc `password_hash`. Trang vượt quá: `data: []`, `total` và `totalPages` vẫn đúng. Lọc `role` thì `total` tính theo role. Index: `IDX_users_created_at_id`, `IDX_users_role_created_at_id` (§6).
+Sắp theo `created_at DESC, id DESC`. `data` là mảng `UserDto` (§1.12). `meta` có `page`, `pageSize`, `total`, `totalPages` (khung `Paginated` của template). Dùng `findAndCount`: **tối đa 2 truy vấn** (lấy trang + đếm; ngưỡng danh sách là 4, `non-functional-standards.md §1`). TypeORM bỏ truy vấn đếm khi trang đầu chưa đầy (`OFFSET 0`, ít dòng hơn `pageSize`) vì `total` chính là số dòng nhận được, nên trường hợp đó chỉ 1 truy vấn; `total` vẫn đúng. Chỉ chọn bảy cột của `UserDto`, không bao giờ đọc `password_hash`. Trang vượt quá: `data: []`, `total` và `totalPages` vẫn đúng. Lọc `role` thì `total` tính theo role. Index: `IDX_users_created_at_id`, `IDX_users_role_created_at_id` (§6).
+
+### 1.12 `UserDto` (chốt 2026-11-20, v2.3)
+
+Dùng chung cho `POST /auth/register` (`data`), `GET /auth/me`, `PATCH /users/me`, `GET /admin/users`:
+
+| Trường | Kiểu | Ghi chú |
+|---|---|---|
+| `id` | uuid | |
+| `email` | string | |
+| `fullName` | string | |
+| `role` | `TENANT` / `LANDLORD` / `ADMIN` | |
+| `status` | `PENDING_VERIFICATION` / `ACTIVE` / `LOCKED` | Thêm ở v2.3 |
+| `phone` | string hoặc `null` | Thêm ở v2.3; `null` khi chưa khai |
+| `createdAt` | date-time | |
+
+Không có `password_hash`, `email_verified_at`, `locked_*` (danh sách trắng ở `UserDto.from`). Route 10, 14 trả cặp token như route 2, không trả `UserDto`.
 
 ## 2. API nội bộ
 
@@ -213,7 +231,7 @@ API nội bộ trả số đầy đủ để quản trị viên chuyển khoản
 | `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SECONDS` | `300`, `5`, `60` | Báo cáo Bảng 2.6 |
 | `PASSWORD_RESET_TTL_SECONDS` | `900` | Đề xuất |
 | `PASSWORD_RESET_URL` | `http://localhost:3000/reset-password` | Trang Next.js |
-| `GOOGLE_CLIENT_ID` | bắt buộc khi bật đăng nhập Google | `aud` của ID token |
+| `GOOGLE_CLIENT_ID` | trống (tùy chọn) | `aud` của ID token. Trống: service vẫn chạy, log `warn` lúc khởi động, route 14 trả `503 DEPENDENCY_UNAVAILABLE` (§1.8 dòng 0) |
 
 ## 6. DDL
 
@@ -252,9 +270,11 @@ ALTER TABLE users
   ADD COLUMN locked_by uuid,
   ADD COLUMN lock_reason varchar(500);
 CREATE UNIQUE INDEX "UQ_users_phone" ON users (phone) WHERE phone IS NOT NULL;
+-- v2.3: tài khoản có trước migration đã dùng được nên coi là đã xác minh
+UPDATE users SET email_verified_at = created_at WHERE status = 'ACTIVE';
 ```
 
-Tài khoản đã có trước migration giữ `ACTIVE` (mặc định); đăng ký mới ghi `PENDING_VERIFICATION`. Seed ADMIN ghi `ACTIVE`.
+Tài khoản đã có trước migration giữ `ACTIVE` (mặc định) và được điền `email_verified_at = created_at` (v2.3), để khóa rồi mở khóa không đưa họ về `PENDING_VERIFICATION` (§1.9); đăng ký mới ghi `PENDING_VERIFICATION`. `seed:admin` và `seed:users` ghi `status = 'ACTIVE'`, `email_verified_at = now()` (v2.3).
 
 Index cho route 8 (migration `1732000000001-add-users-list-indexes`, chốt 2026-11-19; truy vấn `[WHERE role = ?] ORDER BY created_at DESC, id DESC`, khớp thứ tự nên không cần bước Sort):
 
