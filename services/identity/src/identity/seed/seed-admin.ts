@@ -58,8 +58,8 @@ export async function seedAdmin(
 
   return dataSource.transaction(async (manager) => {
     const inserted: Array<{ id: string }> = await manager.query(
-      `INSERT INTO users (email, password_hash, full_name, role)
-       VALUES ($1, $2, $3, 'ADMIN')
+      `INSERT INTO users (email, password_hash, full_name, role, status, email_verified_at)
+       VALUES ($1, $2, $3, 'ADMIN', 'ACTIVE', now())
        ON CONFLICT ((lower(email))) DO NOTHING
        RETURNING id`,
       [email, passwordHash, fullName],

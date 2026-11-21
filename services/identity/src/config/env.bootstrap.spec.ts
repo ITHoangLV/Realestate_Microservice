@@ -17,7 +17,7 @@ function run(env: Record<string, string>) {
   const baseEnv = { ...process.env } as Record<string, string | undefined>;
   for (const key of Object.keys(baseEnv)) {
     if (
-      /^(SERVICE_NAME|PORT|LOG_LEVEL|REDIS_URL|DATABASE_URL|JWT_.*|HTTP_.*|NODE_ENV|BANK_ACCOUNT_ENCRYPTION_KEY)$/.test(
+      /^(SERVICE_NAME|PORT|LOG_LEVEL|REDIS_URL|DATABASE_URL|JWT_.*|HTTP_.*|NODE_ENV|BANK_ACCOUNT_ENCRYPTION_KEY|SMTP_.*|MAIL_FROM|GOOGLE_CLIENT_ID|OTP_.*|PASSWORD_RESET_.*)$/.test(
         key,
       )
     ) {
@@ -80,9 +80,28 @@ describe('env.bootstrap (khởi động tiến trình)', () => {
       JWT_PRIVATE_KEY_PATH: '../../secrets/jwt-private.pem',
       JWT_PUBLIC_KEY_PATH: '../../secrets/jwt-public.pem',
       BANK_ACCOUNT_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
+      SMTP_HOST: 'localhost',
+      MAIL_FROM: 'no-reply@realestate.local',
     });
     expect(r.stderr).toBe('');
     expect(r.status).toBe(0);
+  });
+
+  it('identity thiếu SMTP_HOST và MAIL_FROM -> thoát mã 1, liệt kê cả hai (GOOGLE_CLIENT_ID không bắt buộc)', () => {
+    const r = run({
+      SERVICE_NAME: 'identity',
+      DATABASE_URL: 'postgres://u:p@localhost:5433/identity_db',
+      RABBITMQ_URL: 'amqp://u:p@localhost:5672/%2F',
+      REDIS_URL: 'redis://:p@localhost:6379',
+      JWT_ISSUER: 'realestate-identity',
+      JWT_PRIVATE_KEY_PATH: '../../secrets/jwt-private.pem',
+      JWT_PUBLIC_KEY_PATH: '../../secrets/jwt-public.pem',
+      BANK_ACCOUNT_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
+    });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain('SMTP_HOST');
+    expect(r.stderr).toContain('MAIL_FROM');
+    expect(r.stderr).not.toContain('GOOGLE_CLIENT_ID');
   });
 
   it('identity có khóa mã hóa sai độ dài -> thoát mã 1, nói rõ cần 32 byte, không in giá trị khóa', () => {
@@ -96,6 +115,8 @@ describe('env.bootstrap (khởi động tiến trình)', () => {
       JWT_PRIVATE_KEY_PATH: '../../secrets/jwt-private.pem',
       JWT_PUBLIC_KEY_PATH: '../../secrets/jwt-public.pem',
       BANK_ACCOUNT_ENCRYPTION_KEY: badKey,
+      SMTP_HOST: 'localhost',
+      MAIL_FROM: 'no-reply@realestate.local',
     });
     expect(r.status).toBe(1);
     expect(r.stderr).toContain('BANK_ACCOUNT_ENCRYPTION_KEY');

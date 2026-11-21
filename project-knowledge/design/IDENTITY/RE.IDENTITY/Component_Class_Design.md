@@ -4,7 +4,7 @@
 |---|---|
 | **Service** | `services/identity/src/identity/` |
 | **Quy ước** | `standards/coding-convention.md`, `standards/security-policy.md` |
-| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v2.2 |
+| **Chủ sở hữu / Cập nhật / Phiên bản** | hoang.lv — 2026-11-20 — v2.4 |
 
 ## 1. Cấu trúc
 
@@ -28,8 +28,10 @@ src/identity/
 │  ├─ + user-admin.service.ts            # danh sách (T2.1); khóa/mở khóa + thu hồi phiên (T2.5)
 │  ├─ + email-verification.service.ts    # sinh, kiểm OTP (Redis)
 │  ├─ + password-reset.service.ts        # token đặt lại (Redis)
-│  ├─ + google-auth.service.ts           # kiểm ID token, tìm/tạo/liên kết user
-│  └─ + mail.service.ts                  # SMTP (nodemailer), mẫu email OTP, đặt lại
+│  ├─ + google-auth.service.ts           # tìm/tạo/liên kết user theo ID token đã kiểm
+│  ├─ + google-id-token.verifier.ts      # bọc google-auth-library; token DI để test thay bản giả
+│  ├─ + profile.service.ts               # PATCH /users/me (fullName, phone)
+│  └─ + mail.service.ts                  # SMTP (nodemailer), mẫu email OTP, đặt lại; gửi không chờ (v2.3)
 ├─ stores/
 │  ├─ refresh-token.store.ts             # interface
 │  └─ redis-refresh-token.store.ts       # Lua script xoay vòng nguyên tử
@@ -90,6 +92,8 @@ classDiagram
     AuthService --> TokenService
     AuthService --> RefreshTokenStore
     AuthService --> OutboxService
+    AuthService --> EmailVerificationService
+    GoogleAuthService --> GoogleIdTokenVerifier
     BankAccountService --> BankAccountCipher
     UserAdminService --> RefreshTokenStore
     EmailVerificationService --> MailService
@@ -113,13 +117,17 @@ identity:otp-cooldown:<userId> "1"                            TTL OTP_RESEND_COO
 identity:pwreset:<sha256(token)> userId                       TTL PASSWORD_RESET_TTL_SECONDS
 ```
 
-OTP băm bằng SHA-256 kèm `userId` trước khi lưu; so sánh hằng thời gian.
+OTP băm bằng SHA-256 kèm `userId` trước khi lưu; so sánh hằng thời gian. Mỗi lần kiểm tăng `attempts` bằng `HINCRBY` (nguyên tử) **trước** khi so, nên hai request song song không né được giới hạn `OTP_MAX_ATTEMPTS`.
+
+**Gửi email không chờ (chốt 2026-11-20, v2.3):** `register`, `resend-otp`, `forgot-password` gọi `MailService` mà không `await`, kèm `.catch` ghi log `warn` (không kèm OTP, token, link, địa chỉ nhận). SMTP và Redis lỗi sau commit không đổi kết quả trả client. Timeout SMTP 5 giây (kết nối, chào, socket). Mailpit: test hạ tầng đợi email bằng cách hỏi lại vài lần.
+
+**Cooldown gửi lại:** theo `userId` (v2.3 giữ như cũ); đề xuất chuyển sang `lower(email)` ở `van-de-can-quyet-dinh.md` C21, chưa sửa.
 
 ## 4. Seed
 
 **ADMIN:** `pnpm seed:admin` với `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` (≥ 12 ký tự, không ghi `.env`). Chạy lại an toàn; không nâng quyền người dùng thường.
 
-**Người dùng dev (T2.4):** `pnpm seed:users` với `SEED_USER_PASSWORD` (≥ 12 ký tự, không ghi `.env`) nạp 3 chủ trọ và 5 người thuê, id cố định (`seed/seed-users.data.ts`; bảng id ở `guides/RE_Docker_Local_Guide.md §5`), mọi tài khoản dùng chung mật khẩu đó, ghi `identity.registered` cho người mới. Một transaction; chạy lại không đổi gì (không đổi mật khẩu, không thêm event). Email hoặc id đã dùng cho dòng khác (khác id, email, vai trò) → báo lỗi nêu dòng xung đột, hoàn tác cả lần nạp, không sửa dữ liệu của người khác. Chưa ghi `status`, `email_verified_at` (thuộc T2.5, tech-debt #16).
+**Người dùng dev (T2.4):** `pnpm seed:users` với `SEED_USER_PASSWORD` (≥ 12 ký tự, không ghi `.env`) nạp 3 chủ trọ và 5 người thuê, id cố định (`seed/seed-users.data.ts`; bảng id ở `guides/RE_Docker_Local_Guide.md §5`), mọi tài khoản dùng chung mật khẩu đó, ghi `identity.registered` cho người mới. Một transaction; chạy lại không đổi gì (không đổi mật khẩu, không thêm event). Email hoặc id đã dùng cho dòng khác (khác id, email, vai trò) → báo lỗi nêu dòng xung đột, hoàn tác cả lần nạp, không sửa dữ liệu của người khác. Ghi `status = 'ACTIVE'`, `email_verified_at = now()` (T2.5, v2.3; tech-debt #16); chạy lại không đổi dòng đã có. `seed:admin` cũng ghi hai cột này.
 
 ## 5. Test bắt buộc
 
@@ -142,7 +150,8 @@ OTP băm bằng SHA-256 kèm `userId` trước khi lưu; so sánh hằng thời 
 | 11 | `/internal/users/:id/bank-account` | Chưa khai → `404 IDENTITY_BANK_ACCOUNT_NOT_FOUND`; đã khai → số đầy đủ, body khớp schema `BankAccountResponse` trong `identity-internal.v1.yaml`; `id` sai → `400`; access log không có số tài khoản | Mới |
 | 12 | Seed chạy hai lần | Không đổi gì | Có (`seed-admin.infra-spec.ts`) |
 | 12a | `seed:users`: lần đầu, chạy lại, có sẵn một phần, 5 lần đồng thời, email hoặc id trùng dòng khác | Tạo 8 và 8 event khớp contract; lần hai `created 0`; chỉ tạo phần thiếu; tổng `created` đúng 8; lỗi nêu rõ, hoàn tác, không sửa dòng của người khác | Mới (T2.4, `seed-users.spec.ts`, `seed-users.infra-spec.ts`) |
-| 13 | Đăng ký mới | `status = PENDING_VERIFICATION`, Mailpit nhận một email OTP | Mới |
+| 12b | `seed:admin`, `seed:users` ghi `status`, `email_verified_at` (tech-debt #16) | Tài khoản seed `ACTIVE`, `email_verified_at` có giá trị; chạy lại không đổi | Mới (T2.5, `seed-admin.infra-spec.ts`, `seed-users.infra-spec.ts`) |
+| 13 | Đăng ký mới | `status = PENDING_VERIFICATION`, Mailpit nhận một email OTP (test hỏi lại vài lần, vì gửi không chờ) | Mới |
 | 14 | Đăng nhập khi chưa xác minh / bị khóa (đúng mật khẩu) | `403 IDENTITY_EMAIL_NOT_VERIFIED` / `403 IDENTITY_ACCOUNT_LOCKED`; sai mật khẩu vẫn `401` | Mới |
 | 15 | OTP đúng | `ACTIVE`, trả cặp token | Mới |
 | 16 | OTP sai 5 lần | Lần 5 xóa mã; mã đúng sau đó vẫn `400` | Mới |
@@ -151,9 +160,12 @@ OTP băm bằng SHA-256 kèm `userId` trước khi lưu; so sánh hằng thời 
 | 19 | Đặt lại mật khẩu, dùng lại token | Lần 1 `204` và refresh token cũ `401`; lần 2 `400` | Mới |
 | 20 | Google, user mới thiếu `role` | `400 IDENTITY_ROLE_REQUIRED`; có `role` → tạo user `ACTIVE` + `identity.registered` | Mới |
 | 21 | Google, email đã có tài khoản `PENDING_VERIFICATION` | Liên kết, `ACTIVE`, `password_hash = null` | Mới |
+| 21a | Google, email đã có tài khoản đã liên kết với `sub` khác | `401 IDENTITY_GOOGLE_TOKEN_INVALID`; không thêm liên kết; tài khoản giữ nguyên | Mới (v2.4) |
 | 22 | Khóa tài khoản | Refresh token cũ `401`; đăng nhập `403`; gọi khóa lần hai `200` | Mới |
 | 22a | Mở khóa tài khoản chưa xác minh | Về `PENDING_VERIFICATION`; đã xác minh thì về `ACTIVE` | Mới |
-| 23 | `phone` trùng | `409 IDENTITY_PHONE_TAKEN` | Mới |
+| 23 | `phone` trùng (đăng ký và `PATCH /users/me`) | `409 IDENTITY_PHONE_TAKEN`; email trùng vẫn `IDENTITY_EMAIL_TAKEN` | Mới |
+| 23a | `PATCH /users/me` với `fullName: null` | `400 VALIDATION_FAILED`; họ tên không đổi | Mới (v2.4) |
+| 24 | Google, `GOOGLE_CLIENT_ID` không đặt | `503 DEPENDENCY_UNAVAILABLE` trước khi kiểm token | Mới (`test`) |
 
 ## 6. Đã chốt
 

@@ -2,6 +2,54 @@
 
 > Tạo ở lần sửa đầu tiên sau baseline v1.0 (`standards/design-standards.md §9`). Mục mới lên đầu, không sửa mục cũ.
 
+## [v2.4] — 2026-11-20
+
+- **type:** PATCH
+- **author:** hoang.lv
+- **summary:** Lấp hai chỗ thiết kế bỏ ngỏ khiến code trả `500` (phát hiện khi review T2.5): Google với tài khoản đã liên kết `sub` khác; `fullName: null` ở route 15.
+
+### Thay đổi
+
+**1.**
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 1 | `API_Spec.md` §1.8 (dòng 4a), §1.10 | Thêm |
+| 2 | `Processing_Flow.md` §3c | Thêm câu |
+| 3 | `Component_Class_Design.md` §5 (test 21a, 23a) | Thêm |
+
+- **Cũ:** §1.8 không nói gì khi email đã có tài khoản mà tài khoản đó đã liên kết với một `sub` Google khác (ràng buộc `UQ_user_identities_user_provider` có từ v1); §1.10 không nói `fullName: null`.
+- **Mới:** Trường hợp đầu trả `401 IDENTITY_GOOGLE_TOKEN_INVALID`, không liên kết thêm, không đổi tài khoản. `fullName: null` trả `400 VALIDATION_FAILED`; chỉ `phone` nhận `null` (xóa số).
+- **Lý do:** cả hai đang ra `500 INTERNAL_ERROR`. Dùng mã lỗi có sẵn, không thêm mã, không đổi route, `contracts/` hay sự kiện. Từ chối thay vì tự đổi liên kết: tự gỡ liên kết cũ sẽ cho một tài khoản Google mới chiếm tài khoản có sẵn chỉ bằng email. A duyệt 2026-11-20.
+
+## [v2.3] — 2026-11-20
+
+- **type:** MINOR
+- **author:** hoang.lv
+- **summary:** Chốt chi tiết T2.5: `UserDto` thêm `status`, `phone`; `GOOGLE_CLIENT_ID` tùy chọn; backfill `email_verified_at`; gửi email không chờ; seed ghi `status`.
+
+### Thay đổi
+
+**1.**
+
+| # | Vị trí | Loại |
+|---|---|---|
+| 1 | `API_Spec.md` §1.1, §1.6, §1.7, §1.10, §1.11, §1.12 (mới) | Sửa, thêm |
+| 2 | `API_Spec.md` §1.8 (dòng 0), §5 (`GOOGLE_CLIENT_ID`) | Thêm, sửa |
+| 3 | `API_Spec.md` §6 | Thêm câu `UPDATE` backfill |
+| 4 | `Component_Class_Design.md` §1, §2, §3, §4, §5 | Sửa, thêm test 12b, 24 |
+| 5 | `Processing_Flow.md` §3a, §3b, §3c | Sửa |
+
+- **Cũ:** `UserDto` có năm trường, "T2.5 thêm `status`"; route 15 chưa nói trả gì; `GOOGLE_CLIENT_ID` "bắt buộc khi bật Google"; migration không điền `email_verified_at` cho tài khoản có sẵn; email OTP và đặt lại gửi sau commit (chờ SMTP), lỗi thì `201`/`202` vẫn trả; seed chưa ghi `status`, `email_verified_at`.
+- **Mới:**
+  - `UserDto` có `status`, `phone` (`null` khi chưa khai), dùng chung `register`, `/auth/me`, `PATCH /users/me`, `GET /admin/users`; route 15 trả `UserDto`, `fullName` 1–200, `phone` `^0\d{9}$`, body rỗng `400`.
+  - `GOOGLE_CLIENT_ID` tùy chọn: trống thì service chạy, log `warn` lúc khởi động, route 14 trả `503 DEPENDENCY_UNAVAILABLE` trước khi kiểm token (test 24).
+  - Migration chạy `UPDATE users SET email_verified_at = created_at WHERE status = 'ACTIVE'`, để khóa rồi mở khóa không đưa tài khoản có sẵn về `PENDING_VERIFICATION`.
+  - `register`, `resend-otp`, `forgot-password` gửi email không chờ, `.catch` log `warn`; sinh OTP trong Redis cũng chạy nền. Lý do: độ trễ không lộ email có tài khoản, phản hồi không phụ thuộc SMTP.
+  - `seed:admin`, `seed:users` ghi `status = 'ACTIVE'`, `email_verified_at = now()` (tech-debt #16; test 12b).
+  - Thêm `profile.service.ts`, `google-id-token.verifier.ts`; `AuthService` phụ thuộc `EmailVerificationService`; `HINCRBY` trước khi so OTP.
+- **Lý do:** A duyệt kế hoạch T2.5 ngày 2026-11-20 (`implementation/van-de-can-quyet-dinh.md` mục D). Không đổi route, mã lỗi, `contracts/` hay sự kiện. Còn mở: C21 (cooldown `resend-otp` theo `lower(email)`), chưa sửa.
+
 ## [v2.2] — 2026-11-20
 
 - **type:** MINOR

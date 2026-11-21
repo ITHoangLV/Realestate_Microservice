@@ -106,4 +106,4 @@ Gateway: không đổi (route webhook đã có, xử lý ở T3.4). `contracts/`
 - `code-review` 5 chiều (2026-11-21): không CRITICAL, không MAJOR. Security: `/internal/*` `@Public` như listing (hạn chế đã biết), không log khóa, log SDK tắt. Performance: 3/1/2/1 truy vấn, `deposit_id`, `payos_order_code` có UNIQUE (index). Correctness: không transaction bao payOS; `bigint` qua `bigintToNumber`; đua hủy/webhook bằng `UPDATE ... WHERE status='PENDING'`. Style: đúng `project-structure.md`, controller mỏng, env và 5 mã lỗi khai đủ. Reuse: không import chéo service. MINOR: SDK payOS tự đọc `PAYOS_BASE_URL` nếu có (test dùng), ghi walkthrough.
 - TDD: DTO spec và infra-spec viết sau code (tech-debt #20).
 
-- T2.5 (`feature/T2.5-identity-otp-account`) đã commit, chưa push: GitHub chưa liên kết với Claude (2026-11-21). Đã nhắn A.
+- T2.5 đã merge vào `develop` (PR #25, 2026-11-21); đã merge `develop` vào nhánh này, gỡ xung đột bằng cách giữ cả hai phần (`.env.example`, `CLAUDE.md §2.5`, `van-de-can-quyet-dinh.md` C21–C23, `tech-debt.md` #17–#20).

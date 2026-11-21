@@ -61,6 +61,22 @@ describe('seedUsers với Postgres thật', () => {
     expect(rows.filter((r) => r.role === 'TENANT')).toHaveLength(5);
   });
 
+  it('test 12b: ghi status ACTIVE và email_verified_at; chạy lại không đổi email_verified_at (tech-debt #16)', async () => {
+    await seedUsers(ds, { password: PASSWORD });
+    const rows = (await pg.query(`SELECT id, status, email_verified_at FROM users ORDER BY id`))
+      .rows;
+    expect(rows).toHaveLength(8);
+    for (const row of rows) {
+      expect(row.status).toBe('ACTIVE');
+      expect(row.email_verified_at).toBeInstanceOf(Date);
+    }
+
+    await seedUsers(ds, { password: PASSWORD });
+    const again = (await pg.query(`SELECT id, status, email_verified_at FROM users ORDER BY id`))
+      .rows;
+    expect(again).toEqual(rows);
+  });
+
   it('ghi 8 event identity.registered khớp contract, chưa publish', async () => {
     await seedUsers(ds, { password: PASSWORD });
     const events = (
