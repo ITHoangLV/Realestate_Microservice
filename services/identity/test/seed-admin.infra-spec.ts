@@ -69,6 +69,20 @@ describe('seedAdmin với Postgres thật', () => {
     expect(events[0].published_at).toBeNull();
   });
 
+  it('test 12b: ADMIN seed ghi status ACTIVE và email_verified_at; chạy lại không đổi (tech-debt #16)', async () => {
+    const e = email();
+    const first = await seedAdmin(ds, { email: e, password: PASSWORD });
+    const read = async () =>
+      (await pg.query(`SELECT status, email_verified_at FROM users WHERE id = $1`, [first.userId]))
+        .rows[0];
+    const before = await read();
+    expect(before.status).toBe('ACTIVE');
+    expect(before.email_verified_at).toBeInstanceOf(Date);
+
+    await seedAdmin(ds, { email: e, password: PASSWORD });
+    expect(await read()).toEqual(before);
+  });
+
   it('chạy lại cùng email: exists, KHÔNG đổi mật khẩu, KHÔNG thêm event', async () => {
     const e = email();
     const first = await seedAdmin(ds, { email: e, password: PASSWORD });

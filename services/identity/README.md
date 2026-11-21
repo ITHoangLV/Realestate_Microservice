@@ -1,18 +1,30 @@
 # @realestate/identity
 
-Identity-service: đăng ký, đăng nhập và phát hành JWT cho cả hệ thống. Cổng **3001**, DB `identity_db`.
+Identity-service: đăng ký (xác minh email bằng OTP), đăng nhập (mật khẩu, Google), quên mật khẩu, khóa tài khoản và phát hành JWT cho cả hệ thống. Cổng **3001**, DB `identity_db`.
 Dựng từ `services/_template-nest` nên dùng chung log JSON, correlation ID, định dạng lỗi, health
 check và outbox (đọc README của template cho các phần đó).
 
 ## Chức năng
 
-| Endpoint (`/api/v1/auth`) | Công khai | Mô tả                                                                                                                       |
-| ------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `POST /register`          | có        | Đăng ký, chỉ `TENANT` hoặc `LANDLORD`. Email trùng: 409 `IDENTITY_EMAIL_TAKEN`                                              |
-| `POST /login`             | có        | Trả `accessToken` (15 phút) và `refreshToken` (7 ngày). Sai email hay sai mật khẩu: cùng 401 `IDENTITY_INVALID_CREDENTIALS` |
-| `POST /refresh`           | có        | Đổi refresh token lấy cặp mới. Token cũ chỉ dùng được một lần. Lỗi: 401 `IDENTITY_INVALID_REFRESH_TOKEN`                    |
-| `POST /logout`            | có        | Thu hồi cả họ refresh token của phiên này. Luôn 204                                                                         |
-| `GET /me`                 | không     | Thông tin người đang đăng nhập (cần `Authorization: Bearer <accessToken>`)                                                  |
+| Endpoint (`/api/v1`)                    | Công khai | Mô tả                                                                                                                                                                                                                      |
+| --------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /auth/register`                   | có        | Đăng ký (`TENANT`/`LANDLORD`, `phone` tùy chọn). Tạo tài khoản `PENDING_VERIFICATION`, gửi OTP qua email. 409 `IDENTITY_EMAIL_TAKEN` / `IDENTITY_PHONE_TAKEN`                                                              |
+| `POST /auth/verify-otp`                 | có        | `{ email, otp }`: đúng thì `ACTIVE` và trả cặp token. 400 `IDENTITY_OTP_INVALID` (sai, hết hạn, quá 5 lần)                                                                                                                 |
+| `POST /auth/resend-otp`                 | có        | Gửi lại OTP, luôn 202; 429 `IDENTITY_OTP_RESEND_TOO_SOON` trong 60 giây                                                                                                                                                    |
+| `POST /auth/login`                      | có        | `accessToken` (15 phút), `refreshToken` (7 ngày). Sai email hay mật khẩu: cùng 401 `IDENTITY_INVALID_CREDENTIALS`; đúng mật khẩu mà chưa xác minh / bị khóa: 403 `IDENTITY_EMAIL_NOT_VERIFIED` / `IDENTITY_ACCOUNT_LOCKED` |
+| `POST /auth/forgot-password`            | có        | Gửi link đặt lại mật khẩu, luôn 202 (không lộ email có tài khoản)                                                                                                                                                          |
+| `POST /auth/reset-password`             | có        | `{ token, newPassword }`: 204, thu hồi mọi phiên. 400 `IDENTITY_RESET_TOKEN_INVALID`                                                                                                                                       |
+| `POST /auth/google`                     | có        | `{ idToken, role? }`: kiểm ID token Google; lần đầu cần `role` (400 `IDENTITY_ROLE_REQUIRED`). `GOOGLE_CLIENT_ID` trống: 503                                                                                               |
+| `POST /auth/refresh`                    | có        | Đổi refresh token lấy cặp mới. Token cũ chỉ dùng được một lần. Lỗi: 401 `IDENTITY_INVALID_REFRESH_TOKEN`                                                                                                                   |
+| `POST /auth/logout`                     | có        | Thu hồi cả họ refresh token của phiên này. Luôn 204                                                                                                                                                                        |
+| `GET /auth/me`                          | không     | Thông tin người đang đăng nhập (`UserDto`: có `status`, `phone`)                                                                                                                                                           |
+| `PATCH /users/me`                       | không     | Sửa `fullName`, `phone` (`null` xóa số). 409 `IDENTITY_PHONE_TAKEN`                                                                                                                                                        |
+| `GET`, `PUT /users/me/bank-account`     | không     | Tài khoản nhận tiền (T2.1)                                                                                                                                                                                                 |
+| `GET /admin/users`                      | `ADMIN`   | Danh sách người dùng, phân trang (T2.1)                                                                                                                                                                                    |
+| `POST /admin/users/:id/lock`, `/unlock` | `ADMIN`   | Khóa (body `{ reason }`, thu hồi mọi phiên, idempotent), mở khóa (về `ACTIVE` nếu đã xác minh email, ngược lại `PENDING_VERIFICATION`)                                                                                     |
+
+Email (OTP, link đặt lại mật khẩu) gửi **nền, không chờ**: lỗi SMTP chỉ ghi log `warn`, response không đổi. Dev dùng Mailpit
+(`pnpm infra:up`), xem thư ở `http://localhost:8025`.
 
 Tài khoản `ADMIN` **không** đăng ký qua API; tạo bằng script seed (bên dưới).
 Swagger: `http://localhost:3001/api/docs`.
@@ -88,11 +100,22 @@ lên RabbitMQ (exchange `domain.events`) sau khi commit. Trùng email được p
 duy nhất `lower(email)` của DB, nên hai request đăng ký đồng thời vẫn chỉ một cái thành công.
 Identity **chỉ publish, không consume** (`RABBITMQ_QUEUE` để trống).
 
-### Chuẩn bị cho đăng nhập Google
+### Xác minh email bằng OTP
 
-Bảng `user_identities` (`provider`, `provider_user_id` duy nhất) và `users.password_hash` cho phép
-rỗng đã có sẵn. Khi thêm Google chỉ cần một endpoint xác minh ID token của Google rồi gọi
-`AuthService.issueSession(user)`; refresh, logout và `/me` không đổi.
+Đăng ký ghi `status = PENDING_VERIFICATION`. Sau commit, `EmailVerificationService.issue` sinh OTP 6 số và lưu **băm**
+`sha256(userId:otp)` trong Redis (`identity:otp:<userId>`, TTL 5 phút, tối đa 5 lần thử, gửi lại sau 60 giây), rồi `MailService`
+gửi thư nền. Bộ đếm lần thử tăng bằng script Lua **trước** khi so mã nên thử song song không né được giới hạn. Redis được kiểm
+trước khi ghi DB: Redis dừng thì đăng ký trả 503 và không tạo tài khoản.
+
+### Quên mật khẩu, Google, khóa tài khoản
+
+- Quên mật khẩu: token 32 byte gửi qua email, Redis chỉ giữ `sha256(token)`, dùng một lần (`GETDEL`); đổi mật khẩu xong thu hồi
+  mọi phiên.
+- Google: frontend lấy ID token (Google Sign-In), `google-auth-library` kiểm chữ ký, `aud` (`GOOGLE_CLIENT_ID`), hạn; email đã có
+  tài khoản thì tự liên kết (tài khoản chờ OTP thành `ACTIVE`, mật khẩu bị xóa). Không có `GOOGLE_CLIENT_ID` thì route này trả 503,
+  các route khác không ảnh hưởng.
+- Khóa: commit `LOCKED` trước, rồi thu hồi mọi phiên; Redis lỗi giữa chừng thì gọi lại khóa (idempotent). Access token đang có
+  dùng được tối đa 15 phút.
 
 ## Chạy
 
@@ -133,24 +156,29 @@ lỗi nêu dòng xung đột và hoàn tác cả lần nạp. Chưa ghi `status`
 
 ### Biến môi trường riêng của identity
 
-| Biến                                       | Mặc định               | Ý nghĩa                                                                                            |
-| ------------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------- |
-| `JWT_PRIVATE_KEY_PATH` / `JWT_PRIVATE_KEY` | bắt buộc một trong hai | Khóa riêng RS256 để ký (đường dẫn tính từ `services/identity`, hoặc PEM với `\n`)                  |
-| `JWT_PUBLIC_KEY_PATH` / `JWT_PUBLIC_KEY`   | bắt buộc một trong hai | Khóa công khai để kiểm tra token ở `/me`                                                           |
-| `JWT_ISSUER`                               | bắt buộc               | Ghi vào token và được kiểm tra khi verify                                                          |
-| `JWT_ACCESS_TTL_SECONDS`                   | 900                    | Thời hạn access token                                                                              |
-| `JWT_REFRESH_TTL_SECONDS`                  | 604800                 | Thời hạn refresh token                                                                             |
-| `BANK_ACCOUNT_ENCRYPTION_KEY`              | bắt buộc               | Khóa AES-256-GCM mã hóa số tài khoản nhận tiền: base64 của đúng 32 byte (sinh: xem `.env.example`) |
-| `REDIS_URL`                                | bắt buộc               | Nơi lưu refresh token                                                                              |
-| `REFRESH_TOKEN_REDIS_PREFIX`               | `identity:`            | Tiền tố key Redis                                                                                  |
-| `OUTBOX_RELAY_ENABLED`                     | `true`                 | `false`: ghi outbox nhưng không gửi (dùng khi test)                                                |
+| Biến                                                                 | Mặc định                                     | Ý nghĩa                                                                                            |
+| -------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `JWT_PRIVATE_KEY_PATH` / `JWT_PRIVATE_KEY`                           | bắt buộc một trong hai                       | Khóa riêng RS256 để ký (đường dẫn tính từ `services/identity`, hoặc PEM với `\n`)                  |
+| `JWT_PUBLIC_KEY_PATH` / `JWT_PUBLIC_KEY`                             | bắt buộc một trong hai                       | Khóa công khai để kiểm tra token ở `/me`                                                           |
+| `JWT_ISSUER`                                                         | bắt buộc                                     | Ghi vào token và được kiểm tra khi verify                                                          |
+| `JWT_ACCESS_TTL_SECONDS`                                             | 900                                          | Thời hạn access token                                                                              |
+| `JWT_REFRESH_TTL_SECONDS`                                            | 604800                                       | Thời hạn refresh token                                                                             |
+| `BANK_ACCOUNT_ENCRYPTION_KEY`                                        | bắt buộc                                     | Khóa AES-256-GCM mã hóa số tài khoản nhận tiền: base64 của đúng 32 byte (sinh: xem `.env.example`) |
+| `SMTP_HOST`, `SMTP_PORT`, `MAIL_FROM`                                | bắt buộc `SMTP_HOST`, `MAIL_FROM`; cổng 1025 | Gửi OTP, link đặt lại mật khẩu. Dev: Mailpit (`localhost`, `no-reply@realestate.local`)            |
+| `SMTP_USER`, `SMTP_PASSWORD`                                         | trống                                        | Chỉ khi dùng SMTP thật; mật khẩu chỉ ở `.env`                                                      |
+| `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`, `OTP_RESEND_COOLDOWN_SECONDS` | 300, 5, 60                                   | OTP (Báo cáo Bảng 2.6)                                                                             |
+| `PASSWORD_RESET_TTL_SECONDS`, `PASSWORD_RESET_URL`                   | 900, `http://localhost:3000/reset-password`  | Hạn token, trang Next.js nhận `?token=`                                                            |
+| `GOOGLE_CLIENT_ID`                                                   | trống                                        | `aud` của ID token Google. Trống: `POST /auth/google` trả 503, log `warn` lúc khởi động            |
+| `REDIS_URL`                                                          | bắt buộc                                     | Nơi lưu refresh token, OTP, token đặt lại mật khẩu                                                 |
+| `REFRESH_TOKEN_REDIS_PREFIX`                                         | `identity:`                                  | Tiền tố key Redis                                                                                  |
+| `OUTBOX_RELAY_ENABLED`                                               | `true`                                       | `false`: ghi outbox nhưng không gửi (dùng khi test)                                                |
 
 ## Test
 
 ```powershell
 pnpm test          # unit (không cần hạ tầng)
 pnpm test:e2e      # e2e hạ tầng chung của template, không cần DB/Redis
-pnpm test:infra    # cần hạ tầng đang chạy: Postgres + Redis + RabbitMQ thật
+pnpm test:infra    # cần hạ tầng đang chạy: Postgres + Redis + RabbitMQ + Mailpit (pnpm infra:up)
 ```
 
 `test:infra` dùng schema Postgres, tiền tố key Redis và khóa RSA riêng của test (xóa sau khi chạy),
@@ -158,5 +186,5 @@ tắt relay để không đẩy event thử vào queue thật.
 
 ## Chưa làm (cố ý để sau)
 
-Chống dò mật khẩu (rate limit), xác thực email, quên/đổi mật khẩu, đăng xuất mọi thiết bị,
-đăng nhập Google, lưu refresh token trong cookie `HttpOnly` cho web.
+Chống dò mật khẩu (rate limit riêng của identity; gateway đã giới hạn theo IP), đăng xuất mọi thiết bị do người dùng tự chọn,
+lưu refresh token trong cookie `HttpOnly` cho web, cooldown `resend-otp` theo `lower(email)` (`van-de-can-quyet-dinh.md` C21).

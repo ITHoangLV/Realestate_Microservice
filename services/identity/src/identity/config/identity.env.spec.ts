@@ -10,7 +10,24 @@ const base = {
   JWT_PRIVATE_KEY_PATH: '../../secrets/jwt-private.pem',
   JWT_PUBLIC_KEY_PATH: '../../secrets/jwt-public.pem',
   BANK_ACCOUNT_ENCRYPTION_KEY: VALID_KEY,
+  SMTP_HOST: 'localhost',
+  MAIL_FROM: 'no-reply@realestate.local',
 };
+
+describe('checkIdentityEnv: SMTP (T2.5)', () => {
+  it.each(['SMTP_HOST', 'MAIL_FROM'])('thiếu %s -> báo THIẾU đúng biến đó', (name) => {
+    const env: Record<string, unknown> = { ...base };
+    delete env[name];
+    const errors = checkIdentityEnv(env);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain(name);
+    expect(errors[0]).toContain('THIẾU');
+  });
+
+  it('GOOGLE_CLIENT_ID, SMTP_USER, SMTP_PASSWORD không bắt buộc', () => {
+    expect(checkIdentityEnv(base)).toEqual([]);
+  });
+});
 
 describe('checkIdentityEnv: BANK_ACCOUNT_ENCRYPTION_KEY', () => {
   it('đủ cấu hình, khóa base64 đúng 32 byte -> không lỗi', () => {

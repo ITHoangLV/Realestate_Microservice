@@ -47,6 +47,21 @@ export interface EnvVars {
   REFRESH_TOKEN_REDIS_PREFIX: string;
   /** identity-service: khóa AES-256-GCM mã hóa số tài khoản nhận tiền, base64 của đúng 32 byte. */
   BANK_ACCOUNT_ENCRYPTION_KEY?: string;
+  // identity-service: gửi email OTP, đặt lại mật khẩu (SMTP; dev dùng Mailpit)
+  SMTP_HOST?: string;
+  SMTP_PORT: number;
+  SMTP_USER?: string;
+  SMTP_PASSWORD?: string;
+  MAIL_FROM?: string;
+  // OTP xác minh email (Báo cáo Bảng 2.6)
+  OTP_TTL_SECONDS: number;
+  OTP_MAX_ATTEMPTS: number;
+  OTP_RESEND_COOLDOWN_SECONDS: number;
+  // Đặt lại mật khẩu
+  PASSWORD_RESET_TTL_SECONDS: number;
+  PASSWORD_RESET_URL: string;
+  /** `aud` của ID token Google. Trống: route đăng nhập Google trả 503, service vẫn chạy. */
+  GOOGLE_CLIENT_ID?: string;
 }
 
 const optionalString = Joi.string().trim().empty('');
@@ -83,6 +98,22 @@ export const envSchema = Joi.object<EnvVars>({
   JWT_REFRESH_TTL_SECONDS: Joi.number().integer().min(300).max(7776000).default(604800),
   REFRESH_TOKEN_REDIS_PREFIX: Joi.string().trim().min(1).default('identity:'),
   BANK_ACCOUNT_ENCRYPTION_KEY: optionalString,
+
+  // --- identity: SMTP, OTP, đặt lại mật khẩu, Google (API_Spec RE.IDENTITY §5) ---
+  SMTP_HOST: optionalString,
+  SMTP_PORT: Joi.number().integer().min(1).max(65535).default(1025),
+  SMTP_USER: optionalString,
+  SMTP_PASSWORD: optionalString,
+  MAIL_FROM: optionalString,
+  OTP_TTL_SECONDS: Joi.number().integer().min(30).max(3600).default(300),
+  OTP_MAX_ATTEMPTS: Joi.number().integer().min(1).max(20).default(5),
+  OTP_RESEND_COOLDOWN_SECONDS: Joi.number().integer().min(0).max(3600).default(60),
+  PASSWORD_RESET_TTL_SECONDS: Joi.number().integer().min(60).max(86400).default(900),
+  PASSWORD_RESET_URL: Joi.string()
+    .trim()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3000/reset-password'),
+  GOOGLE_CLIENT_ID: optionalString,
 
   // --- Messaging (RabbitMQ + outbox/inbox), chỉ có tác dụng khi có RABBITMQ_URL ---
   RABBITMQ_EXCHANGE: Joi.string().trim().min(1).default('domain.events'),

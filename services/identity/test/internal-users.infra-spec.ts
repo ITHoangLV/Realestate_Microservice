@@ -43,6 +43,10 @@ describe('API nội bộ tài khoản nhận tiền với hạ tầng thật', (
       .http()
       .post('/api/v1/auth/register')
       .send({ email, password: PASSWORD, fullName: 'Trần Thị Bình', role: 'TENANT' });
+    await pg.query(
+      `UPDATE users SET status = 'ACTIVE', email_verified_at = now() WHERE lower(email) = lower($1)`,
+      [email],
+    );
     const res = await t.http().post('/api/v1/auth/login').send({ email, password: PASSWORD });
     return { userId: reg.body.data.id, token: res.body.data.accessToken };
   }

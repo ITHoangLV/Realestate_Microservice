@@ -30,8 +30,8 @@ interface ExistingRow {
 /**
  * Nạp 3 chủ trọ và 5 người thuê cố định (`SEED_USERS`) vào `users`. Mọi tài khoản dùng chung một mật khẩu.
  *
- * Không ghi `status`, `email_verified_at`: hai cột đó thuộc T2.5 (tech-debt #16). Sau T2.5 các tài khoản
- * này vẫn `ACTIVE` nhờ `DEFAULT`.
+ * Mỗi tài khoản ghi `status = 'ACTIVE'` và `email_verified_at = now()` (bỏ qua OTP; tech-debt #16): để mở
+ * khóa sau này về đúng `ACTIVE`, không về `PENDING_VERIFICATION`.
  *
  * Chạy lại an toàn: trong MỘT transaction, với từng người `INSERT ... ON CONFLICT DO NOTHING`.
  *  - Chưa có: tạo và ghi event `identity.registered` vào outbox cùng transaction.
@@ -62,8 +62,8 @@ export async function seedUsers(
 
     for (const user of SEED_USERS) {
       const inserted: Array<{ id: string }> = await manager.query(
-        `INSERT INTO users (id, email, password_hash, full_name, role)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO users (id, email, password_hash, full_name, role, status, email_verified_at)
+         VALUES ($1, $2, $3, $4, $5, 'ACTIVE', now())
          ON CONFLICT DO NOTHING
          RETURNING id`,
         [user.id, user.email, passwordHash, user.fullName, user.role],

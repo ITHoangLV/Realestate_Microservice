@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { USER_ROLES } from '../entities/user.entity';
-import type { User, UserRole } from '../entities/user.entity';
+import { USER_ROLES, USER_STATUSES } from '../entities/user.entity';
+import type { User, UserRole, UserStatus } from '../entities/user.entity';
 
 /** Thông tin user trả ra ngoài. KHÔNG bao giờ có password_hash. */
 export class UserDto {
@@ -16,16 +16,31 @@ export class UserDto {
   @ApiProperty({ enum: USER_ROLES })
   role!: UserRole;
 
+  @ApiProperty({ enum: USER_STATUSES, example: 'ACTIVE' })
+  status!: UserStatus;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '0912345678',
+    description: 'null khi chưa khai',
+  })
+  phone!: string | null;
+
   @ApiProperty({ format: 'date-time', example: '2026-11-06T10:00:00.000Z' })
   createdAt!: string;
 
   /** Chỉ copy từng trường cần thiết (danh sách trắng), nên thêm cột nhạy cảm vào entity cũng không lộ ra API. */
-  static from(user: Pick<User, 'id' | 'email' | 'fullName' | 'role' | 'createdAt'>): UserDto {
+  static from(
+    user: Pick<User, 'id' | 'email' | 'fullName' | 'role' | 'status' | 'phone' | 'createdAt'>,
+  ): UserDto {
     return {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
       role: user.role,
+      status: user.status,
+      phone: user.phone,
       createdAt: user.createdAt.toISOString(),
     };
   }

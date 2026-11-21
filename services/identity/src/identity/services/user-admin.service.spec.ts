@@ -23,7 +23,7 @@ describe('UserAdminService.list', () => {
 
   beforeEach(() => {
     repo = new FakeRepo();
-    service = new UserAdminService(repo as never);
+    service = new UserAdminService(repo as never, {} as never);
   });
 
   it('một lần findAndCount: sắp createdAt DESC, id DESC; skip/take theo trang; chỉ select cột của UserDto', async () => {
@@ -31,7 +31,15 @@ describe('UserAdminService.list', () => {
 
     expect(repo.calls).toHaveLength(1);
     expect(repo.calls[0]).toEqual({
-      select: { id: true, email: true, fullName: true, role: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        status: true,
+        phone: true,
+        createdAt: true,
+      },
       where: {},
       order: { createdAt: 'DESC', id: 'DESC' },
       skip: 20,
@@ -43,7 +51,15 @@ describe('UserAdminService.list', () => {
     await service.list(query());
     const select = repo.calls[0].select as Record<string, boolean>;
     expect(select.passwordHash).toBeUndefined();
-    expect(Object.keys(select).sort()).toEqual(['createdAt', 'email', 'fullName', 'id', 'role']);
+    expect(Object.keys(select).sort()).toEqual([
+      'createdAt',
+      'email',
+      'fullName',
+      'id',
+      'phone',
+      'role',
+      'status',
+    ]);
   });
 
   it('lọc role thì đưa vào where', async () => {
