@@ -6,7 +6,7 @@
 #   docker compose --env-file .env -f infra/compose/docker-compose.yml --profile dev --profile apps up -d --build
 #
 # Profile:
-#   dev  : postgres, redis, rabbitmq (+ rabbitmq-init chay mot lan), s3 (Silo)
+#   dev  : postgres, redis, rabbitmq (+ rabbitmq-init chay mot lan), s3 (Silo), mailpit
 #   demo : dev + elasticsearch + kibana (de do RAM; ELK day du o GD10)
 #   apps : cac service ung dung (identity, api-gateway). Luon chay KEM dev hoac demo.
 #          Truoc khi up: pnpm keys:generate (secrets/jwt-*.pem) va migration cua tung service.
@@ -82,6 +82,23 @@ services:
       - redis_data:/data
     healthcheck:
       test: ['CMD-SHELL', 'redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks: [realestate-net]
+
+  # Mailpit: SMTP gia + giao dien xem email (OTP, dat lai mat khau cua identity). Khong gui email that.
+  # SMTP 1025, giao dien http://localhost:8025. Ghim ban v1.32.0 (khong dung latest).
+  mailpit:
+    <<: *restart
+    image: axllent/mailpit:v1.32.0
+    container_name: re-mailpit
+    profiles: [dev, demo]
+    ports:
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
+      - '127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
       interval: 10s
       timeout: 5s
       retries: 6
@@ -257,6 +274,17 @@ services:
       # De trong thi chinh identity bao thieu va dung (khong dung `:?` vi se lam hong ca `infra:up`
       # cua nguoi chua them bien). Sinh khoa: xem .env.example
       BANK_ACCOUNT_ENCRYPTION_KEY: ${BANK_ACCOUNT_ENCRYPTION_KEY:-}
+      # Email OTP, dat lai mat khau: trong Docker dung ten service mailpit (khong phai localhost)
+      SMTP_HOST: mailpit
+      SMTP_PORT: '1025'
+      MAIL_FROM: ${MAIL_FROM:-no-reply@realestate.local}
+      OTP_TTL_SECONDS: ${OTP_TTL_SECONDS:-300}
+      OTP_MAX_ATTEMPTS: ${OTP_MAX_ATTEMPTS:-5}
+      OTP_RESEND_COOLDOWN_SECONDS: ${OTP_RESEND_COOLDOWN_SECONDS:-60}
+      PASSWORD_RESET_TTL_SECONDS: ${PASSWORD_RESET_TTL_SECONDS:-900}
+      PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-http://localhost:3000/reset-password}
+      # De trong thi route dang nhap Google tra 503, service van chay
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     secrets: [jwt_private_key, jwt_public_key]
     # Khong co `ports:`: chi goi duoc trong mang realestate-net (qua api-gateway)
     depends_on:
@@ -265,6 +293,8 @@ services:
       redis:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
       rabbitmq-init:
         condition: service_completed_successfully
